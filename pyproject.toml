@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+
+[project]
+name = "DataCannon"
+version = "0.1.0"
+requires-python = ">=3.7"
+dependencies = [
+    "mysql-connector-python",
+    "websockets",
+    "SimpleWebSocketServer"
+]
+
+[project.scripts]
+wsserver = "src.server.ws_server:main"
+dcserver = "src.server.dc_server:main"
