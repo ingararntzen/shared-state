@@ -1,10 +1,5 @@
 """Test items db."""
-
 from src.server.db_items import getDB
-import unittest
-
-DB = getDB("items")
-CHNL = "__test__"
 
 
 def flatten(batch_gen):
@@ -15,63 +10,60 @@ def flatten(batch_gen):
     return res
 
 
-class DbTest(unittest.TestCase):
+def test_db():
 
-    def setUp(self):
-        DB.clear(CHNL)
+    CHNL = "__test__"
+    DB = getDB("items")
+    DB.clear(CHNL)
 
-    def tearDown(self):
-        DB.clear(CHNL)
+    def as_update_item(number):
+        return {
+            "key": f'key_{str(number)}',
+            "val": f'val_{str(number)}'
+        }
 
-    def test_all(self):
+    def as_remove_item(number):
+        return {
+            "key": f'key_{str(number)}'
+        }
 
-        def as_update_item(number):
-            return {
-                "key": f'key_{str(number)}',
-                "val": f'val_{str(number)}'
-            }
+    update_items = [as_update_item(n) for n in range(10)]
 
-        def as_remove_item(number):
-            return {
-                "key": f'key_{str(number)}'
-            }
+    # update items
+    DB.update(CHNL, update_items)
 
-        update_items = [as_update_item(n) for n in range(10)]
+    # get items
+    items = flatten(DB.get(CHNL))
+    assert len(items) == 10
 
-        # update items
-        DB.update(CHNL, update_items)
+    # remove items
+    remove_items = [as_remove_item(n) for n in range(5)]
+    DB.update(CHNL, remove_items)
 
-        # get items
-        items = flatten(DB.get(CHNL))
-        self.assertEqual(len(items), 10)
+    # get items
+    items = flatten(DB.get(CHNL))
+    assert len(items) == 5
 
-        # remove items
-        remove_items = [as_remove_item(n) for n in range(5)]
-        DB.update(CHNL, remove_items)
+    # clear
+    DB.clear(CHNL)
 
-        # get items
-        items = flatten(DB.get(CHNL))
-        self.assertEqual(len(items), 5)
-
-        # clear
-        DB.clear(CHNL)
-
-        # get items
-        items = []
-        for batch in DB.get(CHNL):
-            items.extend(batch)
-        self.assertEqual(len(items), 0)
-
-    def test_channels(self):
-        """Test listing two channels."""
-        CHNLS = ["A", "B"]
-        ITEM = {"key": "key", "val": "val"}
-        DB.update(CHNLS[0], ITEM)
-        DB.update(CHNLS[1], ITEM)
-        res = DB.channels()
-        self.assertTrue(CHNLS[0] in res)
-        self.assertTrue(CHNLS[1] in res)
+    # get items
+    items = []
+    for batch in DB.get(CHNL):
+        items.extend(batch)
+    assert len(items) == 0
 
 
-if __name__ == '__main__':
-    unittest.main()
+def test_channels():
+    """Test listing two channels."""
+    DB = getDB("items")
+    CHNL_A = "A"
+    CHNL_B = "B"
+    ITEM = {"key": "key", "val": "val"}
+    DB.update(CHNL_A, ITEM)
+    DB.update(CHNL_B, ITEM)
+    res = DB.channels()
+    assert CHNL_A in res
+    assert CHNL_B in res
+    DB.clear(CHNL_A)
+    DB.clear(CHNL_A)
