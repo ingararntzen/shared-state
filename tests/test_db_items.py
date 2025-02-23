@@ -1,6 +1,8 @@
 """Test items db."""
 from src.server.db_items import getDB
 
+DB = getDB("items")
+
 
 def flatten(batch_gen):
     """Flatten a generator of batches (lists) into a single list."""
@@ -13,7 +15,6 @@ def flatten(batch_gen):
 def test_db():
 
     CHNL = "__test__"
-    DB = getDB("items")
     DB.clear(CHNL)
 
     def as_update_item(number):
@@ -56,9 +57,10 @@ def test_db():
 
 def test_channels():
     """Test listing two channels."""
-    DB = getDB("items")
     CHNL_A = "A"
     CHNL_B = "B"
+    DB.clear(CHNL_A)
+    DB.clear(CHNL_B)
     ITEM = {"key": "key", "val": "val"}
     DB.update(CHNL_A, ITEM)
     DB.update(CHNL_B, ITEM)
@@ -66,4 +68,4 @@ def test_channels():
     assert CHNL_A in res
     assert CHNL_B in res
     DB.clear(CHNL_A)
-    DB.clear(CHNL_A)
+    DB.clear(CHNL_B)
