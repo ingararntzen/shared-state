@@ -62,7 +62,7 @@ class DataCannon:
         self._stop_event = asyncio.Event()
         self._service_map = service_map
 
-    async def handler(self, websocket, path):
+    async def handler(self, websocket):
         self.on_connect(websocket)
         try:
             async for data in websocket:
