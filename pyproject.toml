@@ -12,5 +12,6 @@ dependencies = [
 ]
 
 [project.scripts]
-wsserver = "src.server.ws_server:main"
 dcserver = "src.server.dc_server:main"
+datacannon = "src.server.datacannon_run:main"
+
