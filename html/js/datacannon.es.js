@@ -1,8 +1,22 @@
-import { resolvablePromise } from "./util.js";
+
+(function(l, r) { if (!l || l.getElementById('livereloadscript')) return; r = l.createElement('script'); r.async = 1; r.src = '//' + (self.location.host || 'localhost').split(':')[0] + ':35729/livereload.js?snipver=1'; r.id = 'livereloadscript'; l.getElementsByTagName('head')[0].appendChild(r) })(self.document);
+/*
+    Create a promise which can be resolved
+    programmatically by external code.
+    Return a promise and a resolve function
+*/
+
+function resolvablePromise() {
+    let resolver;
+    let promise = new Promise((resolve, reject) => {
+        resolver = resolve;
+    });
+    return [promise, resolver];
+}
 
 const MAX_RETRIES = 4;
 
-export class WebSocketIO {
+class WebSocketIO {
 
     constructor(url, options={}) {
         this._url = url;
@@ -62,8 +76,7 @@ export class WebSocketIO {
             setTimeout(() => {
                 this.connect();
             }, 1000 * this._retries);
-        };
-    }
+        }    }
 
     _is_terminated() {
         const {retries=MAX_RETRIES} = this._options;
@@ -108,7 +121,7 @@ export class WebSocketIO {
                 console.error(`Send fail: ${error}`);
             }
         } else {
-            console.log(`Send drop : not connected`)
+            console.log(`Send drop : not connected`);
         }
     }
 
@@ -123,4 +136,45 @@ export class WebSocketIO {
     }
 }
 
+class DataCannonClient extends WebSocketIO {
 
+    constructor (url, options) {
+        super(url, options);
+
+        this._reqid = 0;
+        this._pending = new Map();
+    }
+
+    on_connect() {
+        console.log(`Connect  ${this.url}`);
+    }
+    on_error(error) {
+        const {debug=false} = this._options;
+        if (debug) {console.log(`Error: ${error}`);}
+    }
+    on_disconnect() {
+        console.error(`Disconnect ${this.url}`);
+    }
+    on_message(data) {
+        let msg = JSON.parse(data);
+        let reqid = msg.tunnel;
+        if (this._pending.has(reqid)) {
+            let resolver = this._pending.get(reqid);
+            this._pending.delete(reqid);
+            resolver(msg);
+        }
+    }
+
+    request(cmd, path, args) {
+        const reqid = this._reqid++;
+        const msg = {cmd, path, args, tunnel:reqid};
+        let data = JSON.stringify(msg);
+        this.send(data);
+        // make promise
+        let [promise, resolver] = resolvablePromise();
+        this._pending.set(reqid, resolver);
+        return promise;
+    }
+}
+
+export { DataCannonClient };

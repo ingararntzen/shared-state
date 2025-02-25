@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WebSocket Reconnect Example</title>
     <script type="module">
-        import {WebSocketIO} from "./wsio.js";
+        import {DataCannonClient} from "./js/datacannon.es.js";
 
-        const io = new WebSocketIO("ws://0.0.0.0:8000");
-        io.connect();
+        const client = new DataCannonClient("ws://0.0.0.0:9000");
+        client.connect();
 
 
 
