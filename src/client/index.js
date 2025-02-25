@@ -1,1 +1,1 @@
-export { DataCannonClient } from "./dc_client";
+export { DataCannonClient } from "./datacannon.js";

@@ -2,17 +2,15 @@
 requires = ["setuptools", "wheel"]
 
 [project]
-name = "DataCannon"
+name = "datacannon"
 version = "0.1.0"
 requires-python = ">=3.7"
 dependencies = [
     "mysql-connector-python",
-    "websockets",
-    "SimpleWebSocketServer"
+    "websockets"
 ]
 
 [project.scripts]
-dcserver = "src.server.dc_server:main"
 clidb = "src.server.db_cli:main"
-datacannon = "src.server.datacannon_run:main"
+datacannon = "src.server.datacannon:main"
 

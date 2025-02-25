@@ -10,10 +10,32 @@
         const client = new DataCannonClient("ws://0.0.0.0:9000");
         client.connect();
 
+        document.getElementById("services").onclick = () => {
+            client.request("/services").then((data) => {
+                console.log("services");
+                console.log(data);
+            });
+        }
+        document.getElementById("paths").onclick = () => {
+            client.request("/paths").then((data) => {
+                console.log("paths");
+                console.log(data);
+            });
+        }
+
+
+
 
 
     </script>
 </head>
 <body>
+    <h1>DataCannon</h1>
+    <p>
+        <h3>GET</h3>
+        <button id="paths">Paths</button>
+        <button id="services">Services</button>
+    </p>
+
 </body>
 </html>

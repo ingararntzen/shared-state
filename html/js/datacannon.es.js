@@ -136,6 +136,19 @@ class WebSocketIO {
     }
 }
 
+const MsgType = Object.freeze({
+    MESSAGE : "MESSAGE",
+    REQUEST: "REQUEST",
+    REPLY: "REPLY"
+ });
+ 
+
+const MsgCmd = Object.freeze({
+   GET : "GET",
+   UPDATE: "UPDATE",
+   CLEAR: "CLEAR"
+});
+
 class DataCannonClient extends WebSocketIO {
 
     constructor (url, options) {
@@ -157,20 +170,27 @@ class DataCannonClient extends WebSocketIO {
     }
     on_message(data) {
         let msg = JSON.parse(data);
-        let reqid = msg.tunnel;
-        if (this._pending.has(reqid)) {
-            let resolver = this._pending.get(reqid);
-            this._pending.delete(reqid);
-            resolver(msg);
+        console.log("got message");
+        console.log(msg);
+        if (msg.type == MsgType.REPLY) {
+            let reqid = msg.tunnel;
+            if (this._pending.has(reqid)) {
+                let resolver = this._pending.get(reqid);
+                this._pending.delete(reqid);
+                resolver(msg);
+            }    
         }
     }
 
-    request(cmd, path, args) {
+    request(path) {
         const reqid = this._reqid++;
-        const msg = {cmd, path, args, tunnel:reqid};
-        let data = JSON.stringify(msg);
-        this.send(data);
-        // make promise
+        const msg = {
+            type: MsgType.REQUEST,
+            cmd: MsgCmd.GET, 
+            path, 
+            tunnel: reqid
+        };
+        this.send(JSON.stringify(msg));
         let [promise, resolver] = resolvablePromise();
         this._pending.set(reqid, resolver);
         return promise;
