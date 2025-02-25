@@ -2,16 +2,18 @@ const MAX_RETRIES = 4;
 
 export class WebSocketIO {
 
-    constructor(url) {
+    constructor(url, options={}) {
         this._url = url;
         this._ws;
         this._connecting = false;
         this._connected = false;
         this._retries = 0;
+        this._options = options;
     }
 
-    get connecting() {return this._connecting}
-    get connected() {return this._connected}
+    get connecting() {return this._connecting;}
+    get connected() {return this._connected;}
+    get url() {return this._url;}
 
     connect() {
 
@@ -55,31 +57,50 @@ export class WebSocketIO {
     }
 
     _is_terminated() {
-        if (this._retries >= MAX_RETRIES) {
-            console.log("Max retries reached. Terminated");
+        const {retries=MAX_RETRIES} = this._options;
+        if (this._retries >= retries) {
+            console.log(`Terminated: Max retries reached (${retries})`);
+            this._connecting = false;
+            this._connected = true;
             this._ws.onopen = undefined;
             this._ws.onmessage = undefined;
             this._ws.onclose = undefined;
             this._ws.onerror = undefined;
+            this._ws = undefined;
             return true;
         }
         return false;
     }
 
     on_connecting() {
-        console.log(`Connecting ${this._retries} ${this._url}`);
+        const {debug=false} = this._options;
+        if (debug) {console.log(`Connecting ${this.url}`);}
     }
     on_connect() {
-        console.log('Connected', this._url);
+        console.log(`Connect  ${this.url}`);
     }
     on_error(error) {
-        //console.log("Error", error);
+        const {debug=false} = this._options;
+        if (debug) {console.log(`Error: ${error}`);}
     }
     on_disconnect(event) {
-        console.error('Disconnect');
+        console.error(`Disconnect ${this.url}`);
     }
     on_message(msg) {
-        console.log('Received:', msg);
+        const {debug=false} = this._options;
+        if (debug) {console.log(`Receive: ${msg}`);}
+    }
+
+    send(msg) {
+        if (this._connected) {
+            try {
+                this._ws.send(msg);
+            } catch (error) {
+                console.error(`Send fail: ${error}`);
+            }
+        } else {
+            console.log(`Send drop : not connected`)
+        }
     }
 }
 
