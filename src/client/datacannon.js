@@ -35,15 +35,14 @@ export class DataCannonClient extends WebSocketIO {
     }
     on_message(data) {
         let msg = JSON.parse(data);
-        console.log("got message")
-        console.log(msg)
         if (msg.type == MsgType.REPLY) {
             let reqid = msg.tunnel;
             if (this._pending.has(reqid)) {
                 let resolver = this._pending.get(reqid);
                 this._pending.delete(reqid);
-                resolver(msg);
-            }    
+                const {status, data} = msg;
+                resolver({status, data});
+            }
         }
     }
 

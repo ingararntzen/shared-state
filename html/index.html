@@ -11,21 +11,16 @@
         client.connect();
 
         document.getElementById("services").onclick = () => {
-            client.request("/services").then((data) => {
-                console.log("services");
-                console.log(data);
-            });
-        }
-        document.getElementById("paths").onclick = () => {
-            client.request("/paths").then((data) => {
-                console.log("paths");
-                console.log(data);
+            client.request("/").then(({status, data}) => {
+                console.log("services", status, data);
             });
         }
 
-
-
-
+        document.getElementById("clock").onclick = () => {
+            client.request("/clock").then(({status, data}) => {
+                console.log("clock", status, data);
+            });
+        }
 
     </script>
 </head>
@@ -33,8 +28,8 @@
     <h1>DataCannon</h1>
     <p>
         <h3>GET</h3>
-        <button id="paths">Paths</button>
         <button id="services">Services</button>
+        <button id="clock">Clock</button>
     </p>
 
 </body>

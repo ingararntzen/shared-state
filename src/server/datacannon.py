@@ -2,7 +2,10 @@ import asyncio
 import websockets
 import json
 import traceback
-import time
+from urllib.parse import urlparse
+# from urllib.parse import parse_qs
+from pathlib import Path, PurePosixPath
+import importlib
 
 
 ########################################################################
@@ -24,15 +27,68 @@ class MsgCmd:
 
 
 ########################################################################
+# Util
+########################################################################
+
+def path_from_module(mod):
+    path = Path(mod.__file__)
+    return path.relative_to(path.parent.parent)
+
+
+########################################################################
+# Service Directory
+########################################################################
+
+def normalize(path):
+    path = PurePosixPath(path)
+    return path if path.is_absolute() else PurePosixPath(f"/{path}")
+
+
+class Directory:
+
+    def __init__(self):
+        self.map = {}
+
+    def add(self, path, module):
+        n_path = normalize(path)
+        self.map[n_path] = module
+
+    def get(self, path="/"):
+        n_path = normalize(path)
+        if path.endswith("/"):
+            # list contents at level -- all paths with n_path == commonpath
+            def keep(p):
+                try:
+                    p.relative_to(n_path)
+                except ValueError:
+                    return False
+                return True
+            return sorted([str(p) for p in self.map.keys() if keep(p)])
+        else:
+            # return module
+            return self.map.get(n_path, None)
+
+
+########################################################################
 # DataCannon
 ########################################################################
 
 class DataCannon:
 
-    def __init__(self, port=8000, host="0.0.0.0", service_map={}):
+    def __init__(self, port=8000, host="0.0.0.0", services={}):
         self._host = host
         self._port = port
-        self._service_map = service_map
+
+        # internal services
+        self._directory = Directory()
+        self._directory.add("/subs", None)
+        # load services
+        for alias, service in services.items():
+            mod = importlib.import_module(f"src.server.services.{service}")
+            self._directory.add(alias, mod.get_service())
+
+        print("DataCannon: Services:")
+        print(self._directory.get("/"))
 
     async def handler(self, websocket):
         self.on_connect(websocket)
@@ -56,9 +112,6 @@ class DataCannon:
 
     def serve_forever(self):
         print(f"DataCannon: Listen: ws://{self._host}:{self._port}")
-        print("DataCannon: Services:")
-        for k, v in self._service_map.items():
-            print(f"-> {k} -- {v}")
         try:
             asyncio.run(self._start_server())
         except KeyboardInterrupt:
@@ -81,9 +134,6 @@ class DataCannon:
     async def on_message(self, websocket, data):
         """Handle message from client."""
         msg = json.loads(data)
-        print("got message")
-        print(msg)
-
         if msg['type'] == MsgType.REQUEST:
 
             # handle request
@@ -91,24 +141,30 @@ class DataCannon:
             reply["type"] = MsgType.REPLY
             reply["cmd"] = msg["cmd"]
             reply["tunnel"] = msg.get("tunnel")
-            result = None
 
+            # parse path
+            parsed = urlparse(msg["path"])
+            path = parsed.path
+
+            status, result = True, None
             if msg['cmd'] == MsgCmd.GET:
-                path = msg["path"]
 
-                if path == "/services":
-                    result = list(self._service_map.keys())
-                elif path == "/clock":
-                    result = time.time()
+                if path.endswith("/"):
+                    # return listing
+                    result = self._directory.get(path)
+                else:
+                    # resolve value from service
+                    service = self._directory.get(path)
+                    if service is not None:
+                        status, result = service.get(path)
+                    else:
+                        status, result = False, "no service"
 
-            if result is not None:
-                reply['status'] = 200
-                reply['data'] = result
-            else:
-                reply['status'] = 404
-                reply["data"] = "no result"
-            print("reply", reply)
-            await websocket.send(json.dumps(reply))
+                reply["status"] = status
+                reply["data"] = result
+
+                print("reply", reply)
+                await websocket.send(json.dumps(reply))
 
 
 ########################################################################
@@ -132,8 +188,8 @@ def main():
 
     host = config.get('DataCannon', 'host')
     port = config.getint('DataCannon', 'port')
-    service_map = dict(config.items("DataCannon.Services"))
-    server = DataCannon(host=host, port=port, service_map=service_map)
+    services = dict(config.items("DataCannon.Services"))
+    server = DataCannon(host=host, port=port, services=services)
     server.serve_forever()
 
 
