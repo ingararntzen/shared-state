@@ -181,12 +181,13 @@ class DataCannonClient extends WebSocketIO {
         }
     }
 
-    request(path) {
+    request(cmd, path, args) {
         const reqid = this._reqid++;
         const msg = {
             type: MsgType.REQUEST,
-            cmd: MsgCmd.GET, 
+            cmd, 
             path, 
+            args,
             tunnel: reqid
         };
         this.send(JSON.stringify(msg));
@@ -194,6 +195,19 @@ class DataCannonClient extends WebSocketIO {
         this._pending.set(reqid, resolver);
         return promise;
     }
+
+    get(path) {
+        return this.request(MsgCmd.GET, path);
+    }
+
+    update (path, args) {
+        return this.request(MsgCmd.UPDATE, path, args)
+    }
+
+    clear(path) {
+        return this.request(MsgCmd.CLEAR, path);
+    }
+
 }
 
 export { DataCannonClient };

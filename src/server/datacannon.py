@@ -2,8 +2,15 @@ import asyncio
 import websockets
 import json
 import traceback
-from pathlib import PurePosixPath
 import importlib
+from pathlib import PurePosixPath
+
+
+def normalize(path):
+    n_path = PurePosixPath(path)
+    if not n_path.is_absolute():
+        n_path = PurePosixPath(f"/{path}")
+    return n_path
 
 
 ########################################################################
@@ -25,40 +32,87 @@ class MsgCmd:
 
 
 ########################################################################
-# Service Directory
+# CLIENTS
 ########################################################################
 
-def normalize(path):
-    path = PurePosixPath(path)
-    return path if path.is_absolute() else PurePosixPath(f"/{path}")
-
-
-class Directory:
+class Clients:
 
     def __init__(self):
-        self.map = {}
+        # websocket -> {path -> subscription}
+        self._map = {}
 
-    def add(self, path, service):
-        n_path = normalize(path)
-        if n_path in self.map:
-            raise Exception(f"path already defined {path}")
-        print(n_path, service)
-        self.map[n_path] = service
+    def register(self, websocket):
+        """Register client."""
+        if websocket not in self._map:
+            self._map[websocket] = {}
 
-    def get(self, path="/"):
-        n_path = normalize(path)
-        if path.endswith("/"):
-            # list contents at level -- all paths with n_path == commonpath
-            def keep(p):
-                try:
-                    p.relative_to(n_path)
-                except ValueError:
-                    return False
-                return True
-            return sorted([str(p) for p in self.map.keys() if keep(p)])
-        else:
-            # return module
-            return self.map.get(n_path, None)
+    def unregister(self, websocket):
+        """Unregister client."""
+        if websocket in self._map:
+            del self._map[websocket]
+
+    def clients(self, path):
+        """
+        Get all clients subscribed to path
+        Return websocket of each client
+        """
+        res = []
+        for websocket, sub_map in self._map.items():
+            if path in sub_map:
+                res.append(websocket)
+        return res
+
+    def get_subs(self, websocket):
+        """
+        Get all subscriptions of client
+        Return [(path, sub), ...]
+        """
+        return list(self._map.get(websocket, {}).items())
+
+    def get_sub_by_path(self, websocket, path):
+        """
+        Get subscription of client for given path
+        Returns None if no subscription
+        """
+        return self._map.get(websocket, {}).get(path, None)        
+
+    def is_subscribed(self, websocket, path):
+        """
+        Convenience method
+        Return true if websocket is subscribed to path.
+        """
+        return self.get_sub_by_path(websocket, path) is not None
+
+    def update_subs(self, websocket, subOps):
+        """
+        Process a batch of subOps for websocket.
+
+        subOps is a list of operations
+
+        subOp = {
+            type: "sub"|"unsub"|"reset",
+            path: "/service/appid/resourceid" - identify resource within service
+            arg: {sfilter:, srange: [a,b]} - can be empty no filter or range
+        }
+
+        - "reset" appearantly does not do anything - except force a reset of the
+        client connection
+
+        return list of paths that need to be reset for client
+
+        """
+        subs_map = self._map[websocket]
+        reset_paths = []
+        for subOp in subOps:
+            path = subOp["path"]
+            arg = subOp.get("arg", {})
+            if subOp["type"] == "sub":
+                subs_map[path] = arg
+            elif subOp["type"] == "unsub":
+                if path in subs_map:
+                    del subs_map[path]
+            reset_paths.append(path)
+        return reset_paths
 
 
 ########################################################################
@@ -71,16 +125,18 @@ class DataCannon:
         self._host = host
         self._port = port
 
-        # service directory
-        self._directory = Directory()
-        self._directory.add("/subs", None)
+        # client subscriptions
+        self._clients = Clients()
+
+        # services
+        self._services = {}
         # load services
-        for service_module_name, path in services.items():
+        for service_name, service_module_name in services.items():
             module_path = f"src.server.services.{service_module_name}"
             service_module = importlib.import_module(module_path)
-            self._directory.add(path, service_module.get_service())
+            self._services[service_name] = service_module.get_service()
 
-        print(f"DataCannon: Services: {self._directory.get('/')}")
+        print(f"DataCannon: Services: {list(self._services.keys())}")
 
     ####################################################################
     # RUN
@@ -121,44 +177,64 @@ class DataCannon:
 
     def on_connect(self, websocket):
         """Handle client connect."""
+        self._clients.register(websocket)
         print(websocket.remote_address, 'connected')
 
     def on_disconnect(self, websocket):
         """Handle client diconnect."""
+        self._clients.unregister(websocket)
         print(websocket.remote_address, 'disconnected')
 
     async def on_message(self, websocket, data):
         """Handle message from client."""
         msg = json.loads(data)
-        path = msg["path"]
 
         # handles client requests
-        if msg['type'] == MsgType.REQUEST:
+        if msg['type'] != MsgType.REQUEST:
+            return
 
-            reply = {}
-            reply["type"] = MsgType.REPLY
-            reply["cmd"] = msg["cmd"]
-            reply["tunnel"] = msg.get("tunnel")
+        n_path = normalize(msg["path"])
 
-            # paths ending with "/" are requests for directory listing
-            if path.endswith("/"):
-                # return listing
-                reply["data"] = self._directory.get(path)
+        reply = {}
+        reply["type"] = MsgType.REPLY
+        reply["cmd"] = msg["cmd"]
+        reply["tunnel"] = msg.get("tunnel")
+
+        if msg['cmd'] == MsgCmd.GET:
+
+            if n_path == PurePosixPath("/"):
+                # return service listing
+                reply["data"] = list(self._services.keys())
                 reply["status"] = reply["data"] is not None
                 return await websocket.send(json.dumps(reply))
 
-            # other paths targets service endpoints
-            service = self._directory.get(path)
+            if n_path == PurePosixPath("/subs"):
+                # return subscriptions of client
+                reply["data"] = self._clients.get_subs(websocket)
+                reply["status"] = True
+                return await websocket.send(json.dumps(reply))
+
+            # service
+            service_name = n_path.parts[1]
+            service = self._services.get(service_name, None)
             if service is None:
                 reply["data"] = "no service"
                 reply["status"] = False
                 return await websocket.send(json.dumps(reply))
-
-            # process request with service
-            if msg['cmd'] == MsgCmd.GET:
-                status, data = service.get(path)
+            else:
+                status, data = service.get(n_path)
                 reply['status'] = status
                 reply['data'] = data
+                return await websocket.send(json.dumps(reply))
+
+        elif msg["cmd"] == MsgCmd.UPDATE:
+
+            if n_path == PurePosixPath("/subs"):
+                subOps = msg["args"]
+                reset_paths = self._clients.update_subs(websocket, subOps)
+                # return subscriptions of client
+                reply["data"] = self._clients.get_subs(websocket)
+                reply["status"] = True
                 return await websocket.send(json.dumps(reply))
 
 

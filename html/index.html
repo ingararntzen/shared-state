@@ -10,27 +10,58 @@
         const client = new DataCannonClient("ws://0.0.0.0:9000");
         client.connect();
 
-        document.getElementById("services").onclick = () => {
-            client.request("/").then(({status, data}) => {
+        document.getElementById("get_services").onclick = () => {
+            client.get("/").then(({status, data}) => {
                 console.log("services", status, data);
             });
         }
 
-        document.getElementById("clock").onclick = () => {
-            client.request("/clock").then(({status, data}) => {
+        document.getElementById("get_subs").onclick = () => {
+            client.get("/subs").then(({status, data}) => {
+                console.log("subs", status, data);
+            });
+        }
+
+        document.getElementById("get_clock").onclick = () => {
+            client.get("/clock").then(({status, data}) => {
                 console.log("clock", status, data);
             });
         }
 
-    </script>
+        document.getElementById("sub").onclick = () => {
+            const subOps = [{type:"sub", path:"/items/jalla"}]
+            client.update("/subs", subOps).then(({status, data}) => {
+                console.log("update subs", status, data);
+            });
+        }
+
+        document.getElementById("unsub").onclick = () => {
+            const subOps = [{type:"unsub", path:"/items/jalla"}]
+            client.update("/subs", subOps).then(({status, data}) => {
+                console.log("update subs", status, data);
+            });
+        }
+
+
+
+</script>
 </head>
 <body>
     <h1>DataCannon</h1>
     <p>
         <h3>GET</h3>
-        <button id="services">Services</button>
-        <button id="clock">Clock</button>
+        <button id="get_services">Services</button>
+        <button id="get_subs">Subs</button>
+        <button id="get_clock">Clock</button>
     </p>
+
+    <p>
+        <h3>UPDATE</h3>
+        <button id="sub">Sub</button>
+        <button id="unsub">UnSub</button>
+    </p>
+
+
 
 </body>
 </html>
