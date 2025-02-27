@@ -2,9 +2,7 @@ import asyncio
 import websockets
 import json
 import traceback
-from urllib.parse import urlparse
-# from urllib.parse import parse_qs
-from pathlib import Path, PurePosixPath
+from pathlib import PurePosixPath
 import importlib
 
 
@@ -27,15 +25,6 @@ class MsgCmd:
 
 
 ########################################################################
-# Util
-########################################################################
-
-def path_from_module(mod):
-    path = Path(mod.__file__)
-    return path.relative_to(path.parent.parent)
-
-
-########################################################################
 # Service Directory
 ########################################################################
 
@@ -49,9 +38,12 @@ class Directory:
     def __init__(self):
         self.map = {}
 
-    def add(self, path, module):
+    def add(self, path, service):
         n_path = normalize(path)
-        self.map[n_path] = module
+        if n_path in self.map:
+            raise Exception(f"path already defined {path}")
+        print(n_path, service)
+        self.map[n_path] = service
 
     def get(self, path="/"):
         n_path = normalize(path)
@@ -79,16 +71,20 @@ class DataCannon:
         self._host = host
         self._port = port
 
-        # internal services
+        # service directory
         self._directory = Directory()
         self._directory.add("/subs", None)
         # load services
-        for alias, service in services.items():
-            mod = importlib.import_module(f"src.server.services.{service}")
-            self._directory.add(alias, mod.get_service())
+        for service_module_name, path in services.items():
+            module_path = f"src.server.services.{service_module_name}"
+            service_module = importlib.import_module(module_path)
+            self._directory.add(path, service_module.get_service())
 
-        print("DataCannon: Services:")
-        print(self._directory.get("/"))
+        print(f"DataCannon: Services: {self._directory.get('/')}")
+
+    ####################################################################
+    # RUN
+    ####################################################################
 
     async def handler(self, websocket):
         self.on_connect(websocket)
@@ -134,37 +130,36 @@ class DataCannon:
     async def on_message(self, websocket, data):
         """Handle message from client."""
         msg = json.loads(data)
+        path = msg["path"]
+
+        # handles client requests
         if msg['type'] == MsgType.REQUEST:
 
-            # handle request
             reply = {}
             reply["type"] = MsgType.REPLY
             reply["cmd"] = msg["cmd"]
             reply["tunnel"] = msg.get("tunnel")
 
-            # parse path
-            parsed = urlparse(msg["path"])
-            path = parsed.path
+            # paths ending with "/" are requests for directory listing
+            if path.endswith("/"):
+                # return listing
+                reply["data"] = self._directory.get(path)
+                reply["status"] = reply["data"] is not None
+                return await websocket.send(json.dumps(reply))
 
-            status, result = True, None
+            # other paths targets service endpoints
+            service = self._directory.get(path)
+            if service is None:
+                reply["data"] = "no service"
+                reply["status"] = False
+                return await websocket.send(json.dumps(reply))
+
+            # process request with service
             if msg['cmd'] == MsgCmd.GET:
-
-                if path.endswith("/"):
-                    # return listing
-                    result = self._directory.get(path)
-                else:
-                    # resolve value from service
-                    service = self._directory.get(path)
-                    if service is not None:
-                        status, result = service.get(path)
-                    else:
-                        status, result = False, "no service"
-
-                reply["status"] = status
-                reply["data"] = result
-
-                print("reply", reply)
-                await websocket.send(json.dumps(reply))
+                status, data = service.get(path)
+                reply['status'] = status
+                reply['data'] = data
+                return await websocket.send(json.dumps(reply))
 
 
 ########################################################################
