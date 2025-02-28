@@ -1,6 +1,7 @@
 """Abstract base class for DataCannon Databases."""
 
 import mysql.connector as MySQLdb
+import sqlite3
 import threading
 import time
 import datetime
@@ -36,20 +37,16 @@ class BaseDB:
 
     BATCH_SIZE = 1024
 
-    def __init__(self, table, stop_event=None):
+    def __init__(self, cfg, stop_event=None):
         """Construct Database."""
         self.conn = None
-        self._table = table
-        self.cfg = {
-            "db_host": "localhost",
-            "db_user": "dcuser",
-            "db_name": "cannon",
-            "db_password": "GrefseFysa",
+        self.cfg = cfg
+        self.cfg.update({
             "ssl.enabled": False,
             "ssl.key": None,
             "ssl.ca": None,
             "ssl.cert": None
-        }
+        })
         if stop_event:
             self.stop_event = stop_event
         else:
@@ -65,32 +62,35 @@ class BaseDB:
     def _get_conn(self):
         """Create database connection if not exists."""
         if not self.conn:
-            try:
-                if self.cfg["ssl.enabled"]:
-                    self.conn = MySQLdb.MySQLConnection(
-                        host=self.cfg["db_host"],
-                        user=self.cfg["db_user"],
-                        passwd=self.cfg["db_password"],
-                        db=self.cfg["db_name"],
-                        use_unicode=True,
-                        autocommit=True,
-                        charset="utf8",
-                        ssl_key=self.cfg["ssl.key"],
-                        ssl_ca=self.cfg["ssl.ca"],
-                        ssl_cert=self.cfg["ssl.cert"]
-                    )
-                else:
-                    self.conn = MySQLdb.MySQLConnection(
-                        host=self.cfg["db_host"],
-                        user=self.cfg["db_user"],
-                        passwd=self.cfg["db_password"],
-                        db=self.cfg["db_name"],
-                        use_unicode=True,
-                        autocommit=True,
-                        charset="utf8")
-            except Exception as e:
-                print("Failed to connect", e.__class__, e)
-                return None
+            if self.cfg["db_type"] == "mysql":
+                try:
+                    if self.cfg["ssl.enabled"]:
+                        self.conn = MySQLdb.MySQLConnection(
+                            host=self.cfg["db_host"],
+                            user=self.cfg["db_user"],
+                            passwd=self.cfg["db_password"],
+                            db=self.cfg["db_name"],
+                            use_unicode=True,
+                            autocommit=True,
+                            charset="utf8",
+                            ssl_key=self.cfg["ssl.key"],
+                            ssl_ca=self.cfg["ssl.ca"],
+                            ssl_cert=self.cfg["ssl.cert"]
+                        )
+                    else:
+                        self.conn = MySQLdb.MySQLConnection(
+                            host=self.cfg["db_host"],
+                            user=self.cfg["db_user"],
+                            passwd=self.cfg["db_password"],
+                            db=self.cfg["db_name"],
+                            use_unicode=True,
+                            autocommit=True,
+                            charset="utf8")
+                except Exception as e:
+                    print("Failed to connect", e.__class__, e)
+                    return None
+            elif self.cfg["db_type"] == "sqlite":
+                self.conn = sqlite3.connect(":memory:")
         return self.conn
 
     def _execute(self, statement, parameters=[]):
@@ -159,7 +159,7 @@ class BaseDB:
 
     def table(self):
         """Return table name."""
-        return self._table
+        return self.cfg["db_table"]
 
     def cursor_to_items(self, cursor):
         """
@@ -260,13 +260,14 @@ class BaseDB:
         of a single batch of operations.
         - remove: items which only specifies key
         - insert/replace: items which specify key + val
+        - empty list : clear all
         """
-        # check input
-        if not items:
-            return []
         # support single item
         if not isinstance(items, list):
             items = [items]
+
+        if len(items) == 0:
+            return self.clear(chnl)
 
         removed_keys = set()
         keys_to_remove = set()
@@ -323,10 +324,6 @@ class BaseDB:
         for batch in self.cursor_to_items(c):
             yield batch
         c.close()
-
-
-
-
 
     def clear(self, chnl):
         """
@@ -417,18 +414,3 @@ class BaseDB:
         Ignore interval. Equivalent to get(chnl).
         """
         return self.get_args(chnl)
-
-
-###############################################################################
-# MAIN
-###############################################################################
-
-if __name__ == '__main__':
-
-    sql = (
-        "create user if not exists dcuser@'localhost' identified by " "'GrefseFysa';"
-        "create database if not exists cannon;"
-        "grant all on cannon.* to 'dcuser'@'localhost';"
-        "flush privileges;"
-        )
-    print(sql)

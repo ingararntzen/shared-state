@@ -112,7 +112,7 @@ class Clients:
 
 class DataCannon:
 
-    def __init__(self, port=8000, host="0.0.0.0", services={}):
+    def __init__(self, port=8000, host="0.0.0.0", services=[]):
         self._host = host
         self._port = port
 
@@ -122,10 +122,10 @@ class DataCannon:
         # services
         self._services = {}
         # load services
-        for service_name, service_module_name in services.items():
-            module_path = f"src.server.services.{service_module_name}"
-            service_module = importlib.import_module(module_path)
-            self._services[service_name] = service_module.get_service()
+        for service in services:
+            module_path = f"src.server.services.{service['module']}"
+            module = importlib.import_module(module_path)
+            self._services[service['alias']] = module.get_service(service.get("args", {}))
 
         print(f"DataCannon: Services: {list(self._services.keys())}")
 
@@ -233,11 +233,24 @@ class DataCannon:
         returns (ok, result)
         """
         n_path = normalize(msg["path"])
+        args = msg["args"]
 
         if n_path == PurePosixPath("/subs"):
-            self._clients.put_subs(websocket, msg["args"])
+            self._clients.put_subs(websocket, args)
             # return subscriptions of client
             return True, self._clients.get_subs(websocket)
+
+        # service
+        service_name = n_path.parts[1]
+        service = self._services.get(service_name, None)
+        if service is None:
+            return False, "no service"
+        else:
+            diff = service.put(n_path, args)
+            return service.get(n_path)
+
+
+
         return False, None
 
     def handle_DELETE(self, websocket, msg):
@@ -252,21 +265,21 @@ class DataCannon:
 def main():
 
     import argparse
-    import configparser
+    import json
 
     parser = argparse.ArgumentParser(description="DataCannon Server")
     parser.add_argument('config',
                         type=str,
-                        help='Path to the configuration file')
+                        help='Path to the configuration file (JSON)')
 
     args = parser.parse_args()
 
-    config = configparser.ConfigParser()
-    config.read(args.config)
+    with open(args.config) as f:
+        config = json.load(f)
 
-    host = config.get('DataCannon', 'host')
-    port = config.getint('DataCannon', 'port')
-    services = dict(config.items("DataCannon.Services"))
+    host = config["service"]["host"]
+    port = int(config["service"]["port"])
+    services = config["services"]    
     server = DataCannon(host=host, port=port, services=services)
     server.serve_forever()
 

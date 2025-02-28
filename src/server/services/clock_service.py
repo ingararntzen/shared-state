@@ -6,5 +6,5 @@ class ClockService:
         return True, time.time()
 
 
-def get_service():
+def get_service(args):
     return ClockService()

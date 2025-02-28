@@ -10,24 +10,33 @@
         const client = new DataCannonClient("ws://0.0.0.0:9000");
         client.connect();
 
+
+        /*
+            SERVICES
+        */
         document.getElementById("get_services").onclick = () => {
             client.get("/").then(({ok, data}) => {
                 console.log("services", ok, data);
             });
         }
 
-        document.getElementById("get_subs").onclick = () => {
-            client.get("/subs").then(({ok, data}) => {
-                console.log("subs", ok, data);
-            });
-        }
-
+        /*
+            CLOCK
+        */
         document.getElementById("get_clock").onclick = () => {
             client.get("/clock").then(({ok, data}) => {
                 console.log("clock", ok, data);
             });
         }
 
+        /*
+            SUBS
+        */
+        document.getElementById("get_subs").onclick = () => {
+            client.get("/subs").then(({ok, data}) => {
+                console.log("subs", ok, data);
+            });
+        }
         document.getElementById("put_subs_1").onclick = () => {
             const subs = [
                 ["/items/jalla", {}],
@@ -37,20 +46,50 @@
                 console.log("put subs", ok, data);
             });
         }
-
         document.getElementById("put_subs_2").onclick = () => {
             const subs = [["/items/jalla", {}]];
             client.put("/subs", subs).then(({ok, data}) => {
                 console.log("put subs", ok, data);
             });
         }
-
         document.getElementById("put_subs_3").onclick = () => {
             const subs = [];
             client.put("/subs", subs).then(({ok, data}) => {
                 console.log("put subs", ok, data);
             });
         }
+
+        /*
+            ITEMS
+        */
+
+        document.getElementById("get_items").onclick = () => {
+            client.get("/items/test").then(({ok, data}) => {
+                console.log("items", ok, data);
+            });
+        }
+        document.getElementById("put_items_1").onclick = () => {
+            const items = [
+                {key: "jalla", val: "jalladata"},
+                {key: "palla", val: "palladata"}
+            ];
+            client.put("/items/test", items).then(({ok, data}) => {
+                console.log("put items", ok, data);
+            });
+        }
+        document.getElementById("put_items_2").onclick = () => {
+            const items = [{key: "palla"}];
+            client.put("/items/test", items).then(({ok, data}) => {
+                console.log("put items", ok, data);
+            });
+        }
+        document.getElementById("put_items_3").onclick = () => {
+            const items = [];
+            client.put("/items/test", items).then(({ok, data}) => {
+                console.log("put items", ok, data);
+            });
+        }
+
 
 
 
@@ -60,20 +99,30 @@
 <body>
     <h1>DataCannon</h1>
     <p>
-        <h3>GET</h3>
-        <button id="get_services">Services</button>
-        <button id="get_subs">Subs</button>
-        <button id="get_clock">Clock</button>
+        <h3>Services</h3>
+        <button id="get_services">Get Services</button>
     </p>
 
     <p>
-        <h3>PUT</h3>
-        <button id="put_subs_1">Subs 1</button>
-        <button id="put_subs_2">Subs 2</button>
+        <h3>Clock</h3>
+        <button id="get_clock">Get Clock</button>
+    </p>
+
+    <p>
+        <h3>Subs</h3>
+        <button id="get_subs">Get Subs</button>
+        <button id="put_subs_1">Put Subs 1</button>
+        <button id="put_subs_2">Put Subs 2</button>
         <button id="put_subs_3">Clear Subs</button>
     </p>
 
-
+    <p>
+        <h3>Items</h3>
+        <button id="get_items">Get Items </button>
+        <button id="put_items_1">Items 1</button>
+        <button id="put_items_2">Items 2</button>
+        <button id="put_items_3">Clear Items</button>
+    </p>
 
 </body>
 </html>
