@@ -11,36 +11,47 @@
         client.connect();
 
         document.getElementById("get_services").onclick = () => {
-            client.get("/").then(({status, data}) => {
-                console.log("services", status, data);
+            client.get("/").then(({ok, data}) => {
+                console.log("services", ok, data);
             });
         }
 
         document.getElementById("get_subs").onclick = () => {
-            client.get("/subs").then(({status, data}) => {
-                console.log("subs", status, data);
+            client.get("/subs").then(({ok, data}) => {
+                console.log("subs", ok, data);
             });
         }
 
         document.getElementById("get_clock").onclick = () => {
-            client.get("/clock").then(({status, data}) => {
-                console.log("clock", status, data);
+            client.get("/clock").then(({ok, data}) => {
+                console.log("clock", ok, data);
             });
         }
 
-        document.getElementById("sub").onclick = () => {
-            const subOps = [{type:"sub", path:"/items/jalla"}]
-            client.update("/subs", subOps).then(({status, data}) => {
-                console.log("update subs", status, data);
+        document.getElementById("put_subs_1").onclick = () => {
+            const subs = [
+                ["/items/jalla", {}],
+                ["/items/palla", {}]
+            ];
+            client.put_subs(subs).then(({ok, data}) => {
+                console.log("put subs", ok, data);
             });
         }
 
-        document.getElementById("unsub").onclick = () => {
-            const subOps = [{type:"unsub", path:"/items/jalla"}]
-            client.update("/subs", subOps).then(({status, data}) => {
-                console.log("update subs", status, data);
+        document.getElementById("put_subs_2").onclick = () => {
+            const subs = [["/items/jalla", {}]];
+            client.put_subs(subs).then(({ok, data}) => {
+                console.log("put subs", ok, data);
             });
         }
+
+        document.getElementById("put_subs_3").onclick = () => {
+            const subs = [];
+            client.put_subs(subs).then(({ok, data}) => {
+                console.log("put subs", ok, data);
+            });
+        }
+
 
 
 
@@ -56,9 +67,10 @@
     </p>
 
     <p>
-        <h3>UPDATE</h3>
-        <button id="sub">Sub</button>
-        <button id="unsub">UnSub</button>
+        <h3>PUT</h3>
+        <button id="put_subs_1">Subs 1</button>
+        <button id="put_subs_2">Subs 2</button>
+        <button id="put_subs_3">Clear Subs</button>
     </p>
 
 

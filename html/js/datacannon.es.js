@@ -145,8 +145,8 @@ const MsgType = Object.freeze({
 
 const MsgCmd = Object.freeze({
    GET : "GET",
-   UPDATE: "UPDATE",
-   CLEAR: "CLEAR"
+   PUT: "PUT",
+   DELETE: "DELETE"
 });
 
 class DataCannonClient extends WebSocketIO {
@@ -154,20 +154,37 @@ class DataCannonClient extends WebSocketIO {
     constructor (url, options) {
         super(url, options);
 
+        // requests
         this._reqid = 0;
         this._pending = new Map();
+
+        // subscriptions
+        this._subs_map = new Map();
     }
+
+    /*********************************************************************
+        CONNECTION 
+    *********************************************************************/
 
     on_connect() {
         console.log(`Connect  ${this.url}`);
-    }
-    on_error(error) {
-        const {debug=false} = this._options;
-        if (debug) {console.log(`Error: ${error}`);}
+        // refresh local suscriptions
+        if (this._subs_map.size > 0) {
+            this.put_subs([...this._subs_map.entries()]);
+        }
     }
     on_disconnect() {
         console.error(`Disconnect ${this.url}`);
     }
+    on_error(error) {
+        const {debug=false} = this._options;
+        if (debug) {console.log(`Communication Error: ${error}`);}
+    }
+
+    /*********************************************************************
+        HANDLERS
+    *********************************************************************/
+
     on_message(data) {
         let msg = JSON.parse(data);
         if (msg.type == MsgType.REPLY) {
@@ -175,13 +192,18 @@ class DataCannonClient extends WebSocketIO {
             if (this._pending.has(reqid)) {
                 let resolver = this._pending.get(reqid);
                 this._pending.delete(reqid);
-                const {status, data} = msg;
-                resolver({status, data});
+                const {ok, data} = msg;
+                resolver({ok, data});
             }
         }
     }
 
-    request(cmd, path, args) {
+
+    /*********************************************************************
+        SERVER REQUESTS
+    *********************************************************************/
+
+    _request(cmd, path, args) {
         const reqid = this._reqid++;
         const msg = {
             type: MsgType.REQUEST,
@@ -197,17 +219,26 @@ class DataCannonClient extends WebSocketIO {
     }
 
     get(path) {
-        return this.request(MsgCmd.GET, path);
+        return this._request(MsgCmd.GET, path);
     }
 
-    update (path, args) {
-        return this.request(MsgCmd.UPDATE, path, args)
+    put (path, args) {
+        return this._request(MsgCmd.PUT, path, args)
     }
 
-    clear(path) {
-        return this.request(MsgCmd.CLEAR, path);
+    delete(path) {
+        return this._request(MsgCmd.DELETE, path);
     }
 
+    put_subs (subs) {
+        return this.put("/subs", subs).then(({ok, data}) => {
+            if (ok) {
+                // update local state upon receipt
+                this._subs_map = new Map(data);
+            }
+            return {ok, data};
+        });
+    }
 }
 
 export { DataCannonClient };

@@ -27,8 +27,8 @@ class MsgType:
 class MsgCmd:
     """Message commands used by dcserver and dcclient."""
     GET = "GET"
-    UPDATE = "UPDATE"
-    CLEAR = "CLEAR"
+    PUT = "PUT"
+    DELETE = "DELETE"
 
 
 ########################################################################
@@ -41,15 +41,44 @@ class Clients:
         # websocket -> {path -> subscription}
         self._map = {}
 
+    ######################################################
+    # CONNECTED CLIENTS
+    ######################################################
+
     def register(self, websocket):
-        """Register client."""
+        """Register client. No subscriptions"""
         if websocket not in self._map:
             self._map[websocket] = {}
 
     def unregister(self, websocket):
-        """Unregister client."""
+        """Unregister client. Clear subscriptions"""
         if websocket in self._map:
             del self._map[websocket]
+
+    ######################################################
+    # CLIENT SUBSCRIPTIONS
+    ######################################################
+
+    def get_subs(self, websocket):
+        """
+        GET subscriptions of client
+        [(path, sub), ...]
+        """
+        return list(self._map.get(websocket, {}).items())
+
+    def put_subs(self, websocket, subs):
+        """
+        PUT subscriptions for client
+        subs: [(path, sub)]
+        empty list clears all subscriptions
+        """
+        # TODO - calculate diff - removed paths and added paths 
+        # old_subs_map = self._map.get(websocket, None)
+        self._map[websocket] = dict(subs)
+
+    ######################################################
+    # SUBSCTIPTIONS BY PATH
+    ######################################################
 
     def clients(self, path):
         """
@@ -62,13 +91,6 @@ class Clients:
                 res.append(websocket)
         return res
 
-    def get_subs(self, websocket):
-        """
-        Get all subscriptions of client
-        Return [(path, sub), ...]
-        """
-        return list(self._map.get(websocket, {}).items())
-
     def get_sub_by_path(self, websocket, path):
         """
         Get subscription of client for given path
@@ -76,43 +98,12 @@ class Clients:
         """
         return self._map.get(websocket, {}).get(path, None)        
 
-    def is_subscribed(self, websocket, path):
+    def is_subscribed_to_path(self, websocket, path):
         """
         Convenience method
         Return true if websocket is subscribed to path.
         """
         return self.get_sub_by_path(websocket, path) is not None
-
-    def update_subs(self, websocket, subOps):
-        """
-        Process a batch of subOps for websocket.
-
-        subOps is a list of operations
-
-        subOp = {
-            type: "sub"|"unsub"|"reset",
-            path: "/service/appid/resourceid" - identify resource within service
-            arg: {sfilter:, srange: [a,b]} - can be empty no filter or range
-        }
-
-        - "reset" appearantly does not do anything - except force a reset of the
-        client connection
-
-        return list of paths that need to be reset for client
-
-        """
-        subs_map = self._map[websocket]
-        reset_paths = []
-        for subOp in subOps:
-            path = subOp["path"]
-            arg = subOp.get("arg", {})
-            if subOp["type"] == "sub":
-                subs_map[path] = arg
-            elif subOp["type"] == "unsub":
-                if path in subs_map:
-                    del subs_map[path]
-            reset_paths.append(path)
-        return reset_paths
 
 
 ########################################################################
@@ -190,52 +181,68 @@ class DataCannon:
         msg = json.loads(data)
 
         # handles client requests
-        if msg['type'] != MsgType.REQUEST:
-            return
+        if msg['type'] == MsgType.REQUEST:
+            ok, result = False, None
 
+            if msg['cmd'] == MsgCmd.GET:
+                ok, result = self.handle_GET(websocket, msg)
+            elif msg["cmd"] == MsgCmd.PUT:
+                ok, result = self.handle_PUT(websocket, msg)
+            elif msg["cmd"] == MsgCmd.DELETE:
+                ok, result = self.handle_DELETE(websocket, msg)
+
+            reply = {
+                "type": MsgType.REPLY,
+                "cmd": msg["cmd"],
+                "tunnel": msg.get("tunnel"),
+                "ok": ok,
+                "data": result
+            }
+            return await websocket.send(json.dumps(reply))
+
+    ####################################################################
+    # REQUEST HANDLERS
+    ####################################################################
+
+    def handle_GET(self, websocket, msg):
+        """
+        returns (ok, result)
+        """
         n_path = normalize(msg["path"])
 
-        reply = {}
-        reply["type"] = MsgType.REPLY
-        reply["cmd"] = msg["cmd"]
-        reply["tunnel"] = msg.get("tunnel")
+        if n_path == PurePosixPath("/"):
+            # return service listing
+            result = list(self._services.keys())
+            ok = result is not None
+            return ok, result
 
-        if msg['cmd'] == MsgCmd.GET:
+        if n_path == PurePosixPath("/subs"):
+            # return subscriptions of client
+            return True, self._clients.get_subs(websocket)
 
-            if n_path == PurePosixPath("/"):
-                # return service listing
-                reply["data"] = list(self._services.keys())
-                reply["status"] = reply["data"] is not None
-                return await websocket.send(json.dumps(reply))
+        # service
+        service_name = n_path.parts[1]
+        service = self._services.get(service_name, None)
+        if service is None:
+            return False, "no service"
+        else:
+            return service.get(n_path)
 
-            if n_path == PurePosixPath("/subs"):
-                # return subscriptions of client
-                reply["data"] = self._clients.get_subs(websocket)
-                reply["status"] = True
-                return await websocket.send(json.dumps(reply))
+    def handle_PUT(self, websocket, msg):
+        """
+        returns (ok, result)
+        """
+        n_path = normalize(msg["path"])
 
-            # service
-            service_name = n_path.parts[1]
-            service = self._services.get(service_name, None)
-            if service is None:
-                reply["data"] = "no service"
-                reply["status"] = False
-                return await websocket.send(json.dumps(reply))
-            else:
-                status, data = service.get(n_path)
-                reply['status'] = status
-                reply['data'] = data
-                return await websocket.send(json.dumps(reply))
+        if n_path == PurePosixPath("/subs"):
+            self._clients.put_subs(websocket, msg["args"])
+            # return subscriptions of client
+            return True, self._clients.get_subs(websocket)
+        return False, None
 
-        elif msg["cmd"] == MsgCmd.UPDATE:
-
-            if n_path == PurePosixPath("/subs"):
-                subOps = msg["args"]
-                reset_paths = self._clients.update_subs(websocket, subOps)
-                # return subscriptions of client
-                reply["data"] = self._clients.get_subs(websocket)
-                reply["status"] = True
-                return await websocket.send(json.dumps(reply))
+    def handle_DELETE(self, websocket, msg):
+        n_path = normalize(msg["path"])
+        return False, None
 
 
 ########################################################################
