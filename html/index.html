@@ -33,21 +33,21 @@
                 ["/items/jalla", {}],
                 ["/items/palla", {}]
             ];
-            client.put_subs(subs).then(({ok, data}) => {
+            client.put("/subs", subs).then(({ok, data}) => {
                 console.log("put subs", ok, data);
             });
         }
 
         document.getElementById("put_subs_2").onclick = () => {
             const subs = [["/items/jalla", {}]];
-            client.put_subs(subs).then(({ok, data}) => {
+            client.put("/subs", subs).then(({ok, data}) => {
                 console.log("put subs", ok, data);
             });
         }
 
         document.getElementById("put_subs_3").onclick = () => {
             const subs = [];
-            client.put_subs(subs).then(({ok, data}) => {
+            client.put("/subs", subs).then(({ok, data}) => {
                 console.log("put subs", ok, data);
             });
         }

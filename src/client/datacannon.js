@@ -35,7 +35,7 @@ export class DataCannonClient extends WebSocketIO {
         console.log(`Connect  ${this.url}`);
         // refresh local suscriptions
         if (this._subs_map.size > 0) {
-            this.put_subs([...this._subs_map.entries()])
+            this.put("/subs", [...this._subs_map.entries()])
         }
     }
     on_disconnect() {
@@ -63,7 +63,6 @@ export class DataCannonClient extends WebSocketIO {
         }
     }
 
-
     /*********************************************************************
         SERVER REQUESTS
     *********************************************************************/
@@ -80,29 +79,24 @@ export class DataCannonClient extends WebSocketIO {
         this.send(JSON.stringify(msg));
         let [promise, resolver] = resolvablePromise();
         this._pending.set(reqid, resolver);
-        return promise;
+        return promise.then(({ok, data}) => {
+            // special handling for replies to PUT /subs
+            if (cmd == MsgCmd.PUT && path == "/subs" && ok) {
+                // update local subscription state
+                this._subs_map = new Map(data)
+            }
+            return {ok, data, path, args};
+        });
     }
 
     get(path) {
         return this._request(MsgCmd.GET, path);
     }
-
     put (path, args) {
-        return this._request(MsgCmd.PUT, path, args)
+        return this._request(MsgCmd.PUT, path, args);
     }
-
     delete(path) {
         return this._request(MsgCmd.DELETE, path);
-    }
-
-    put_subs (subs) {
-        return this.put("/subs", subs).then(({ok, data}) => {
-            if (ok) {
-                // update local state upon receipt
-                this._subs_map = new Map(data)
-            }
-            return {ok, data};
-        });
     }
 }
 
