@@ -195,7 +195,10 @@ class DataCannonClient extends WebSocketIO {
                 const {ok, data} = msg;
                 resolver({ok, data});
             }
+        } else if (msg.type == MsgType.MESSAGE) {
+            console.log("msg:", msg);
         }
+
     }
 
     /*********************************************************************

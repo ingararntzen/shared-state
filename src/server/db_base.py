@@ -316,7 +316,7 @@ class BaseDB:
         Remove all items of (app, chnl).
         Return list of removed items.
         """
-        items = self.get_all(app, chnl)
+        items = list(self.get_all(app, chnl))
         SQL = self.delete_sql()
         args = self.delete_sql_args(app, chnl)
         c = self._execute(SQL, args)
