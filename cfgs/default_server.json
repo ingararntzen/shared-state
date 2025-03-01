@@ -1,0 +1,27 @@
+{
+    "service": {"host": "0.0.0.0", "port": 9000},
+    "services": [
+        {
+            "name": "clock", "module": "clock_service"},
+        {
+            "name": "items", "module": "items_service", 
+            "config": {
+                "db_type": "mysql",
+                "db_name": "dcbase",
+                "db_table": "items",
+                "db_host": "localhost",
+                "db_user": "dcuser",
+                "db_password": "GrefseFysa"
+            }
+        },
+        {
+            "name": "memitems", "module": "items_service", 
+            "config": {
+                "db_type": "sqlite",
+                "db_name": "dcbase",
+                "db_table": "items"
+            }
+        }
+
+    ]
+}

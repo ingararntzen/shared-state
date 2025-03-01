@@ -9,13 +9,15 @@ class ItemsService:
 
     def get(self, path):
         n_path = PurePosixPath(path)
-        chnl = n_path.parts[2]
-        return True, list(self._db.get(chnl))
+        app = n_path.parts[2]
+        chnl = n_path.parts[3]
+        return True, list(self._db.get(app, chnl))
 
-    def put(self, path, args):
+    def put(self, path, items):
         n_path = PurePosixPath(path)
-        chnl = n_path.parts[2]
-        return True, self._db.update(chnl, args)
+        app = n_path.parts[2]
+        chnl = n_path.parts[3]
+        return True, self._db.update(app, chnl, items)
 
 
 def get_service(config):

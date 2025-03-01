@@ -64,35 +64,31 @@
         */
 
         document.getElementById("get_items").onclick = () => {
-            client.get("/items/debug").then(({ok, data}) => {
+            client.get("/items/testapp/debug").then(({ok, data}) => {
                 console.log("items", ok, data);
             });
         }
         document.getElementById("put_items_1").onclick = () => {
             const items = [
-                {key: "jalla", val: "jalladata"},
-                {key: "palla", val: "palladata"}
+                {id: "jalla", data: "jalladata"},
+                {id: "palla", data: "palladata"}
             ];
-            client.put("/items/debug", items).then(({ok, data}) => {
+            client.put("/items/testapp/debug", items).then(({ok, data}) => {
                 console.log("put items", ok, data);
             });
         }
         document.getElementById("put_items_2").onclick = () => {
-            const items = [{key: "palla"}];
-            client.put("/items/debug", items).then(({ok, data}) => {
+            const items = [{id: "palla"}];
+            client.put("/items/testapp/debug", items).then(({ok, data}) => {
                 console.log("put items", ok, data);
             });
         }
         document.getElementById("put_items_3").onclick = () => {
             const items = [];
-            client.put("/items/debug", items).then(({ok, data}) => {
+            client.put("/items/testapp/debug", items).then(({ok, data}) => {
                 console.log("put items", ok, data);
             });
         }
-
-
-
-
 
 </script>
 </head>

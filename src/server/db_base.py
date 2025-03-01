@@ -5,7 +5,7 @@ import sqlite3
 import threading
 import time
 import datetime
-
+from itertools import chain
 
 ###############################################################################
 # UTIL
@@ -65,7 +65,7 @@ class BaseDB:
             if self.cfg["db_type"] == "mysql":
                 try:
                     if self.cfg["ssl.enabled"]:
-                        self.conn = MySQLdb.MySQLConnection(
+                        self.conn = MySQLdb.connect(
                             host=self.cfg["db_host"],
                             user=self.cfg["db_user"],
                             passwd=self.cfg["db_password"],
@@ -78,7 +78,7 @@ class BaseDB:
                             ssl_cert=self.cfg["ssl.cert"]
                         )
                     else:
-                        self.conn = MySQLdb.MySQLConnection(
+                        self.conn = MySQLdb.connect(
                             host=self.cfg["db_host"],
                             user=self.cfg["db_user"],
                             passwd=self.cfg["db_password"],
@@ -161,6 +161,12 @@ class BaseDB:
         """Return table name."""
         return self.cfg["db_table"]
 
+    def sql_var_symbol(self):
+        """
+        Sqlite and Mysql use a different symbol for variables in SQL
+        """
+        return "?" if self.cfg["db_type"] == "sqlite" else "%s"
+
     def cursor_to_items(self, cursor):
         """
         Make batch of items from database cursor.
@@ -176,31 +182,42 @@ class BaseDB:
             else:
                 break
 
-    def get(self, chnl):
+    def get(self, app, chnl):
         """
-        Return all items of channel.
+        Return all items from (app,channel).
 
         Generator function yielding batch_size batches
         """
         SQL = self.get_sql()
-        args = self.get_args(chnl)
+        args = self.get_sql_args(app, chnl)
         c = self._execute(SQL, args)
         for items in self.cursor_to_items(c):
             yield items
         c.close()
 
-    def insert(self, chnl, items):
+    def get_all(self, app, chnl):
         """
-        Insert/replace items in channel.
+        Convenience - return an iteable which is flat
+        i.e. can be turned into flat list with list()
+        """
+        return chain.from_iterable(self.get(app, chnl))
+
+    def insert(self, app, chnl, items):
+        """
+        Insert/replace items in (app, chnl).
 
         Items must be structured as results from get()
         Return number of affected rows.
 
         Operation is batched within executemany.
         """
+
         # check input
+        if not isinstance(app, str):
+            print("db insert: app must be string", app, type(app))
+            return []
         if not isinstance(chnl, str):
-            print("db insert: chnl must be string", chnl)
+            print("db insert: chnl must be string", chnl, type(chnl))
             return []
         if not items:
             return []
@@ -211,7 +228,7 @@ class BaseDB:
         SQL = self.insert_sql()
         records = []
         for item in items:
-            rec = self.insert_args(chnl, item)
+            rec = self.insert_sql_args(app, chnl, item)
             if rec is None:
                 # drop empty records
                 continue
@@ -221,135 +238,110 @@ class BaseDB:
             c.close()
         return items
 
-    def remove(self, chnl, keys):
+    def remove(self, app, chnl, ids):
         """
-        Remove items with given keys from channel.
+        Remove items with given ids from (app, chnl).
 
         Batch calls to execute.
         """
         # check input
+        if not isinstance(app, str):
+            print("db remove: app must be string", app, type(app))
+            return []
         if not isinstance(chnl, str):
             print("db remove: chnl must be string", chnl, type(chnl))
             return []
-        if not keys:
+        if not ids:
             return []
-        # support single key
-        if not isinstance(keys, list):
-            keys = [keys]
+        # support single id
+        if not isinstance(ids, list):
+            ids = [ids]
         # batch operation
-        for key_batch in batch(keys, batch_size=BaseDB.BATCH_SIZE):
-            key_args = ",".join(["%s"] * len(key_batch))
-            SQL = (
-                f"DELETE FROM {self.table()} "
-                f"WHERE chnl=%s AND id IN ({key_args})"
-            )
-            args = (chnl,) + tuple(key_batch)
+        for id_batch in batch(ids, batch_size=BaseDB.BATCH_SIZE):
+            SQL = self.remove_sql(id_batch)
+            args = self.remove_sql_args(app, chnl, id_batch)
             c = self._execute(SQL, args)
             c.close()
-        return [{"key": key} for key in keys]
+        return [{"id": id} for id in ids]
 
-    def update_is_absolute(self):
-        """Return True if DB updates are absolute."""
-        return True
-
-    def update(self, chnl, items):
+    def update(self, app, chnl, items):
         """
-        insert/remove items from channel.
+        insert/remove items from (app, chnl).
+        - empty items list : clear all
 
         Convenience wrapper for processing inserts and removals as part
         of a single batch of operations.
-        - remove: items which only specifies key
-        - insert/replace: items which specify key + val
-        - empty list : clear all
+        - remove: items which only specifies id
+        - insert/replace: items which specify id + data
+
+        Returns composite output from clear, remove, insert
         """
         # support single item
         if not isinstance(items, list):
             items = [items]
 
         if len(items) == 0:
-            return self.clear(chnl)
+            return self.clear(app, chnl)
 
-        removed_keys = set()
-        keys_to_remove = set()
+        removed_ids = set()
+        ids_to_remove = set()
         items_to_insert = dict()
-
-        # support commands if they are first item in batch
-        # commands have a type field
-        if "cmd" in items[0]:
-            first = items.pop(0)
-            if first["cmd"] == "clear_all":
-                removed_keys = set([item["key"] for item in self.clear(chnl)])
-            elif first["cmd"] == "clear_range":
-                for batch in self.lookup(chnl, first["range"], use_brackets=True):
-                    keys_to_remove.update([item["key"] for item in batch])
 
         # process rest of items
         for item in items:
-            # no key -> drop
-            if "key" not in item:
-                print("warning: drop item with no key", item)
+            # no id -> drop
+            if "id" not in item:
+                print("warning: drop item with no id", item)
                 continue
-            key = item["key"]
-            # key, but no value -> remove
-            if "val" not in item:
-                if key not in removed_keys:
-                    keys_to_remove.add(key)
-            # key and val -> insert
+            _id = item["id"]
+            # id, but no value -> remove
+            if "data" not in item:
+                if _id not in removed_ids:
+                    ids_to_remove.add(_id)
+            # id and data -> insert
             else:
-                removed_keys.discard(key)
-                keys_to_remove.discard(key)
-                items_to_insert[key] = item
+                removed_ids.discard(_id)
+                ids_to_remove.discard(_id)
+                items_to_insert[_id] = item
 
         # perform operations
-        res = [{"key": key} for key in removed_keys]
-        res.extend(self.remove(chnl, list(keys_to_remove)))
-        res.extend(self.insert(chnl, list(items_to_insert.values())))
+        res = [{"id": _id} for _id in removed_ids]
+        res.extend(self.remove(app, chnl, list(ids_to_remove)))
+        res.extend(self.insert(app, chnl, list(items_to_insert.values())))
         return res
 
-    def lookup(self, chnl, interval, use_brackets=True):
+    def clear(self, app, chnl):
         """
-        Lookup items within interval.
-
-        Return all items of channel, whose interval intersect the query
-        interval.
-
-        - <use_brackets> if true lookup is sensitive to brackets of search
-          interval
-
-        Note - performance issue in 3'rd prone if collection is large.
-        """
-        SQL = self.lookup_sql(chnl, interval, use_brackets=use_brackets)
-        args = self.lookup_args(chnl, interval, use_brackets=use_brackets)
-        c = self._execute(SQL, args)
-        for batch in self.cursor_to_items(c):
-            yield batch
-        c.close()
-
-    def clear(self, chnl):
-        """
-        Remove all items of channel.
-
+        Remove all items of (app, chnl).
         Return list of removed items.
         """
-        items = []
-        for batch in self.get(chnl):
-            items.extend(batch)
-
-        SQL = f"DELETE FROM {self.table()} WHERE chnl=%s"
-        args = [chnl]
-
+        items = self.get_all(app, chnl)
+        SQL = self.delete_sql()
+        args = self.delete_sql_args(app, chnl)
         c = self._execute(SQL, args)
         c.close()
-        return [{"key": item["key"]} for item in items]
+        return [{"id": item["id"]} for item in items]
 
-    def channels(self):
+    def apps(self):
         """
-        Get all unique chanels.
-
+        Get all unique apps in database
         Returns entire result as list - not batch generator
         """
-        SQL = f"SELECT DISTINCT chnl FROM {self.table()}"
-        c = self._execute(SQL)
+        SQL = self.apps_sql()
+        args = self.apps_sql_args()
+        c = self._execute(SQL, args)
+        res = [tup[0] for tup in c.fetchall()]
+        c.close()
+        return res
+
+    def channels(self, app):
+        """
+        Get all unique channels of app.
+        Returns entire result as list - not batch generator
+        """
+        SQL = self.channels_sql()
+        args = self.channels_sql_args(app)
+        c = self._execute(SQL, args)
         res = [tup[0] for tup in c.fetchall()]
         c.close()
         return res
@@ -371,46 +363,3 @@ class BaseDB:
         """Define sql indexes. Overridden by subclass."""
         raise NotImplementedError()
         return []
-
-    def as_item(self, record):
-        """Convert a database record to item."""
-        raise NotImplementedError()
-        return {}
-
-    def get_sql(self):
-        """Create SQL string fro get."""
-        return f"SELECT * FROM {self.table()} WHERE chnl=%s"
-
-    def get_args(self, chnl):
-        """Create args for get SQL statement."""
-        return [chnl]
-
-    def insert_sql(self):
-        """Create SQL string for insert."""
-        raise NotImplementedError()
-        return ""
-
-    def insert_args(self, chnl, item):
-        """Create args for insert SQL statement."""
-        raise NotImplementedError()
-        return ()
-
-    def lookup_supported(self):
-        """Lookup is supported."""
-        return False
-
-    def lookup_sql(self, chnl, interval, use_brackets=True):
-        """
-        Create SQL string for lookup.
-
-        Ignore interval. Equivalent to get(chnl).
-        """
-        return self.get_sql()
-
-    def lookup_args(self, chnl, interval, use_brackets=True):
-        """
-        Create args for lookup SQL.
-
-        Ignore interval. Equivalent to get(chnl).
-        """
-        return self.get_args(chnl)
