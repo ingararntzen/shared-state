@@ -125,7 +125,8 @@ class DataCannon:
         for service in services:
             module_path = f"src.server.services.{service['module']}"
             module = importlib.import_module(module_path)
-            self._services[service['alias']] = module.get_service(service.get("args", {}))
+            service_obj = module.get_service(service.get("config", {}))
+            self._services[service['name']] = service_obj
 
         print(f"DataCannon: Services: {list(self._services.keys())}")
 
@@ -209,6 +210,7 @@ class DataCannon:
         returns (ok, result)
         """
         n_path = normalize(msg["path"])
+        path = str(n_path)
 
         if n_path == PurePosixPath("/"):
             # return service listing
@@ -226,13 +228,14 @@ class DataCannon:
         if service is None:
             return False, "no service"
         else:
-            return service.get(n_path)
+            return service.get(path)
 
     def handle_PUT(self, websocket, msg):
         """
         returns (ok, result)
         """
         n_path = normalize(msg["path"])
+        path = str(n_path)
         args = msg["args"]
 
         if n_path == PurePosixPath("/subs"):
@@ -246,11 +249,8 @@ class DataCannon:
         if service is None:
             return False, "no service"
         else:
-            diff = service.put(n_path, args)
-            return service.get(n_path)
-
-
-
+            diff = service.put(path, args)
+            return service.get(path)
         return False, None
 
     def handle_DELETE(self, websocket, msg):

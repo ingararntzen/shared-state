@@ -64,7 +64,7 @@
         */
 
         document.getElementById("get_items").onclick = () => {
-            client.get("/items/test").then(({ok, data}) => {
+            client.get("/items/debug").then(({ok, data}) => {
                 console.log("items", ok, data);
             });
         }
@@ -73,19 +73,19 @@
                 {key: "jalla", val: "jalladata"},
                 {key: "palla", val: "palladata"}
             ];
-            client.put("/items/test", items).then(({ok, data}) => {
+            client.put("/items/debug", items).then(({ok, data}) => {
                 console.log("put items", ok, data);
             });
         }
         document.getElementById("put_items_2").onclick = () => {
             const items = [{key: "palla"}];
-            client.put("/items/test", items).then(({ok, data}) => {
+            client.put("/items/debug", items).then(({ok, data}) => {
                 console.log("put items", ok, data);
             });
         }
         document.getElementById("put_items_3").onclick = () => {
             const items = [];
-            client.put("/items/test", items).then(({ok, data}) => {
+            client.put("/items/debug", items).then(({ok, data}) => {
                 console.log("put items", ok, data);
             });
         }
