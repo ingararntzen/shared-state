@@ -5,21 +5,6 @@ from src.server.db_base import BaseDB
 
 
 ###############################################################################
-# DB SINGLETON
-###############################################################################
-
-_DB = None
-
-
-def getDB(name="items"):
-    """Return database singleton."""
-    global _DB
-    if not _DB:
-        _DB = ItemsDB(name)
-    return _DB
-
-
-###############################################################################
 # ITEM DB
 ###############################################################################
 
@@ -95,7 +80,7 @@ class ItemsDB(BaseDB):
         return f"SELECT DISTINCT chnl FROM {self.table()} WHERE app={s}"
 
     def channels_sql_args(self, app):
-        return (app)
+        return (app,)
 
     ###########################################################################
     # GET SQL
