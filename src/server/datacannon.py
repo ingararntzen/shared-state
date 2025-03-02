@@ -29,12 +29,8 @@ class MsgCmd:
     GET = "GET"
     PUT = "PUT"
     DELETE = "DELETE"
-    RESET_START = "reset_start"
     RESET_CHANGE = "reset_change"
-    RESET_END = "reset_end"
-    NOTIFY_START = "notify_start"
     NOTIFY_CHANGE = "notify_change"
-    NOTIFY_END = "notify_end"
 
 
 ########################################################################
@@ -78,8 +74,6 @@ class Clients:
         subs: [(path, sub)]
         empty list clears all subscriptions
         """
-        # TODO - calculate diff - removed paths and added paths
-        # old_subs_map = self._map.get(websocket, None)
         self._map[websocket] = dict(subs)
 
     ######################################################
@@ -97,19 +91,11 @@ class Clients:
                 res.append(websocket)
         return res
 
-    def get_sub_by_path(self, websocket, path):
-        """
-        Get subscription of client for given path
-        Returns None if no subscription
-        """
-        return self._map.get(websocket, {}).get(path, None)
-
     def is_subscribed_to_path(self, websocket, path):
         """
-        Convenience method
         Return true if websocket is subscribed to path.
         """
-        return self.get_sub_by_path(websocket, path) is not None
+        return self._map.get(websocket, None) is not None
 
 
 ########################################################################
@@ -195,9 +181,14 @@ class DataCannon:
             ok, result = False, None
 
             if msg['cmd'] == MsgCmd.GET:
-                ok, result = self.handle_GET(websocket, msg)
+                ok, result = self.handle_GET(
+                    websocket,
+                    msg["path"])
             elif msg["cmd"] == MsgCmd.PUT:
-                ok, result = self.handle_PUT(websocket, msg)
+                ok, result = self.handle_PUT(
+                    websocket,
+                    msg["path"],
+                    msg["args"])
 
             reply = {
                 "type": MsgType.REPLY,
@@ -226,34 +217,157 @@ class DataCannon:
         self._tasks = []
 
     async def _process_reset_task(self, websocket, paths):
-        pass
+        """
+        Reset a client connection, with respect to a list of paths.
+
+        A connections is reset following a change in subscriptions.
+
+        For a given path, there are three types of subscription changes
+        - (sub) no sub -> sub
+        - (reset) sub -> sub
+        - (unsub) sub -> no sub
+
+        (reset) is only possible if subscriptions are more advanced
+        than just boolean - e.g. including filters etc.
+
+        The distinction between (sub, reset, unsub) is not important,
+        though, as the connection will be reset in either case,
+        by sending the correct state, with [] being the correct state
+        for unsub.
+        """
+        for path in paths:
+            data = []
+            if self._clients.is_subscribed_to_path(path):
+                # get state
+                ok, result = self.handle_GET(websocket, path)
+                if ok:
+                    data = result
+            msg = {
+                "type": MsgType.MESSAGE,
+                "cmd": MsgCmd.RESET_CHANGE,
+                "path": path,
+                "data": data
+            }
+            await websocket.send(json.dumps(msg))
 
     async def _process_notify_task(self, path, diffs):
-        """Multicast notifications of state changes to relevant clients."""
+        """
+        Multicast notifications to clients which have
+        subscribed to this resource (path).
+
+        Notifications are triggered after changes (diffs)
+        to a shared resource (path),
+
+        NOTE - NOTIFICATION DESIGN
+
+        Subscriptions could be more advanced than just on/off
+        for a (client, resource). For example, assuming the
+        resource is a collection, a subscription could apply
+        to a subset of the collection.
+
+        If so, diffs should be checked for relevance for each
+        client, and only relevant diffs should be sent.
+
+        Relevance
+        - (enter) irrelevant -> relevant
+        - (change) relevant -> relevant
+        - (leave) relevant -> irrelevant
+        - (noop) irrelevant -> irrelevant
+
+        In order to maintain the correct state at the client
+        side all events (enter,change,leave) need to be sent,
+        only (noops) can safely be dropped.
+
+        However, distinguishing between (noop, leave) requires
+        access to the old state of the resource - before the change.
+
+        The diffs, though, do not provide this - they only
+        indicate the state after change - with empty 'data' property
+        indicating that the item was removed.
+
+        [{'id': 'id1', 'data': 'data1'}, {'id': 'id2'}]
+
+        There is a good reason for this. Providing the
+        old state as part of the diffs would have implications
+        for the efficiency of the PUT operation, as it would
+        effectively require a GET before every PUT operation.
+
+        This leaves two alternatives.
+
+        ALTERNATIVE 1
+
+        Introduce a GET before PUT - and bring old state
+        into the diffs, and implement relevance checking at the server.
+
+        [
+            {
+                'new': {'id': 'id1': 'data': 'data1'},
+                'old': None
+            },
+            {
+                'new': None,
+                'old': {'id': 'id2': 'data': 'data2'}
+            },
+        ]
+
+        ALTERNATIVE 2
+
+        Send all notifications (including noop) and leave
+        relevance checking to the client. Upon receipt,
+        the client will use local state as old state, and
+        be able to figure out exactly which items should
+        be added, changed, or removed.
+
+        ALTERNATIVE 3
+
+        Avoid diffs all togheter, and simply reset all
+        affected client connections after an update.
+        This is similar to ALTERNATIVE 2, in the sense that
+        is shifts relevance-filtering to the client, and introduces
+        inefficiency in communication. This though, is worse
+        that ALTERNATIVE 2 as it will rebroadcast all state, as
+        opposed to only the state that has changed.
+
+        DISCUSSION
+
+        Alternative 2 implies some inefficiency as (noop) messages
+        will be unessesarily multicast to all clients always.
+        The negative effects might be significant if update operations
+        occur frequently, and many clients subscribe only to a tiny
+        subset of the channel. This scenario, though, might not be
+        common, and might also be addressed through design revision,
+        for instance splitting up resources.
+
+        On the other hand, it makes for an efficient solution on the
+        server side, ensuring that PUT operations may be completed by
+        a single database operation, and that relevance-filtering,
+        which is essentially a client-specific operation, is performed
+        by clients instead of the server - in reference to local state.
+
+        CONCLUSION
+        - Even if subscripts are extended to include filters,
+        the server implementation will not do relevance checking.
+
+        """
+        msg = {
+            "type": MsgType.MESSAGE,
+            "cmd": MsgCmd.NOTIFY_CHANGE,
+            "path": path,
+            "data": diffs
+        }
+        data = json.dumps(msg)
         for ws in self._clients.clients(path):
-            await ws.send(json.dumps(dict(
-                type=MsgType.MESSAGE,
-                cmd=MsgCmd.NOTIFY_START,
-                path=path)))
-            await ws.send(json.dumps(dict(
-                type=MsgType.MESSAGE,
-                cmd=MsgCmd.NOTIFY_CHANGE,
-                path=path,
-                data=diffs)))
-            await ws.send(json.dumps(dict(
-                type=MsgType.MESSAGE,
-                cmd=MsgCmd.NOTIFY_END,
-                path=path)))
+            await ws.send(data)
 
     ####################################################################
     # REQUEST HANDLERS
     ####################################################################
 
-    def handle_GET(self, websocket, msg):
+    def handle_GET(self, websocket, path):
         """
         returns (ok, result)
         """
-        n_path = normalize(msg["path"])
+        n_path = normalize(path)
 
         if n_path == PurePosixPath("/"):
             # return service listing
@@ -273,15 +387,17 @@ class DataCannon:
         else:
             return True, srvc.get(app, resource)
 
-    def handle_PUT(self, websocket, msg):
+    def handle_PUT(self, websocket, path, args):
         """
         returns (ok, result)
         """
-        n_path = normalize(msg["path"])
-        args = msg["args"]
+        n_path = normalize(path)
 
         if n_path == PurePosixPath("/subs"):
-            self._clients.put_subs(websocket, args)
+            subs = args
+            self._clients.put_subs(websocket, subs)
+            reset_paths = [path for path, sub in subs]
+            self._tasks.append(("reset", websocket, reset_paths))
             # return subscriptions of client
             return True, self._clients.get_subs(websocket)
 
@@ -292,10 +408,10 @@ class DataCannon:
         if srvc is None:
             return False, "no service"
 
-        diffs = srvc.put(app, resource, msg["args"])
+        diffs = srvc.put(app, resource, args)
 
         # notify changes
-        self._tasks.append(("notify", msg["path"], diffs))
+        self._tasks.append(("notify", path, diffs))
 
         return True, len(diffs)
 
