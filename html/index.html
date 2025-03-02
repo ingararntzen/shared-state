@@ -15,7 +15,7 @@
             SERVICES
         */
         document.getElementById("get_services").onclick = () => {
-            client.get("/").then(({ok, data}) => {
+            client._get("/").then(({ok, data}) => {
                 console.log("services", ok, data);
             });
         }
@@ -24,7 +24,7 @@
             CLOCK
         */
         document.getElementById("get_clock").onclick = () => {
-            client.get("/clock").then(({data}) => {
+            client._get("/clock").then(({data}) => {
                 console.log("clock", data);
             });
         }
@@ -33,7 +33,7 @@
             SUBS
         */
         document.getElementById("get_subs").onclick = () => {
-            client.get("/subs").then(({data}) => {
+            client._get("/subs").then(({data}) => {
                 console.log("subs", data);
             });
         }
@@ -42,19 +42,19 @@
                 ["/app/items/chnl", {}],
                 ["/app/items/test", {}]
             ];
-            client.put("/subs", subs).then(({data}) => {
+            client._put("/subs", subs).then(({data}) => {
                 console.log("put subs", data);
             });
         }
         document.getElementById("put_subs_2").onclick = () => {
             const subs = [["/app/items/test", {}]];
-            client.put("/subs", subs).then(({data}) => {
+            client._put("/subs", subs).then(({data}) => {
                 console.log("put subs", data);
             });
         }
         document.getElementById("put_subs_3").onclick = () => {
             const subs = [];
-            client.put("/subs", subs).then(({data}) => {
+            client._put("/subs", subs).then(({data}) => {
                 console.log("put subs", data);
             });
         }
@@ -68,7 +68,7 @@
         }
 
         document.getElementById("get_items").onclick = () => {
-            client.get("/app/items/chnl").then(({ok, path, data}) => {
+            client._get("/app/items/chnl").then(({ok, path, data}) => {
                 if (ok) console.log(`get items ${path} ${toStr(data)}`);
             });
         }
@@ -77,19 +77,19 @@
                 {id: "jalla", data: "jalladata"},
                 {id: "palla", data: "palladata"}
             ];
-            client.put("/app/items/chnl", items).then(({ok, path, data}) => {
+            client._put("/app/items/chnl", items).then(({ok, path, data}) => {
                 if (ok) console.log(`put items ${path} ${data}`);
             });
         }
         document.getElementById("put_items_2").onclick = () => {
             const items = [{id: "palla"}];
-            client.put("/app/items/chnl", items).then(({ok, path, data}) => {
+            client._put("/app/items/chnl", items).then(({ok, path, data}) => {
                 if (ok) console.log(`put items ${path} ${data}`);
             });
         }
         document.getElementById("put_items_3").onclick = () => {
             const items = [];
-            client.put("/app/items/chnl", items).then(({ok, path, data}) => {
+            client._put("/app/items/chnl", items).then(({ok, path, data}) => {
                 if (ok) console.log(`put items ${path} ${data}`);
             });
         }

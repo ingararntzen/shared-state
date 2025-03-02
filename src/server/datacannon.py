@@ -30,8 +30,8 @@ class MsgCmd:
     GET = "GET"
     PUT = "PUT"
     DELETE = "DELETE"
-    RESET_CHANGE = "reset_change"
-    NOTIFY_CHANGE = "notify_change"
+    RESET = "RESET"
+    NOTIFY = "NOTIFY"
 
 
 ########################################################################
@@ -245,7 +245,7 @@ class DataCannon:
                     data = result
             msg = {
                 "type": MsgType.MESSAGE,
-                "cmd": MsgCmd.RESET_CHANGE,
+                "cmd": MsgCmd.RESET,
                 "path": path,
                 "data": data
             }
@@ -335,9 +335,7 @@ class DataCannon:
         will be unessesarily multicast to all clients always.
         The negative effects might be significant if update operations
         occur frequently, and many clients subscribe only to a tiny
-        subset of the channel. This scenario, though, might not be
-        common, and might also be addressed through design revision,
-        for instance splitting up resources.
+        subset of the channel. 
 
         On the other hand, it makes for an efficient solution on the
         server side, ensuring that PUT operations may be completed by
@@ -348,11 +346,17 @@ class DataCannon:
         CONCLUSION
         - Even if subscripts are extended to include filters,
         the server implementation will not do relevance checking.
+        - This is a strong argument for doing filtering on the
+        client side.
+        - There might be an argument for supporting server-side range
+        filter for timelined data
+        - It might also be possible to have a designated service
+        supporting diffs with old state and range filters
 
         """
         msg = {
             "type": MsgType.MESSAGE,
-            "cmd": MsgCmd.NOTIFY_CHANGE,
+            "cmd": MsgCmd.NOTIFY,
             "path": path,
             "data": diffs
         }
