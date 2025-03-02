@@ -3,6 +3,7 @@ import websockets
 import json
 import traceback
 import importlib
+import time
 from pathlib import PurePosixPath
 
 
@@ -237,7 +238,7 @@ class DataCannon:
         """
         for path in paths:
             data = []
-            if self._clients.is_subscribed_to_path(path):
+            if self._clients.is_subscribed_to_path(websocket, path):
                 # get state
                 ok, result = self.handle_GET(websocket, path)
                 if ok:
@@ -376,6 +377,9 @@ class DataCannon:
         if n_path == PurePosixPath("/subs"):
             # return subscriptions of client
             return True, self._clients.get_subs(websocket)
+
+        if n_path == PurePosixPath("/clock"):
+            return True, time.time()
 
         # /app/service
         app, service, resource = n_path.parts[1:4]

@@ -7,7 +7,7 @@ class ItemsService:
         self._db = ItemsDB(config)
 
     def get(self, app, resource):
-        return list(self._db.get(app, resource))
+        return list(self._db.get_all(app, resource))
 
     def put(self, app, resource, args):
         return self._db.update(app, resource, args)
