@@ -73,23 +73,25 @@
             });
         }
         document.getElementById("put_items_1").onclick = () => {
-            const items = [
-                {id: "jalla", data: "jalladata"},
-                {id: "palla", data: "palladata"}
-            ];
-            client._put("/app/items/chnl", items).then(({ok, path, data}) => {
+            const args = {
+                "insert": [
+                    {id: "jalla", data: "jalladata"},
+                    {id: "palla", data: "palladata"},
+                ],
+            };
+            client._put("/app/items/chnl", args).then(({ok, path, data}) => {
                 if (ok) console.log(`put items ${path} ${data}`);
             });
         }
         document.getElementById("put_items_2").onclick = () => {
-            const items = [{id: "palla"}];
-            client._put("/app/items/chnl", items).then(({ok, path, data}) => {
+            const args = {"remove": ["palla"]}
+            client._put("/app/items/chnl", args).then(({ok, path, data}) => {
                 if (ok) console.log(`put items ${path} ${data}`);
             });
         }
         document.getElementById("put_items_3").onclick = () => {
-            const items = [];
-            client._put("/app/items/chnl", items).then(({ok, path, data}) => {
+            const args = {"insert": [], clear:true};
+            client._put("/app/items/chnl", args).then(({ok, path, data}) => {
                 if (ok) console.log(`put items ${path} ${data}`);
             });
         }

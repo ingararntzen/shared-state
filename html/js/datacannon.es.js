@@ -204,7 +204,7 @@ class DataCannonClient extends WebSocketIO {
         } else if (msg.type == MsgType.MESSAGE) {
             if (msg.cmd == MsgCmd.RESET) {
                 this._handle_reset(msg);
-            } else if (msg.cmd == MsgCmd.RESET) {
+            } else if (msg.cmd == MsgCmd.NOTIFY) {
                 this._handle_notify(msg);
             }
         }

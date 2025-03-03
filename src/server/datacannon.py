@@ -211,13 +211,15 @@ class DataCannon:
         """Process tasks if any."""
         for task in self._tasks:
             method, *args = task
-            if method == "reset":
-                await self._process_reset_task(*args)
-            elif method == "notify":
-                await self._process_notify_task(*args)
+            if method == "unicast_reset":
+                await self._process_unicast_reset(*args)
+            elif method == "multicast_reset":
+                await self._process_multicast_reset(*args)
+            elif method == "multicast_notify":
+                await self._process_multicast_notify(*args)
         self._tasks = []
 
-    async def _process_reset_task(self, websocket, paths):
+    async def _process_unicast_reset(self, websocket, paths):
         """
         Reset a client connection, with respect to a list of paths.
 
@@ -251,108 +253,31 @@ class DataCannon:
             }
             await websocket.send(json.dumps(msg))
 
-    async def _process_notify_task(self, path, diffs):
+    async def _process_multicast_reset(self, path, items):
+        """
+        Multicast reset notifications to clients which have
+        subscribed to this resource (path)
+
+        Reset are triggered after PUT REPLACE
+        to a shared resource (path)
+        """
+        msg = {
+            "type": MsgType.MESSAGE,
+            "cmd": MsgCmd.RESET,
+            "path": path,
+            "data": items
+        }
+        data = json.dumps(msg)
+        for ws in self._clients.clients(path):
+            await ws.send(data)
+
+    async def _process_multicast_notify(self, path, diffs, include_oldstate):
         """
         Multicast notifications to clients which have
         subscribed to this resource (path).
 
-        Notifications are triggered after changes (diffs)
+        Notifications are triggered after PUT UPDATE
         to a shared resource (path),
-
-        NOTE - NOTIFICATION DESIGN
-
-        Subscriptions could be more advanced than just on/off
-        for a (client, resource). For example, assuming the
-        resource is a collection, a subscription could apply
-        to a subset of the collection.
-
-        If so, diffs should be checked for relevance for each
-        client, and only relevant diffs should be sent.
-
-        Relevance
-        - (enter) irrelevant -> relevant
-        - (change) relevant -> relevant
-        - (leave) relevant -> irrelevant
-        - (noop) irrelevant -> irrelevant
-
-        In order to maintain the correct state at the client
-        side all events (enter,change,leave) need to be sent,
-        only (noops) can safely be dropped.
-
-        However, distinguishing between (noop, leave) requires
-        access to the old state of the resource - before the change.
-
-        The diffs, though, do not provide this - they only
-        indicate the state after change - with empty 'data' property
-        indicating that the item was removed.
-
-        [{'id': 'id1', 'data': 'data1'}, {'id': 'id2'}]
-
-        There is a good reason for this. Providing the
-        old state as part of the diffs would have implications
-        for the efficiency of the PUT operation, as it would
-        effectively require a GET before every PUT operation.
-
-        This leaves two alternatives.
-
-        ALTERNATIVE 1
-
-        Introduce a GET before PUT - and bring old state
-        into the diffs, and implement relevance checking at the server.
-
-        [
-            {
-                'new': {'id': 'id1': 'data': 'data1'},
-                'old': None
-            },
-            {
-                'new': None,
-                'old': {'id': 'id2': 'data': 'data2'}
-            },
-        ]
-
-        ALTERNATIVE 2
-
-        Send all notifications (including noop) and leave
-        relevance checking to the client. Upon receipt,
-        the client will use local state as old state, and
-        be able to figure out exactly which items should
-        be added, changed, or removed.
-
-        ALTERNATIVE 3
-
-        Avoid diffs all togheter, and simply reset all
-        affected client connections after an update.
-        This is similar to ALTERNATIVE 2, in the sense that
-        is shifts relevance-filtering to the client, and introduces
-        inefficiency in communication. This though, is worse
-        that ALTERNATIVE 2 as it will rebroadcast all state, as
-        opposed to only the state that has changed.
-
-        DISCUSSION
-
-        Alternative 2 implies some inefficiency as (noop) messages
-        will be unessesarily multicast to all clients always.
-        The negative effects might be significant if update operations
-        occur frequently, and many clients subscribe only to a tiny
-        subset of the channel. 
-
-        On the other hand, it makes for an efficient solution on the
-        server side, ensuring that PUT operations may be completed by
-        a single database operation, and that relevance-filtering,
-        which is essentially a client-specific operation, is performed
-        by clients instead of the server - in reference to local state.
-
-        CONCLUSION
-        - Even if subscripts are extended to include filters,
-        the server implementation will not do relevance checking.
-        - This is a strong argument for doing filtering on the
-        client side.
-        - There might be an argument for supporting server-side range
-        filter for timelined data
-        - It might also be possible to have a designated service
-        supporting diffs with old state and range filters
-
         """
         msg = {
             "type": MsgType.MESSAGE,
@@ -405,23 +330,30 @@ class DataCannon:
             subs = args
             self._clients.put_subs(websocket, subs)
             reset_paths = [path for path, sub in subs]
-            self._tasks.append(("reset", websocket, reset_paths))
+            self._tasks.append(("unicast_reset", websocket, reset_paths))
             # return subscriptions of client
             return True, self._clients.get_subs(websocket)
 
         # /app/service
-        app, service, resource = n_path.parts[1:4]
+        app, service, chnl = n_path.parts[1:4]
 
         srvc = self._services.get(service, None)
         if srvc is None:
             return False, "no service"
 
-        diffs = srvc.put(app, resource, args)
-
-        # notify changes
-        self._tasks.append(("notify", path, diffs))
-
-        return True, len(diffs)
+        insert = args.get("insert", [])
+        remove = args.get("remove", [])
+        clear = args.get("clear", False)
+        if clear:
+            items = srvc.replace(app, chnl, insert)
+            self._tasks.append(("multicast_reset", path, items))
+            return True, len(items)
+        else:
+            diffs = srvc.update(app, chnl, remove, insert)
+            include_oldstate = getattr(srvc, "include_oldstate", False)
+            self._tasks.append(("multicast_notify",
+                                path, diffs, include_oldstate))
+            return True, len(diffs)
 
 
 ########################################################################
@@ -456,3 +388,147 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+
+"""
+NOTE - DESIGN - SERVER-SIDE SUBSCRIPTIONS
+
+Subscriptions could be more advanced than just on/off
+for a (client, resource) - which they currently are.
+
+For example, assuming the resource is a collection, then
+a subscription (for notifications) could be limited to only a
+subset of the collection.
+
+1) The key requirement for the notification protocol is that
+clients must trust that they receiven notification of ALL
+changes.
+
+2) At the same time, it is attractive to perform notification
+filtering on the server-side, so that only relevant
+notifications are sent to each client.
+
+This can be particularly usefult when many clients are only
+interested in monitoring a very small portion of a large
+collection, and when changes happen frequently in areas
+which are not of interest.
+
+Achieving both 1) and 2) is possible, but it also has
+a downside.
+
+Consider the relevance check to be performed by the server.
+Focusing on the update of a single item in a collection,
+this occurence falls into one of 4 distinct types
+of relevance transformations.
+
+Relevance transformations
+- 1) irrelevant -> relevant
+- 2) relevant -> relevant
+- 3) relevant -> irrelevant
+- 4) irrelevant -> irrelevant
+
+In order to maintain the correct state at the client
+side all occurences in group 1),2),3) must be communicated
+to the client. Only group 4) can safely be dropped.
+
+PROBLEM
+
+The problem though, in order to distinguish between group
+3) and 4) - access to the old state of the item is needed.
+
+Furthermore, this has implications for service implementations,
+as change operations become slower, if they always have to
+look up current state before changing it.
+
+
+ALTERNATIVE 1
+
+One alternative is to support server-side filter subscriptions.
+The service will then have to lookup old state ahead of
+update change, and produce diffs in the following format,
+representing the effects of the update operation. Following
+this, server-side filter processing can calculate
+relevance both before and after the operation, and use this
+to correctly identify and drop notification belonging to group 4)
+
+[
+    {
+        'id': 'id1',
+        'new': {...},
+        'old': None
+    },
+    {
+        'id': 'id2',
+        'new': None,
+        'old': {...}
+    }
+]
+
+ALTERNATIVE 2
+
+Another alternative is to multicast all notifications
+(including group 4) and leave relevance checking to the client.
+Upon receipt, the client will then use local state as old state,
+and be able to figure out exactly which items should be added,
+changed, or removed.
+
+If so, services would not have to include information about
+old state after an update operation. Instead, they would just
+include the new state of all changed items.
+
+[
+    {
+        'id': 'id1',
+        "new": {...}
+    },
+    {
+        'id': 'id2',
+        "new": None
+    }
+]
+
+
+ALTERNATIVE 3
+
+There is also a third alternative, which is to avoid diffs all
+togheter, and simply reset all affected client connections after
+every update. This is similar to ALTERNATIVE 2, in the sense that
+is shifts relevance-filtering to the client, and introduces
+inefficiency in communication. However, ALTERNATIVE 3 is significantly
+worse that ALTERNATIVE 2 as it will rebroadcast all state, as
+opposed to only the state that has changed.
+
+
+DISCUSSION
+
+Alternative 1 saves communiction bandwith when clients only
+want to subscribe to a small subset of a collection, while
+updates are applied across the collection. On the down side,
+update latency is higher.
+
+Alternative 2 implies some inefficiency as group 4) notifications
+will be unessesarily multicast to all clients always.
+On the other hand, it makes for an efficient solution on the
+server side, ensuring that change operations may be completed by
+a single database operation, and that relevance-filtering,
+which is essentially a client-specific operation, is performed
+by clients instead of the server - in reference to local state.
+
+DECISION
+
+The choice is to implement ALTERNATIVE 2 as default solution,
+but to make sure the design is open to future support for
+ALTERNATIVE 1 as well.
+
+We do this by
+- Defining a diff format (above) which suits both alternatives
+- Let services signal the supported mode
+  service.include_oldstate {True|False}
+- Sub args - can be extended with filter state
+- Implementation of server-side filtering can then be added later if needed,
+as part of reset and nofitication processing.
+- Clients do not need to know about this distinction, as long
+  as they can filter out group 4) notifications.
+- When service.replace is used instead of service.update
+  diffs are avoided, so this is not relevant in that case.
+"""

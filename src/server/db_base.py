@@ -263,7 +263,7 @@ class BaseDB:
             args = self.remove_sql_args(app, chnl, id_batch)
             c = self._execute(SQL, args)
             c.close()
-        return [{"id": id} for id in ids]
+        return ids
 
     def update(self, app, chnl, items):
         """
@@ -316,12 +316,10 @@ class BaseDB:
         Remove all items of (app, chnl).
         Return list of removed items.
         """
-        items = list(self.get_all(app, chnl))
         SQL = self.delete_sql()
         args = self.delete_sql_args(app, chnl)
         c = self._execute(SQL, args)
         c.close()
-        return [{"id": item["id"]} for item in items]
 
     def apps(self):
         """
@@ -358,9 +356,7 @@ class BaseDB:
     def sql_tables(self):
         """Define sql tables. Overridden by subclass."""
         raise NotImplementedError()
-        return []
 
     def sql_indexes(self):
         """Define sql indexes. Overridden by subclass."""
         raise NotImplementedError()
-        return []
