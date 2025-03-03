@@ -34,7 +34,7 @@
         */
         document.getElementById("get_subs").onclick = () => {
             client._get("/subs").then(({data}) => {
-                console.log("subs", data);
+                console.log("subs", toStr(data));
             });
         }
         document.getElementById("put_subs_1").onclick = () => {

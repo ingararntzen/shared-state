@@ -211,19 +211,15 @@ class DataCannonClient extends WebSocketIO {
     }
 
     _handle_reset(msg) {
-        const ds = this._ds_map.get(msg["path"]);
-        if (ds != undefined) {
-            // set dataset state
-            console.log("reset", msg["path"], msg["data"]);
-        }
+        // set dataset state
+        console.log("reset", msg["path"], msg["data"]);
+        this._ds_map.get(msg["path"]);
     }
 
     _handle_notify(msg) {
-        const ds = this._ds_map.get(msg["path"]);
-        if (ds != undefined) {
-            // update dataset state
-            console.log("notify", msg["path"], msg["data"]);
-        }
+        // update dataset state
+        console.log("notify", msg["path"], msg["data"]);
+        this._ds_map.get(msg["path"]);
     }
 
     /*********************************************************************

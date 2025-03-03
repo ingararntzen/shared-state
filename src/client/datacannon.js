@@ -77,18 +77,18 @@ export class DataCannonClient extends WebSocketIO {
     }
 
     _handle_reset(msg) {
+        // set dataset state
+        console.log("reset", msg["path"], msg["data"]);
         const ds = this._ds_map.get(msg["path"]);
         if (ds != undefined) {
-            // set dataset state
-            console.log("reset", msg["path"], msg["data"]);
         }
     }
 
     _handle_notify(msg) {
+        // update dataset state
+        console.log("notify", msg["path"], msg["data"]);
         const ds = this._ds_map.get(msg["path"]);
         if (ds != undefined) {
-            // update dataset state
-            console.log("notify", msg["path"], msg["data"]);
         }
     }
 

@@ -1,13 +1,17 @@
-from src.server.db_items import ItemsDB
+from src.server.db_mysql import MysqlDB
+from src.server.db_sqlite import SqliteDB
 from collections import OrderedDict
 
 
 class ItemsService:
 
     def __init__(self, config):
-        self._db = ItemsDB(config)
+        if config["db_type"] == "mysql":
+            self._db = MysqlDB(config)
+        elif config["db_type"] == "sqlite":
+            self._db = SqliteDB(config)
         # this service does not include old state in diffs
-        self.include_oldstate = False
+        self.oldstate_included = False
 
     def get(self, app, chnl):
         return list(self._db.get_all(app, chnl))

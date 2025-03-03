@@ -1,10 +1,9 @@
 """Abstract base class for DataCannon Databases."""
 
 import mysql.connector as MySQLdb
-import sqlite3
 import threading
 import time
-import datetime
+from datetime import datetime, timezone
 from itertools import chain
 
 
@@ -26,12 +25,12 @@ def datetime_to_string(dt):
 
 def utc_now_to_string():
     """Convert UTC NOW to readable string."""
-    return datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
+    return datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
 
 
-###############################################################################
+###########################################################################
 # BASE DB
-###############################################################################
+###########################################################################
 
 class BaseDB:
     """Abstract base class for DataCannon Databases."""
@@ -41,13 +40,13 @@ class BaseDB:
     def __init__(self, cfg, stop_event=None):
         """Construct Database."""
         self.conn = None
-        self.cfg = cfg
-        self.cfg.update({
+        self.cfg = {
             "ssl.enabled": False,
             "ssl.key": None,
             "ssl.ca": None,
             "ssl.cert": None
-        })
+        }
+        self.cfg.update(cfg)
         if stop_event:
             self.stop_event = stop_event
         else:
@@ -60,40 +59,6 @@ class BaseDB:
         """Stop the database."""
         self.stop_event.set()
 
-    def _get_conn(self):
-        """Create database connection if not exists."""
-        if not self.conn:
-            if self.cfg["db_type"] == "mysql":
-                try:
-                    if self.cfg["ssl.enabled"]:
-                        self.conn = MySQLdb.connect(
-                            host=self.cfg["db_host"],
-                            user=self.cfg["db_user"],
-                            passwd=self.cfg["db_password"],
-                            db=self.cfg["db_name"],
-                            use_unicode=True,
-                            autocommit=True,
-                            charset="utf8",
-                            ssl_key=self.cfg["ssl.key"],
-                            ssl_ca=self.cfg["ssl.ca"],
-                            ssl_cert=self.cfg["ssl.cert"]
-                        )
-                    else:
-                        self.conn = MySQLdb.connect(
-                            host=self.cfg["db_host"],
-                            user=self.cfg["db_user"],
-                            passwd=self.cfg["db_password"],
-                            db=self.cfg["db_name"],
-                            use_unicode=True,
-                            autocommit=True,
-                            charset="utf8")
-                except Exception as e:
-                    print("Failed to connect", e.__class__, e)
-                    return None
-            elif self.cfg["db_type"] == "sqlite":
-                self.conn = sqlite3.connect(":memory:")
-        return self.conn
-
     def _execute(self, statement, parameters=[]):
         """
         Run a SQL statement.
@@ -105,7 +70,7 @@ class BaseDB:
             if self.stop_event.is_set():
                 break
             try:
-                c = self._get_conn().cursor()
+                c = self.get_conn().cursor()
                 c.execute(statement, parameters)
                 return c
             except Exception as e:
@@ -124,7 +89,7 @@ class BaseDB:
             try:
                 # not so important anymore, as batching is done
                 # on a higher level anyway
-                c = self._get_conn().cursor()
+                c = self.get_conn().cursor()
                 for record_batch in batch(records, self.BATCH_SIZE):
                     c.executemany(statement, record_batch)
                 return c
@@ -145,7 +110,7 @@ class BaseDB:
         """Create database indexes if not exists."""
         for index in self.sql_indexes():
             try:
-                c = self._get_conn().cursor()
+                c = self.get_conn().cursor()
                 c.execute(index)
             except (MySQLdb.errors.ProgrammingError) as e:
                 if e.errno == 1061 and e.msg.startswith("Duplicate key name"):
@@ -154,19 +119,13 @@ class BaseDB:
                 else:
                     raise e
 
-    ###########################################################################
+    #######################################################################
     # PUBLIC METHODS
-    ###########################################################################
+    #######################################################################
 
     def table(self):
         """Return table name."""
         return self.cfg["db_table"]
-
-    def sql_var_symbol(self):
-        """
-        Sqlite and Mysql use a different symbol for variables in SQL
-        """
-        return "?" if self.cfg["db_type"] == "sqlite" else "%s"
 
     def cursor_to_items(self, cursor):
         """
@@ -265,52 +224,6 @@ class BaseDB:
             c.close()
         return ids
 
-    def update(self, app, chnl, items):
-        """
-        insert/remove items from (app, chnl).
-        - empty items list : clear all
-
-        Convenience wrapper for processing inserts and removals as part
-        of a single batch of operations.
-        - remove: items which only specifies id
-        - insert/replace: items which specify id + data
-
-        Returns composite output from clear, remove, insert
-        """
-        # support single item
-        if not isinstance(items, list):
-            items = [items]
-
-        if len(items) == 0:
-            return self.clear(app, chnl)
-
-        removed_ids = set()
-        ids_to_remove = set()
-        items_to_insert = dict()
-
-        # process rest of items
-        for item in items:
-            # no id -> drop
-            if "id" not in item:
-                print("warning: drop item with no id", item)
-                continue
-            _id = item["id"]
-            # id, but no value -> remove
-            if "data" not in item:
-                if _id not in removed_ids:
-                    ids_to_remove.add(_id)
-            # id and data -> insert
-            else:
-                removed_ids.discard(_id)
-                ids_to_remove.discard(_id)
-                items_to_insert[_id] = item
-
-        # perform operations
-        res = [{"id": _id} for _id in removed_ids]
-        res.extend(self.remove(app, chnl, list(ids_to_remove)))
-        res.extend(self.insert(app, chnl, list(items_to_insert.values())))
-        return res
-
     def clear(self, app, chnl):
         """
         Remove all items of (app, chnl).
@@ -319,7 +232,9 @@ class BaseDB:
         SQL = self.delete_sql()
         args = self.delete_sql_args(app, chnl)
         c = self._execute(SQL, args)
+        rowcount = c.rowcount
         c.close()
+        return rowcount
 
     def apps(self):
         """

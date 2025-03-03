@@ -271,7 +271,7 @@ class DataCannon:
         for ws in self._clients.clients(path):
             await ws.send(data)
 
-    async def _process_multicast_notify(self, path, diffs, include_oldstate):
+    async def _process_multicast_notify(self, path, diffs, oldstate_included):
         """
         Multicast notifications to clients which have
         subscribed to this resource (path).
@@ -350,9 +350,8 @@ class DataCannon:
             return True, len(items)
         else:
             diffs = srvc.update(app, chnl, remove, insert)
-            include_oldstate = getattr(srvc, "include_oldstate", False)
-            self._tasks.append(("multicast_notify",
-                                path, diffs, include_oldstate))
+            flag = getattr(srvc, "oldstate_included", False)
+            self._tasks.append(("multicast_notify", path, diffs, flag))
             return True, len(diffs)
 
 
@@ -523,7 +522,7 @@ ALTERNATIVE 1 as well.
 We do this by
 - Defining a diff format (above) which suits both alternatives
 - Let services signal the supported mode
-  service.include_oldstate {True|False}
+  service.oldstate_included {True|False}
 - Sub args - can be extended with filter state
 - Implementation of server-side filtering can then be added later if needed,
 as part of reset and nofitication processing.
