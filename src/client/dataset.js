@@ -54,7 +54,7 @@ export class Dataset {
         return handle;
     };    
     remove_callback (handle) {
-        const index = this._handlers.indexof(handle);
+        const index = this._handlers.indexOf(handle);
         if (index > -1) {
             this._handlers.splice(index, 1);
         }

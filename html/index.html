@@ -96,6 +96,23 @@
             });
         }
 
+
+        /* 
+            ACQUIRE RELEASE
+        */
+        let handle;
+        let ds;
+        document.getElementById("acquire").onclick = () => {
+            [handle, ds] = client.acquire("/app/items/chnl");
+        }
+
+        document.getElementById("release").onclick = () => {
+            if (handle != undefined) {
+                client.release(handle);
+            }
+        }
+
+
 </script>
 </head>
 <body>
@@ -125,6 +142,15 @@
         <button id="put_items_2">Items 2</button>
         <button id="put_items_3">Clear Items</button>
     </p>
+
+    <p>
+        <h3>Acquire Release</h3>
+        <button id="acquire">Acquire</button>
+        <button id="release">Release</button>
+    </p>
+
+
+
 
 </body>
 </html>

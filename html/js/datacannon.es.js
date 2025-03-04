@@ -166,6 +166,7 @@ class DataCannonClient extends WebSocketIO {
         // datasets
         // path -> ds
         this._ds_map = new Map();
+        this._ds_handle_map = new Map();
     }
 
     /*********************************************************************
@@ -252,25 +253,17 @@ class DataCannonClient extends WebSocketIO {
     _get(path) {
         return this._request(MsgCmd.GET, path);
     }
+
     _put (path, args) {
         return this._request(MsgCmd.PUT, path, args);
     }
+
     _delete(path) {
         return this._request(MsgCmd.DELETE, path);
     }
 
-    /*********************************************************************
-        API
-    *********************************************************************/
-
-    dataset (path) {
-        if (!this._ds_map.has(path)) {
-            this._ds_map.set(path, new Object());
-        }
-        return this._ds_map.get(path);
-    }
-
-    sub (path) {
+    _sub (path) {
+        console.log("sub", path);
         // copy current state of subs
         const subs_map = new Map([...this._subs_map]);
         // set new path
@@ -279,13 +272,69 @@ class DataCannonClient extends WebSocketIO {
         return this._put("/subs", [...subs_map.entries()]);
     }
 
-    unsub (path) {
+    _unsub (path) {
+        console.log("unsub", path);
         // copy current state of subs
         const subs_map = new Map([...this._subs_map]);
         // remove path
         subs_map.delete(path);
         // reset subs on server
         return this._put("/subs", [...subs_map.entries()]);
+    }
+
+    /*********************************************************************
+        API
+    *********************************************************************/
+
+    /**
+     * acquire dataset for path
+     * - automatically subscribes to path if needed
+     * returns handle and dataset
+     * handle used to release dataset
+     */
+
+    acquire (path) {
+        // get dataset by path
+        if (!this._ds_map.has(path)) {
+
+            this._ds_map.set(path, new Object());
+            // subscribe to path
+            this._sub(path);
+        }
+        const ds = this._ds_map.get(path);
+        // create handle for path
+        const handle = {path};
+        if (!this._ds_handle_map.has(path)) {
+            this._ds_handle_map.set(path, []);
+        }
+        this._ds_handle_map.get(path).push(handle);
+        return [handle, ds];
+    }
+
+    /**
+     * release dataset by handle
+     * - automatically unsubscribe if all handles have been released
+     */
+
+    release (handle) {
+        const path = handle.path;
+        const handles = this._ds_handle_map.get(path);
+        console.log(handles);
+        if (handles == undefined) {
+            return;
+        }
+        // remove handle
+        const index = handles.indexOf(handle);
+        if (index > -1) {
+            handles.splice(index, 1);
+        }
+        // clean up if last handle released
+        if (handles.length == 0) {
+            this._unsub(path);
+            // clear/disable dataset
+            // const ds = this._ds_map.get(path);
+            this._ds_map.delete(path);
+        }
     }
 }
 
