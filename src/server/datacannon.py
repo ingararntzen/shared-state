@@ -349,7 +349,6 @@ class DataCannon:
         srvc = self._services.get(service, None)
         if srvc is None:
             return False, "no service"
-
         if method == "reset":
             insert_items = args
             items = srvc.reset(app, chnl, insert_items)

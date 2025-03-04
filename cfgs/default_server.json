@@ -2,7 +2,7 @@
     "service": {"host": "0.0.0.0", "port": 9000},
     "services": [
         {
-            "name": "items", "module": "items_service", 
+            "name": "mitems", "module": "items_service", 
             "config": {
                 "db_type": "mysql",
                 "db_name": "dcbase",
@@ -13,7 +13,7 @@
             }
         },
         {
-            "name": "mitems", "module": "items_service", 
+            "name": "items", "module": "items_service", 
             "config": {
                 "db_type": "sqlite",
                 "db_name": "dcbase",

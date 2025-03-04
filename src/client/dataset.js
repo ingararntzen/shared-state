@@ -12,6 +12,7 @@ export class Dataset {
         this._map = new Map();
     }
 
+
     /*********************************************************
         DC CLIENT API
     **********************************************************/
@@ -21,12 +22,13 @@ export class Dataset {
      */
     _dcclient_reset(insert_items) {
         // prepare diffs with oldstate
-
-        const diff_map = new Map([...this._map.values()]
-            .map(item => {
-                return {id: item.id, new:undefined, old:item}
-            }));
-
+        const diff_map = new Map();
+        for (const item of this._map.values()) {
+            diff_map.set(
+                item.id, 
+                {id: item.id, new:undefined, old:item}
+            );
+        }
         // reset state and build diff map
         this._map = new Map();
         for (const item of insert_items) {
@@ -59,7 +61,7 @@ export class Dataset {
         for (const item of insert_items) {
             const _id = item.id;
             // old from diff_map or _map
-            const diff = this._diff_map.get(_id);
+            const diff = diff_map.get(_id);
             const old = (diff != undefined) ? diff.old : this._map.get(_id);
             // set state
             this._map.set(_id, item);
@@ -75,8 +77,6 @@ export class Dataset {
         });
     };
 
-
-
     /*********************************************************
         APPLICATION API
     **********************************************************/
@@ -88,11 +88,23 @@ export class Dataset {
         return [...this._map.values()];
     };
 
+    get size() {return this._map.size}
+
+
     /**
      * application dispatching update to server
      */
-    update (changes) {
-        //this._dcclient._put(this._path, )
+    update (changes={}) {
+        let {
+            insert=[],
+            remove=[],
+            clear=false
+        } = changes;
+        if (clear) {
+            return this._dcclient.reset(this._path, insert);
+        } else {
+            return this._dcclient.update(this._path, remove, insert);
+        }
     }
 
     /**

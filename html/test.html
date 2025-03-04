@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket Reconnect Example</title>
+    <script type="module">
+        import {DataCannonClient} from "./js/datacannon.es.js";
+
+        const client = new DataCannonClient("ws://0.0.0.0:9000");
+        client.connect();
+
+
+        /*
+            SERVICES
+        */
+        document.getElementById("get_services").onclick = () => {
+            client.get("/").then(({ok, data}) => {
+                console.log("services", ok, data);
+            });
+        }
+
+        /*
+            CLOCK
+        */
+        document.getElementById("get_clock").onclick = () => {
+            client.get("/clock").then(({data}) => {
+                console.log("clock", data);
+            });
+        }
+
+        /*
+            SUBS
+        */
+        document.getElementById("get_subs").onclick = () => {
+            client.get("/subs").then(({data}) => {
+                console.log("subs", toStr(data));
+            });
+        }
+        document.getElementById("put_subs_1").onclick = () => {
+            const subs = [
+                ["/app/items/chnl", {}],
+                ["/app/items/test", {}]
+            ];
+            client.reset("/subs", subs).then(({data}) => {
+                console.log("put subs", data);
+            });
+        }
+        document.getElementById("put_subs_2").onclick = () => {
+            const subs = [["/app/items/test", {}]];
+            client.reset("/subs", subs).then(({data}) => {
+                console.log("put subs", data);
+            });
+        }
+        document.getElementById("put_subs_3").onclick = () => {
+            const subs = [];
+            client.reset("/subs", subs).then(({data}) => {
+                console.log("put subs", data);
+            });
+        }
+
+        /*
+            ITEMS
+        */
+
+        function toStr(data) {
+            return `[${data.map(d => JSON.stringify(d))}]`
+        }
+
+        document.getElementById("get_items").onclick = () => {
+            client.get("/app/items/chnl")
+                .then(({ok, path, data}) => {
+                    if (ok) console.log(`get items ${path} ${toStr(data)}`);
+                });
+        }
+        document.getElementById("put_items_1").onclick = () => {
+            const items = [
+                {id: "jalla", data: "jalladata"},
+                {id: "palla", data: "palladata"},
+            ]
+            client.update("/app/items/chnl", [], items)
+                .then(({ok, path, data}) => {
+                    if (ok) console.log(`put items ${path} ${data}`);
+                });
+        }
+        document.getElementById("put_items_2").onclick = () => {
+            const remove_ids = ["palla"];
+            client.update("/app/items/chnl", remove_ids, [])
+                .then(({ok, path, data}) => {
+                    if (ok) console.log(`put items ${path} ${data}`);
+                });
+        }
+        document.getElementById("put_items_3").onclick = () => {
+            client.reset("/app/items/chnl", [])
+                .then(({ok, path, data}) => {
+                    if (ok) console.log(`put items ${path} ${data}`);
+                });
+        }
+
+
+        /* 
+            ACQUIRE RELEASE
+        */
+        let handle;
+        let ds;
+        document.getElementById("acquire").onclick = () => {
+            [handle, ds] = client.acquire("/app/items/chnl");
+        }
+
+        document.getElementById("release").onclick = () => {
+            if (handle != undefined) {
+                client.release(handle);
+            }
+        }
+
+
+</script>
+</head>
+<body>
+    <h1>DataCannon</h1>
+    <p>
+        <h3>Services</h3>
+        <button id="get_services">Get Services</button>
+    </p>
+
+    <p>
+        <h3>Clock</h3>
+        <button id="get_clock">Get Clock</button>
+    </p>
+
+    <p>
+        <h3>Subs</h3>
+        <button id="get_subs">Get Subs</button>
+        <button id="put_subs_1">Put Subs 1</button>
+        <button id="put_subs_2">Put Subs 2</button>
+        <button id="put_subs_3">Clear Subs</button>
+    </p>
+
+    <p>
+        <h3>Items</h3>
+        <button id="get_items">Get Items </button>
+        <button id="put_items_1">Items 1</button>
+        <button id="put_items_2">Items 2</button>
+        <button id="put_items_3">Clear Items</button>
+    </p>
+
+    <p>
+        <h3>Acquire Release</h3>
+        <button id="acquire">Acquire</button>
+        <button id="release">Release</button>
+    </p>
+
+
+
+
+</body>
+</html>

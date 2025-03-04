@@ -29,7 +29,9 @@ class ItemsService:
             self._db.remove(app, chnl, remove_ids)
         # insert
         if insert_items:
+            print("insert", app, chnl, insert_items)
             self._db.insert(app, chnl, insert_items)
+            print("insert done")
         # diffs
         diffs = OrderedDict()
         for _id in remove_ids:
@@ -37,7 +39,7 @@ class ItemsService:
         for item in insert_items:
             _id = item["id"]
             diffs[_id] = {"id": _id, "new": item}
-
+        print("diffs", list(diffs.values()))
         # return ordered list of diffs
         return list(diffs.values())
 

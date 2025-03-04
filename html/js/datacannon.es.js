@@ -136,6 +136,130 @@ class WebSocketIO {
     }
 }
 
+class Dataset {
+
+    constructor(dcclient, path) {
+        // dcclient
+        this._dcclient = dcclient;
+        this._path = path;
+        // callbacks
+        this._handlers = [];
+        // items
+        this._map = new Map();
+    }
+
+
+    /*********************************************************
+        DC CLIENT API
+    **********************************************************/
+
+    /**
+     * server reset dataset 
+     */
+    _dcclient_reset(insert_items) {
+        // prepare diffs with oldstate
+        const diff_map = new Map();
+        for (const item of this._map.values()) {
+            diff_map.set(
+                item.id, 
+                {id: item.id, new:undefined, old:item}
+            );
+        }
+        // reset state and build diff map
+        this._map = new Map();
+        for (const item of insert_items) {
+            this._map.set(item.id, item);
+            if (diff_map.has(item.id)) {
+                diff_map.get(item.id).new = item;                
+            } else {
+                diff_map.set(item.id, {id:item.id, new: item, old:undefined});
+            }
+        }
+        this._dcclient_notify_callbacks([...diff_map.values()]);
+    }
+
+    /**
+     * server update dataset 
+     */
+    _dcclient_update (remove_ids, insert_items) {
+        const diff_map = new Map();
+
+        // remove
+        for (const _id of remove_ids) {
+            const old = this._msg.get(_id);
+            if (old != undefined) {
+                this._msg.delete(_id);
+                diff_map.set(_id, {id:_id, new:undefined, old});
+            }
+        }
+
+        // insert
+        for (const item of insert_items) {
+            const _id = item.id;
+            // old from diff_map or _map
+            const diff = diff_map.get(_id);
+            const old = (diff != undefined) ? diff.old : this._map.get(_id);
+            // set state
+            this._map.set(_id, item);
+            // update diff map
+            diff_map.set(_id, {id:_id, new:item, old});
+        }
+        this._dcclient_notify_callbacks([...diff_map.values()]);
+    }
+
+    _dcclient_notify_callbacks (eArg) {
+        this._handlers.forEach(function(handle) {
+            handle.handler(eArg);
+        });
+    };
+
+    /*********************************************************
+        APPLICATION API
+    **********************************************************/
+
+    /**
+     * application requesting items
+     */
+    get_items() {
+        return [...this._map.values()];
+    };
+
+    get size() {return this._map.size}
+
+
+    /**
+     * application dispatching update to server
+     */
+    update (changes={}) {
+        let {
+            insert=[],
+            remove=[],
+            clear=false
+        } = changes;
+        if (clear) {
+            return this._dcclient.reset(this._path, insert);
+        } else {
+            return this._dcclient.update(this._path, remove, insert);
+        }
+    }
+
+    /**
+     * application register callback
+    */
+    add_callback (handler) {
+        const handle = {handler};
+        this._handlers.push(handle);
+        return handle;
+    };    
+    remove_callback (handle) {
+        const index = this._handlers.indexOf(handle);
+        if (index > -1) {
+            this._handlers.splice(index, 1);
+        }
+    };
+    
+}
+
 const MsgType = Object.freeze({
     MESSAGE : "MESSAGE",
     REQUEST: "REQUEST",
@@ -214,14 +338,19 @@ class DataCannonClient extends WebSocketIO {
 
     _handle_reset(msg) {
         // set dataset state
-        console.log("reset", msg["path"], msg["data"]);
-        this._ds_map.get(msg["path"]);
+        const ds = this._ds_map.get(msg["path"]);
+        if (ds != undefined) {
+            ds._dcclient_reset(msg["data"]);
+        }
     }
 
     _handle_notify(msg) {
         // update dataset state
-        console.log("notify", msg["path"], msg["data"]);
-        this._ds_map.get(msg["path"]);
+        const ds = this._ds_map.get(msg["path"]);
+        if (ds != undefined) {
+            const [remove, insert] = msg["data"];
+            ds._dcclient_update(remove, insert);
+        }
     }
 
     /*********************************************************************
@@ -251,12 +380,19 @@ class DataCannonClient extends WebSocketIO {
     }
 
     _sub (path) {
-        // copy current state of subs
-        const subs_map = new Map([...this._subs_map]);
-        // set new path
-        subs_map.set(path, {});
-        // reset subs on server
-        return this.reset("/subs", [...subs_map.entries()]);
+        if (this.connected) {
+            // copy current state of subs
+            const subs_map = new Map([...this._subs_map]);
+            // set new path
+            subs_map.set(path, {});
+            // reset subs on server
+            return this.reset("/subs", [...subs_map.entries()]);
+        } else {
+            // update local subs - subscribe on reconnect
+            this._subs_map.set(path, {});
+            return Promise.resolve({ok: true, path, data:undefined})
+        }
+
     }
 
     _unsub (path) {
@@ -301,7 +437,7 @@ class DataCannonClient extends WebSocketIO {
         }
         // create dataset if not exists
         if (!this._ds_map.has(path)) {
-            this._ds_map.set(path, new Object());
+            this._ds_map.set(path, new Dataset(this, path));
         }
         const ds = this._ds_map.get(path);
         // create handle for path
@@ -339,4 +475,80 @@ class DataCannonClient extends WebSocketIO {
     }
 }
 
-export { DataCannonClient };
+/*
+    Dataset Viewer
+*/
+
+function item2string(item) {
+    const {id, itv, data} = item;
+    let data_txt = JSON.stringify(data);
+    let itv_txt = (itv != undefined) ? JSON.stringify(itv) : "";
+    let id_html = `<span class="id">${id}</span>`;
+    let itv_html = `<span class="itv">${itv_txt}</span>`;
+    let data_html = `<span class="data">${data_txt}</span>`;
+    return `
+        <div>
+            <button id="delete">X</button>
+            ${id_html}: ${itv_html} ${data_html}
+        </div>`;
+}
+
+
+class DatasetViewer {
+
+    constructor(dataset, elem, options={}) {
+        this._ds = dataset;
+        this._elem = elem;
+        this._ds.add_callback(this._onchange.bind(this)); 
+
+        // options
+        let defaults = {
+            delete:false,
+            toString:item2string
+        };
+        this._options = {...defaults, ...options};
+
+        /*
+            Support delete
+        */
+        if (this._options.delete) {
+            // listen for click events on root element
+            elem.addEventListener("click", (e) => {
+                // catch click event from delete button
+                const deleteBtn = e.target.closest("#delete");
+                if (deleteBtn) {
+                    const listItem = deleteBtn.closest(".list-item");
+                    if (listItem) {
+                        this._ds.update({remove:[listItem.id]});
+                        e.stopPropagation();
+                    }
+                }
+            });
+        }
+    }
+
+    _onchange(diffs) {
+        const {toString} = this._options;
+        for (let diff of diffs) {
+            if (diff.new) {
+                // add
+                let node = this._elem.querySelector(`#${diff.id}`);
+                if (node == null) {
+                    node = document.createElement("div");
+                    node.setAttribute("id", diff.id);
+                    node.classList.add("list-item");
+                    this._elem.appendChild(node);
+                }
+                node.innerHTML = toString(diff.new);
+            } else if (diff.old) {
+                // remove
+                let node = this._elem.querySelector(`#${diff.id}`);
+                if (node) {
+                    node.parentNode.removeChild(node);
+                }
+            }
+        }
+    }
+}
+
+export { DataCannonClient, DatasetViewer };

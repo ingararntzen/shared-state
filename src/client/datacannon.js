@@ -1,5 +1,6 @@
 import { WebSocketIO } from "./wsio.js";
 import { resolvablePromise } from "./util.js";
+import { Dataset } from "./dataset.js";
 
 
 const MsgType = Object.freeze({
@@ -80,19 +81,18 @@ export class DataCannonClient extends WebSocketIO {
 
     _handle_reset(msg) {
         // set dataset state
-        console.log("reset", msg["path"], msg["data"]);
         const ds = this._ds_map.get(msg["path"]);
         if (ds != undefined) {
-            // ds.reset(msg["data"]);
+            ds._dcclient_reset(msg["data"]);
         }
     }
 
     _handle_notify(msg) {
         // update dataset state
-        console.log("notify", msg["path"], msg["data"]);
         const ds = this._ds_map.get(msg["path"]);
         if (ds != undefined) {
-            // ds.update(msg["data"])
+            const [remove, insert] = msg["data"];
+            ds._dcclient_update(remove, insert);
         }
     }
 
@@ -123,12 +123,19 @@ export class DataCannonClient extends WebSocketIO {
     }
 
     _sub (path) {
-        // copy current state of subs
-        const subs_map = new Map([...this._subs_map]);
-        // set new path
-        subs_map.set(path, {});
-        // reset subs on server
-        return this.reset("/subs", [...subs_map.entries()]);
+        if (this.connected) {
+            // copy current state of subs
+            const subs_map = new Map([...this._subs_map]);
+            // set new path
+            subs_map.set(path, {});
+            // reset subs on server
+            return this.reset("/subs", [...subs_map.entries()]);
+        } else {
+            // update local subs - subscribe on reconnect
+            this._subs_map.set(path, {});
+            return Promise.resolve({ok: true, path, data:undefined})
+        }
+
     }
 
     _unsub (path) {
@@ -173,7 +180,7 @@ export class DataCannonClient extends WebSocketIO {
         }
         // create dataset if not exists
         if (!this._ds_map.has(path)) {
-            this._ds_map.set(path, new Object());
+            this._ds_map.set(path, new Dataset(this, path));
         }
         const ds = this._ds_map.get(path);
         // create handle for path
