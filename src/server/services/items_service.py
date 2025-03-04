@@ -16,7 +16,7 @@ class ItemsService:
     def get(self, app, chnl):
         return list(self._db.get_all(app, chnl))
 
-    def replace(self, app, chnl, insert_items):
+    def reset(self, app, chnl, insert_items):
         # clear
         self._db.clear(app, chnl)
         # insert
@@ -38,7 +38,7 @@ class ItemsService:
             _id = item["id"]
             diffs[_id] = {"id": _id, "new": item}
 
-        # return list of diffs
+        # return ordered list of diffs
         return list(diffs.values())
 
 

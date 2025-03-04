@@ -15,7 +15,7 @@
             SERVICES
         */
         document.getElementById("get_services").onclick = () => {
-            client._get("/").then(({ok, data}) => {
+            client.get("/").then(({ok, data}) => {
                 console.log("services", ok, data);
             });
         }
@@ -24,7 +24,7 @@
             CLOCK
         */
         document.getElementById("get_clock").onclick = () => {
-            client._get("/clock").then(({data}) => {
+            client.get("/clock").then(({data}) => {
                 console.log("clock", data);
             });
         }
@@ -33,7 +33,7 @@
             SUBS
         */
         document.getElementById("get_subs").onclick = () => {
-            client._get("/subs").then(({data}) => {
+            client.get("/subs").then(({data}) => {
                 console.log("subs", toStr(data));
             });
         }
@@ -42,19 +42,19 @@
                 ["/app/items/chnl", {}],
                 ["/app/items/test", {}]
             ];
-            client._put("/subs", subs).then(({data}) => {
+            client.reset("/subs", subs).then(({data}) => {
                 console.log("put subs", data);
             });
         }
         document.getElementById("put_subs_2").onclick = () => {
             const subs = [["/app/items/test", {}]];
-            client._put("/subs", subs).then(({data}) => {
+            client.reset("/subs", subs).then(({data}) => {
                 console.log("put subs", data);
             });
         }
         document.getElementById("put_subs_3").onclick = () => {
             const subs = [];
-            client._put("/subs", subs).then(({data}) => {
+            client.reset("/subs", subs).then(({data}) => {
                 console.log("put subs", data);
             });
         }
@@ -68,30 +68,27 @@
         }
 
         document.getElementById("get_items").onclick = () => {
-            client._get("/app/items/chnl").then(({ok, path, data}) => {
+            client.get("/app/items/chnl").then(({ok, path, data}) => {
                 if (ok) console.log(`get items ${path} ${toStr(data)}`);
             });
         }
         document.getElementById("put_items_1").onclick = () => {
-            const args = {
-                "insert": [
-                    {id: "jalla", data: "jalladata"},
-                    {id: "palla", data: "palladata"},
-                ],
-            };
-            client._put("/app/items/chnl", args).then(({ok, path, data}) => {
+            const items = [
+                {id: "jalla", data: "jalladata"},
+                {id: "palla", data: "palladata"},
+            ]
+            client.update("/app/items/chnl", [], items).then(({ok, path, data}) => {
                 if (ok) console.log(`put items ${path} ${data}`);
             });
         }
         document.getElementById("put_items_2").onclick = () => {
-            const args = {"remove": ["palla"]}
-            client._put("/app/items/chnl", args).then(({ok, path, data}) => {
+            const remove_ids = ["palla"];
+            client.update("/app/items/chnl", remove_ids, []).then(({ok, path, data}) => {
                 if (ok) console.log(`put items ${path} ${data}`);
             });
         }
         document.getElementById("put_items_3").onclick = () => {
-            const args = {"insert": [], clear:true};
-            client._put("/app/items/chnl", args).then(({ok, path, data}) => {
+            client.reset("/app/items/chnl", []).then(({ok, path, data}) => {
                 if (ok) console.log(`put items ${path} ${data}`);
             });
         }

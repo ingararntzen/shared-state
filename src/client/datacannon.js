@@ -2,19 +2,20 @@ import { WebSocketIO } from "./wsio.js";
 import { resolvablePromise } from "./util.js";
 
 
-export const MsgType = Object.freeze({
+const MsgType = Object.freeze({
     MESSAGE : "MESSAGE",
     REQUEST: "REQUEST",
     REPLY: "REPLY"
  });
  
-export const MsgCmd = Object.freeze({
+const MsgCmd = Object.freeze({
     GET : "GET",
     PUT: "PUT",
     DELETE: "DELETE",
     RESET: "RESET",
     NOTIFY: "NOTIFY"
 });
+
 
 export class DataCannonClient extends WebSocketIO {
 
@@ -43,7 +44,7 @@ export class DataCannonClient extends WebSocketIO {
         console.log(`Connect  ${this.url}`);
         // refresh local suscriptions
         if (this._subs_map.size > 0) {
-            this._put("/subs", [...this._subs_map.entries()])
+            this.reset("/subs", [...this._subs_map.entries()])
         }
     }
     on_disconnect() {
@@ -81,25 +82,31 @@ export class DataCannonClient extends WebSocketIO {
         // set dataset state
         console.log("reset", msg["path"], msg["data"]);
         const ds = this._ds_map.get(msg["path"]);
+        if (ds != undefined) {
+            // ds.reset(msg["data"]);
+        }
     }
 
     _handle_notify(msg) {
         // update dataset state
         console.log("notify", msg["path"], msg["data"]);
         const ds = this._ds_map.get(msg["path"]);
+        if (ds != undefined) {
+            // ds.update(msg["data"])
+        }
     }
 
     /*********************************************************************
         SERVER REQUESTS
     *********************************************************************/
 
-    _request(cmd, path, args) {
+    _request(cmd, path, arg) {
         const reqid = this._reqid++;
         const msg = {
             type: MsgType.REQUEST,
             cmd, 
             path, 
-            args,
+            arg,
             tunnel: reqid
         };
         this.send(JSON.stringify(msg));
@@ -110,47 +117,46 @@ export class DataCannonClient extends WebSocketIO {
             if (cmd == MsgCmd.PUT && path == "/subs" && ok) {
                 // update local subscription state
                 this._subs_map = new Map(data)
-                // TODO - ensure that datasets exist for all subs.
             }
-            return {ok, data, path, args};
+            return {ok, data, path, arg};
         });
     }
 
-    _get(path) {
-        return this._request(MsgCmd.GET, path);
-    }
-
-    _put (path, args) {
-        return this._request(MsgCmd.PUT, path, args);
-    }
-
-    _delete(path) {
-        return this._request(MsgCmd.DELETE, path);
-    }
-
     _sub (path) {
-        console.log("sub", path);
         // copy current state of subs
         const subs_map = new Map([...this._subs_map]);
         // set new path
         subs_map.set(path, {});
         // reset subs on server
-        return this._put("/subs", [...subs_map.entries()]);
+        return this.reset("/subs", [...subs_map.entries()]);
     }
 
     _unsub (path) {
-        console.log("unsub", path);
         // copy current state of subs
         const subs_map = new Map([...this._subs_map]);
         // remove path
         subs_map.delete(path)
         // reset subs on server
-        return this._put("/subs", [...subs_map.entries()]);
+        return this.reset("/subs", [...subs_map.entries()]);
     }
 
     /*********************************************************************
         API
     *********************************************************************/
+
+    get(path) {
+        return this._request(MsgCmd.GET, path);
+    }
+    
+    reset(path, insert) {
+        const arg= {method:"reset", args:insert};
+        return this._request(MsgCmd.PUT, path, arg);
+    }
+
+    update(path, remove, insert) {
+        const arg = {method:"update", args:[remove, insert]};
+        return this._request(MsgCmd.PUT, path, arg);
+    }
 
     /**
      * acquire dataset for path
@@ -160,12 +166,14 @@ export class DataCannonClient extends WebSocketIO {
      */
 
     acquire (path) {
-        // get dataset by path
-        if (!this._ds_map.has(path)) {
-
-            this._ds_map.set(path, new Object());
+        // subscribe if not exists
+        if (!this._subs_map.has(path)) {
             // subscribe to path
             this._sub(path);
+        }
+        // create dataset if not exists
+        if (!this._ds_map.has(path)) {
+            this._ds_map.set(path, new Object());
         }
         const ds = this._ds_map.get(path);
         // create handle for path
@@ -185,7 +193,6 @@ export class DataCannonClient extends WebSocketIO {
     release (handle) {
         const path = handle.path;
         const handles = this._ds_handle_map.get(path);
-        console.log(handles);
         if (handles == undefined) {
             return;
         }
