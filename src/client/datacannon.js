@@ -118,7 +118,7 @@ export class DataCannonClient extends WebSocketIO {
                 // update local subscription state
                 this._subs_map = new Map(data)
             }
-            return {ok, data, path, arg};
+            return {ok, path, data};
         });
     }
 
