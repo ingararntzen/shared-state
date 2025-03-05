@@ -39,7 +39,7 @@
             ds.update({insert:items});
         }
 
-        document.querySelector("#modifyBtn").onclick = () => {
+        document.querySelector("#changeBtn").onclick = () => {
             // pick random item
             const items = ds.get_items();
             const idx = getRandomInt(items.length);
@@ -48,7 +48,7 @@
             ds.update({insert:[new_item]});
         }
 
-        document.querySelector("#clearBtn").onclick = () => {
+        document.querySelector("#resetBtn").onclick = () => {
             ds.update({reset:true});
         }
 
@@ -59,8 +59,8 @@
     <h3> DataCannon Dataset Viewer</h3>
     <p>
         <button id="addBtn">Add</button>
-        <button id="modifyBtn">Modify</button>
-        <button id="clearBtn">Clear</button>
+        <button id="changeBtn">Change</button>
+        <button id="resetBtn">Reset</button>
     </p>
 
     <h3>Viewer</h3>
