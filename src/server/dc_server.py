@@ -233,7 +233,7 @@ class DataCannonServer:
         for unsub.
         """
         for path in paths:
-            changes = {"remove":[], "insert":[], "reset":True}
+            changes = {"remove": [], "insert": [], "reset": True}
             if self._clients.is_subscribed_to_path(ws, path):
                 # get state
                 ok, result = self.handle_GET(ws, path)
