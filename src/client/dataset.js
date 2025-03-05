@@ -12,53 +12,39 @@ export class Dataset {
         this._map = new Map();
     }
 
-
     /*********************************************************
         DC CLIENT API
     **********************************************************/
 
     /**
-     * server reset dataset 
-     */
-    _dcclient_reset(insert_items) {
-        // prepare diffs with oldstate
-        const diff_map = new Map();
-        for (const item of this._map.values()) {
-            diff_map.set(
-                item.id, 
-                {id: item.id, new:undefined, old:item}
-            );
-        }
-        // reset state and build diff map
-        this._map = new Map();
-        for (const item of insert_items) {
-            this._map.set(item.id, item);
-            if (diff_map.has(item.id)) {
-                diff_map.get(item.id).new = item;                
-            } else {
-                diff_map.set(item.id, {id:item.id, new: item, old:undefined});
-            }
-        }
-        this._dcclient_notify_callbacks([...diff_map.values()]);
-    }
-
-    /**
      * server update dataset 
      */
-    _dcclient_update (remove_ids, insert_items) {
+    _dcclient_update (changes={}) {
+
+        const {remove, insert, reset=false} = changes;
         const diff_map = new Map();
 
-        // remove
-        for (const _id of remove_ids) {
-            const old = this._msg.get(_id);
-            if (old != undefined) {
-                this._msg.delete(_id);
-                diff_map.set(_id, {id:_id, new:undefined, old});
+        // remove items - create diff
+        if (reset) {
+            for (const item of this._map.values()) {
+                diff_map.set(
+                    item.id, 
+                    {id: item.id, new:undefined, old:item}
+                );
+            }
+            this._map = new Map();
+        } else {
+            for (const _id of remove) {
+                const old = this._map.get(_id);
+                if (old != undefined) {
+                    this._map.delete(_id);
+                    diff_map.set(_id, {id:_id, new:undefined, old});
+                }
             }
         }
 
-        // insert
-        for (const item of insert_items) {
+        // insert items - update diff
+        for (const item of insert) {
             const _id = item.id;
             // old from diff_map or _map
             const diff = diff_map.get(_id);
@@ -68,10 +54,10 @@ export class Dataset {
             // update diff map
             diff_map.set(_id, {id:_id, new:item, old});
         }
-        this._dcclient_notify_callbacks([...diff_map.values()]);
+        this._notify_callbacks([...diff_map.values()]);
     }
 
-    _dcclient_notify_callbacks (eArg) {
+    _notify_callbacks (eArg) {
         this._handlers.forEach(function(handle) {
             handle.handler(eArg);
         });
@@ -95,16 +81,7 @@ export class Dataset {
      * application dispatching update to server
      */
     update (changes={}) {
-        let {
-            insert=[],
-            remove=[],
-            clear=false
-        } = changes;
-        if (clear) {
-            return this._dcclient.reset(this._path, insert);
-        } else {
-            return this._dcclient.update(this._path, remove, insert);
-        }
+        return this._dcclient.update(this._path, changes);
     }
 
     /**
@@ -120,6 +97,5 @@ export class Dataset {
         if (index > -1) {
             this._handlers.splice(index, 1);
         }
-    };
-    
+    };    
 }

@@ -30,8 +30,6 @@ class MsgCmd:
     """Message commands used by dcserver and dcclient."""
     GET = "GET"
     PUT = "PUT"
-    DELETE = "DELETE"
-    RESET = "RESET"
     NOTIFY = "NOTIFY"
 
 
@@ -235,61 +233,47 @@ class DataCannon:
         for unsub.
         """
         for path in paths:
-            data = []
+            changes = {"remove":[], "insert":[], "reset":True}
             if self._clients.is_subscribed_to_path(ws, path):
                 # get state
                 ok, result = self.handle_GET(ws, path)
                 if ok:
-                    data = result
+                    changes["insert"] = result
             msg = {
                 "type": MsgType.MESSAGE,
-                "cmd": MsgCmd.RESET,
+                "cmd": MsgCmd.NOTIFY,
                 "path": path,
-                "data": data
+                "data": changes
             }
             await ws.send(json.dumps(msg))
 
-    async def _process_multicast_reset(self, path, items):
-        """
-        Multicast reset notifications to clients which have
-        subscribed to this resource (path)
-
-        Reset are triggered after PUT RESET
-        to a shared resource (path)
-        """
-        msg = {
-            "type": MsgType.MESSAGE,
-            "cmd": MsgCmd.RESET,
-            "path": path,
-            "data": items
-        }
-        data = json.dumps(msg)
-        for ws in self._clients.clients(path):
-            await ws.send(data)
-
-    async def _process_multicast_notify(self, path, diffs, oldstate_included):
+    async def _process_multicast_notify(self, path, changes,
+                                        diffs, oldstate_included):
         """
         Multicast notifications to clients which have
         subscribed to this resource (path).
 
-        Notifications are triggered after PUT UPDATE
-        to a shared resource (path),
+        Notifications are triggered after PUT path changes
 
-        Send only current state. Diffs were needed here only
-        to support server-side filtering.
+        Current implementation uses only current state (i.e. diff.new).
         """
-        insert_items = []
-        remove_ids = []
+        insert = []
+        remove = []
         for diff in diffs:
             if diff["new"] is None:
-                remove_ids.append(diff["id"])
+                remove.append(diff["id"])
             else:
-                insert_items.append(diff["new"])
+                insert.append(diff["new"])
+        changes = {
+            "remove": remove,
+            "insert": insert,
+            "reset": changes.get("reset", False)
+        }
         msg = {
             "type": MsgType.MESSAGE,
             "cmd": MsgCmd.NOTIFY,
             "path": path,
-            "data": [remove_ids, insert_items]
+            "data": changes
         }
         data = json.dumps(msg)
         for ws in self._clients.clients(path):
@@ -326,17 +310,16 @@ class DataCannon:
         else:
             return True, srvc.get(app, resource)
 
-    def handle_PUT(self, ws, path, arg):
+    def handle_PUT(self, ws, path, changes):
         """
         returns (ok, result)
         """
         parsed_url = urlparse(path)
         n_path = normalize(parsed_url.path)
         path = str(n_path)
-        method = arg.get("method")
-        args = arg.get("args")
+
         if n_path == PurePosixPath("/subs"):
-            subs = args
+            subs = changes.get("insert", [])
             self._clients.put_subs(ws, subs)
             reset_paths = [path for path, sub in subs]
             self._tasks.append(("unicast_reset", ws, reset_paths))
@@ -349,18 +332,11 @@ class DataCannon:
         srvc = self._services.get(service, None)
         if srvc is None:
             return False, "no service"
-        if method == "reset":
-            insert_items = args
-            items = srvc.reset(app, chnl, insert_items)
-            self._tasks.append(("multicast_reset", path, items))
-            return True, len(items)
-        elif method == "update":
-            remove_ids, insert_items = args
-            diffs = srvc.update(app, chnl, remove_ids, insert_items)
-            flag = getattr(srvc, "oldstate_included", False)
-            self._tasks.append(("multicast_notify", path, diffs, flag))
-            return True, len(diffs)
-        return False, "noop"
+        diffs = srvc.update(app, chnl, changes)
+        oldstate_included = getattr(srvc, "oldstate_included", False)
+        self._tasks.append(("multicast_notify", path, 
+                            changes, diffs, oldstate_included))
+        return True, len(diffs)
 
 
 ########################################################################

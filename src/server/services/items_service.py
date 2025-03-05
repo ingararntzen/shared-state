@@ -23,23 +23,32 @@ class ItemsService:
         self._db.insert(app, chnl, insert_items)
         return insert_items
 
-    def update(self, app, chnl, remove_ids, insert_items):
-        # remove
-        if remove_ids:
-            self._db.remove(app, chnl, remove_ids)
-        # insert
-        if insert_items:
-            print("insert", app, chnl, insert_items)
-            self._db.insert(app, chnl, insert_items)
-            print("insert done")
+    def update(self, app, chnl, changes):
+        insert = changes.get("insert", [])
+        remove = changes.get("remove", [])
+        reset = changes.get("reset", False)
+
+        # update database
+        if reset:
+            self._db.clear(app, chnl)    
+        else:
+            if remove:
+                self._db.remove(app, chnl, remove)
+        if insert:
+            self._db.insert(app, chnl, insert)
+
         # diffs
         diffs = OrderedDict()
-        for _id in remove_ids:
-            diffs[_id] = {"id": _id, "new": None}
-        for item in insert_items:
-            _id = item["id"]
-            diffs[_id] = {"id": _id, "new": item}
-        print("diffs", list(diffs.values()))
+        if reset:
+            # if reset flag is set - no information is incuded
+            # about which items have been removed
+            pass
+        else:
+            for _id in remove:
+                diffs[_id] = {"id": _id, "new": None}
+        for item in insert:
+            diffs[item["id"]] = {"id": item["id"], "new": item}
+
         # return ordered list of diffs
         return list(diffs.values())
 

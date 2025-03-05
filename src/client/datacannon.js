@@ -12,8 +12,6 @@ const MsgType = Object.freeze({
 const MsgCmd = Object.freeze({
     GET : "GET",
     PUT: "PUT",
-    DELETE: "DELETE",
-    RESET: "RESET",
     NOTIFY: "NOTIFY"
 });
 
@@ -45,7 +43,8 @@ export class DataCannonClient extends WebSocketIO {
         console.log(`Connect  ${this.url}`);
         // refresh local suscriptions
         if (this._subs_map.size > 0) {
-            this.reset("/subs", [...this._subs_map.entries()])
+            const items = [...this._subs_map.entries()];
+            this.update("/subs", {insert:items, reset:true});
         }
     }
     on_disconnect() {
@@ -71,19 +70,9 @@ export class DataCannonClient extends WebSocketIO {
                 resolver({ok, data});
             }
         } else if (msg.type == MsgType.MESSAGE) {
-            if (msg.cmd == MsgCmd.RESET) {
-                this._handle_reset(msg);
-            } else if (msg.cmd == MsgCmd.NOTIFY) {
+            if (msg.cmd == MsgCmd.NOTIFY) {
                 this._handle_notify(msg);
             }
-        }
-    }
-
-    _handle_reset(msg) {
-        // set dataset state
-        const ds = this._ds_map.get(msg["path"]);
-        if (ds != undefined) {
-            ds._dcclient_reset(msg["data"]);
         }
     }
 
@@ -91,8 +80,7 @@ export class DataCannonClient extends WebSocketIO {
         // update dataset state
         const ds = this._ds_map.get(msg["path"]);
         if (ds != undefined) {
-            const [remove, insert] = msg["data"];
-            ds._dcclient_update(remove, insert);
+            ds._dcclient_update(msg["data"]);
         }
     }
 
@@ -129,7 +117,8 @@ export class DataCannonClient extends WebSocketIO {
             // set new path
             subs_map.set(path, {});
             // reset subs on server
-            return this.reset("/subs", [...subs_map.entries()]);
+            const items = [...this._subs_map.entries()];
+            return this.update("/subs", {insert:items, reset:true});
         } else {
             // update local subs - subscribe on reconnect
             this._subs_map.set(path, {});
@@ -144,7 +133,8 @@ export class DataCannonClient extends WebSocketIO {
         // remove path
         subs_map.delete(path)
         // reset subs on server
-        return this.reset("/subs", [...subs_map.entries()]);
+        const items = [...subs_map.entries()];
+        return this.update("/subs", {insert:items, reset:true});
     }
 
     /*********************************************************************
@@ -155,14 +145,8 @@ export class DataCannonClient extends WebSocketIO {
         return this._request(MsgCmd.GET, path);
     }
     
-    reset(path, insert) {
-        const arg= {method:"reset", args:insert};
-        return this._request(MsgCmd.PUT, path, arg);
-    }
-
-    update(path, remove, insert) {
-        const arg = {method:"update", args:[remove, insert]};
-        return this._request(MsgCmd.PUT, path, arg);
+    update(path, changes) {
+        return this._request(MsgCmd.PUT, path, changes);
     }
 
     /**
