@@ -13,7 +13,7 @@
 
     <script type="module">
         import {
-            DataCannonClient,
+            DataCannon,
             DatasetViewer
         } from "./js/datacannon.es.js";
 
@@ -22,7 +22,7 @@
           return Math.floor(Math.random() * max);
         }
 
-        const client = new DataCannonClient("ws://0.0.0.0:9000");
+        const client = new DataCannon("ws://0.0.0.0:9000");
         client.connect();
 
         // Dataset

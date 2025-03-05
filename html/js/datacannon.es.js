@@ -249,7 +249,7 @@ const MsgCmd = Object.freeze({
 });
 
 
-class DataCannonClient extends WebSocketIO {
+class DataCannon extends WebSocketIO {
 
     constructor (url, options) {
         super(url, options);
@@ -511,4 +511,4 @@ class DatasetViewer {
     }
 }
 
-export { DataCannonClient, DatasetViewer };
+export { DataCannon, DatasetViewer };

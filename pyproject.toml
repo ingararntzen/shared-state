@@ -12,5 +12,5 @@ dependencies = [
 
 [project.scripts]
 clidb = "src.server.db_cli:main"
-datacannon = "src.server.datacannon:main"
+datacannon = "src.server.dc_server:main"
 

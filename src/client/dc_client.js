@@ -16,7 +16,7 @@ const MsgCmd = Object.freeze({
 });
 
 
-export class DataCannonClient extends WebSocketIO {
+export class DataCannon extends WebSocketIO {
 
     constructor (url, options) {
         super(url, options);

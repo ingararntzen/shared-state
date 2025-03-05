@@ -99,10 +99,10 @@ class Clients:
 
 
 ########################################################################
-# DataCannon
+# DataCannon Server
 ########################################################################
 
-class DataCannon:
+class DataCannonServer:
 
     def __init__(self, port=8000, host="0.0.0.0", services=[]):
         self._host = host
@@ -361,7 +361,7 @@ def main():
     host = config["service"]["host"]
     port = int(config["service"]["port"])
     services = config["services"]
-    server = DataCannon(host=host, port=port, services=services)
+    server = DataCannonServer(host=host, port=port, services=services)
     server.serve_forever()
 
 
