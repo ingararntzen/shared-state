@@ -110,11 +110,15 @@ export class ServerClock {
  * then slowly.
  */
 
-const SWITCH_MEDIUM = 3; // count
-const SWITCH_LARGE = 10; // count
-const SMALL_DELTA = 20; // ms
-const MEDIUM_DELTA = 500; // ms
-const LARGE_DELTA = 10000; // ms
+const SMALL_DELAY = 20; // ms
+const MEDIUM_DELAY = 500; // ms
+const LARGE_DELAY = 10000; // ms
+
+const DELAY_SEQUENCE = [
+    ...new Array(3).fill(SMALL_DELAY), 
+    ...new Array(7).fill(MEDIUM_DELAY),
+    ...[LARGE_DELAY]
+];
 
 class Pinger {
 
@@ -122,7 +126,8 @@ class Pinger {
         this._count = 0;
         this._tid = undefined;
         this._callback = callback;
-        this._ping = this.ping.bind(this)
+        this._ping = this.ping.bind(this);
+        this._delays = [...DELAY_SEQUENCE];
     }
     pause() {
         clearTimeout(this._tid);
@@ -132,22 +137,19 @@ class Pinger {
         this.ping();
     }
     restart() {
-        this._count = 0;
+        this._delays = [...DELAY_SEQUENCE];
         clearTimeout(this._tid);
         this.ping();
     }
     ping () {
-        this._count += 1;
-        if (this._count < SWITCH_MEDIUM) {
-            this._tid = setTimeout(this._ping, SMALL_DELTA);
-        } else if (this._count < SWITCH_LARGE) {
-            this._tid = setTimeout(this._ping, MEDIUM_DELTA);
-        } else {
-            this._tid = setTimeout(this._ping, LARGE_DELTA);
+        let next_delay = this._delays[0];
+        if (this._delays.length > 1) {
+            this._delays.shift();
         }
         if (this._callback) {
             this._callback();
         }
+        this._tid = setTimeout(this._ping, next_delay);
     }
 }
 
