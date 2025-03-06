@@ -278,7 +278,7 @@ class ServerClock {
 
     constructor(ssclient) {
         // sharestate client
-        this._ssclient = dcclient;
+        this._ssclient = ssclient;
         // pinger
         this._pinger = new Pinger(this._onping.bind(this));
         // samples

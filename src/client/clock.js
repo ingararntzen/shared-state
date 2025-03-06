@@ -38,9 +38,9 @@ const MAX_SAMPLE_COUNT = 30;
 
 export class ServerClock {
 
-    constructor(dcclient) {
-        // dcclient
-        this._dcclient = dcclient;
+    constructor(ssclient) {
+        // sharestate client
+        this._ssclient = ssclient;
         // pinger
         this._pinger = new Pinger(this._onping.bind(this));
         // samples
@@ -60,7 +60,7 @@ export class ServerClock {
 
     _onping() {
         const ts0 = CLOCK.now();
-        this._dcclient.get("/clock").then(({data}) => {
+        this._ssclient.get("/clock").then(({data}) => {
             const ts1 = CLOCK.now();
             this._add_sample(ts0, data, ts1);
         });

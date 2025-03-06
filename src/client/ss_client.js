@@ -16,7 +16,7 @@ const MsgCmd = Object.freeze({
 });
 
 
-export class DataCannon extends WebSocketIO {
+export class SharedStateClient extends WebSocketIO {
 
     constructor (url, options) {
         super(url, options);
@@ -87,7 +87,7 @@ export class DataCannon extends WebSocketIO {
         // update dataset state
         const ds = this._ds_map.get(msg["path"]);
         if (ds != undefined) {
-            ds._dcclient_update(msg["data"]);
+            ds._ssclient_update(msg["data"]);
         }
     }
 

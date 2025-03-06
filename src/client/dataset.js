@@ -2,9 +2,9 @@
 
 export class Dataset {
 
-    constructor(dcclient, path) {
-        // dcclient
-        this._dcclient = dcclient;
+    constructor(ssclient, path) {
+        // sharedstate client
+        this._ssclient = ssclient;
         this._path = path;
         // callbacks
         this._handlers = [];
@@ -13,13 +13,13 @@ export class Dataset {
     }
 
     /*********************************************************
-        DC CLIENT API
+        SHARED STATE CLIENT API
     **********************************************************/
 
     /**
      * server update dataset 
      */
-    _dcclient_update (changes={}) {
+    _ssclient_update (changes={}) {
 
         const {remove, insert, reset=false} = changes;
         const diff_map = new Map();
@@ -81,7 +81,7 @@ export class Dataset {
      * application dispatching update to server
      */
     update (changes={}) {
-        return this._dcclient.update(this._path, changes);
+        return this._ssclient.update(this._path, changes);
     }
 
     /**

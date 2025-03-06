@@ -19,7 +19,7 @@ const isServe = process.env.SERVE == 'true';
 // target directory for build
 const target = "html/js";
 // name of bundle
-const bundle = "datacannon";
+const bundle = "sharedstate";
 // file extension
 const ext = isDist ? "min.js" : "js"; 
 

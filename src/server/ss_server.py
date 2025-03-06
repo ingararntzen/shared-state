@@ -99,10 +99,10 @@ class Clients:
 
 
 ########################################################################
-# DataCannon Server
+# SharedState Server
 ########################################################################
 
-class DataCannonServer:
+class SharedStateServer:
 
     def __init__(self, port=8000, host="0.0.0.0", services=[]):
         self._host = host
@@ -123,7 +123,7 @@ class DataCannonServer:
             service_obj = module.get_service(service.get("config", {}))
             self._services[service['name']] = service_obj
 
-        print(f"DataCannon: Services: {list(self._services.keys())}")
+        print(f"SharedState: Services: {list(self._services.keys())}")
 
     ####################################################################
     # RUN
@@ -150,13 +150,13 @@ class DataCannonServer:
         self._stop_event.set()
 
     def serve_forever(self):
-        print(f"DataCannon: Listen: ws://{self._host}:{self._port}")
+        print(f"SharedState: Listen: ws://{self._host}:{self._port}")
         try:
             asyncio.run(self._start_server())
         except KeyboardInterrupt:
             self.stop()
             print("")
-        print("DataCannon: Done")
+        print("SharedState: Done")
 
     ####################################################################
     # HANDLERS
@@ -348,7 +348,7 @@ def main():
     import argparse
     import json
 
-    parser = argparse.ArgumentParser(description="DataCannon Server")
+    parser = argparse.ArgumentParser(description="SharedState Server")
     parser.add_argument('config',
                         type=str,
                         help='Path to the configuration file (JSON)')
@@ -361,7 +361,7 @@ def main():
     host = config["service"]["host"]
     port = int(config["service"]["port"])
     services = config["services"]
-    server = DataCannonServer(host=host, port=port, services=services)
+    server = SharedStateServer(host=host, port=port, services=services)
     server.serve_forever()
 
 

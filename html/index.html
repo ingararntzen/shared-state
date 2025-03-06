@@ -2,7 +2,7 @@
 
 <meta charset="utf-8" />
 
-<title>DataCannon Viewer</title>
+<title>SharedState Viewer</title>
 
 <head>
     <style>
@@ -13,16 +13,16 @@
 
     <script type="module">
         import {
-            DataCannon,
+            SharedStateClient,
             DatasetViewer
-        } from "./js/datacannon.es.js";
+        } from "./js/sharedstate.es.js";
 
 
         function getRandomInt(max) {
           return Math.floor(Math.random() * max);
         }
 
-        const client = new DataCannon("ws://0.0.0.0:9000");
+        const client = new SharedStateClient("ws://0.0.0.0:9000");
         client.connect();
 
         // Dataset
@@ -56,7 +56,7 @@
 </head>
 <body>
 
-    <h3> DataCannon Dataset Viewer</h3>
+    <h3> SharedState Dataset Viewer</h3>
     <p>
         <button id="addBtn">Add</button>
         <button id="changeBtn">Change</button>

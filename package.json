@@ -1,7 +1,7 @@
 {
-  "name": "datacannon",
+  "name": "sharedstate",
   "version": "1.0.0",
-  "description": "DataCannon",
+  "description": "SharedState",
   "type": "module",
   "main": "index.js",
   "directories": {
@@ -17,7 +17,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ingararntzen/datacannon.git"
+    "url": "git+https://github.com/ingararntzen/shared-state.git"
   },
   "keywords": [
     "real-time",
@@ -27,9 +27,9 @@
   "author": "Ingar M. Arntzen",
   "license": "BSD-2",
   "bugs": {
-    "url": "https://github.com/ingararntzen/datacannon/issues"
+    "url": "https://github.com/ingararntzen/shared-state/issues"
   },
-  "homepage": "https://github.com/ingararntzen/datacannon#readme",
+  "homepage": "https://github.com/ingararntzen/shared-state#readme",
   "devDependencies": {
     "@babel/preset-env": "^7.26.0",
     "@eslint/js": "^9.17.0",

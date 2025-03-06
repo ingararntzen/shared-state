@@ -6,9 +6,9 @@
     <title>DataCannon Clock Test</title>
     <script type="module">
 
-        import {DataCannon} from "./js/datacannon.es.js";
+        import {SharedStateClient} from "./js/sharedstate.es.js";
 
-        const client = new DataCannon("ws://0.0.0.0:9000");
+        const client = new SharedStateClient("ws://0.0.0.0:9000");
         client.connect();
 
         const clock = client.clock;
@@ -25,7 +25,7 @@
 </script>
 </head>
 <body>
-    <h1>DataCannon Clock</h1>
+    <h1>SharedState Clock</h1>
     <p>
         <div id="clock"></div>
         <div id="trans"></div>
