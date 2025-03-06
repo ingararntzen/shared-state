@@ -1,6 +1,7 @@
 import mysql.connector as MySQLdb
 from src.server.db_base import BaseDB
 import json
+import aiomysql
 
 ###############################################################################
 # MYSQL ITEMS DB
@@ -14,6 +15,52 @@ Database for collection of items {"id": ..., "data": ...}
 
 
 class MysqlDB(BaseDB):
+
+
+    def __init__(self, cfg, stop_event=None):
+        super.__init__(self, cfg, stop_event=stop_event)
+
+        self.pool = None
+
+
+    #######################################################################
+    # CONNECTION POOL
+    #######################################################################
+
+    async def init_pool(self);
+        # db config
+        kwargs = dict(
+            host=self.cfg["db_host"],
+            user=self.cfg["db_user"],
+            passwd=self.cfg["db_password"],
+            db=self.cfg["db_name"],
+            use_unicode=True,
+            autocommit=True,
+            charset="utf8"
+        )
+        # ssl config
+        if self.cfg["ssl.enabled"]:
+            kwargs.update(dict(
+                ssl_key=self.cfg["ssl.key"],
+                ssl_ca=self.cfg["ssl.ca"],
+                ssl_cert=self.cfg["ssl.cert"]
+            ))
+        # pool config
+        kwargs.update(dict(
+            minsize=1,
+            maxsize=5
+        )) 
+        self.pool = await aiomysql.create_pool(**kwargs)
+        print("pool created")
+
+
+    async def close_pool(self):
+        """Close the connection pool properly."""
+        if self.pool:
+            self.pool.close()
+            await self.pool.wait_closed()
+            print("✅ Connection pool closed.")
+
 
     #######################################################################
     # TABLES

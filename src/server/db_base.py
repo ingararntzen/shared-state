@@ -39,7 +39,6 @@ class BaseDB:
 
     def __init__(self, cfg, stop_event=None):
         """Construct Database."""
-        self.conn = None
         self.cfg = {
             "ssl.enabled": False,
             "ssl.key": None,
@@ -52,17 +51,18 @@ class BaseDB:
         else:
             self.stop_event = threading.Event()
 
-        self._prepare_tables()
-        self._prepare_indexes()
+    async def initialise(self);
+        await self.init_pool()
+        await self._prepare_tables()
+        await self._prepare_indexes()
 
     def stop(self):
         """Stop the database."""
         self.stop_event.set()
 
-    def _execute(self, statement, parameters=[]):
+    async def _execute(self, cur, statement, parameters=[]):
         """
         Run a SQL statement.
-
         On error - retry at most 2 times, one second apart
         """
         err = None
@@ -70,17 +70,14 @@ class BaseDB:
             if self.stop_event.is_set():
                 break
             try:
-                c = self.get_conn().cursor()
-                c.execute(statement, parameters)
-                return c
+                return await cur.execute(statement, parameters)
             except Exception as e:
                 err = e
-                self.conn = None
                 print("Exception, retrying in 1 second", e.__class__, e)
                 time.sleep(1)
         raise err
 
-    def _executemany(self, statement, records):
+    async def _executemany(self, cur, statement, records):
         """Run a batch SQL statement."""
         if not records:
             return None
@@ -89,60 +86,58 @@ class BaseDB:
             try:
                 # not so important anymore, as batching is done
                 # on a higher level anyway
-                c = self.get_conn().cursor()
                 for record_batch in batch(records, self.BATCH_SIZE):
-                    c.executemany(statement, record_batch)
-                return c
+                    await c.executemany(statement, record_batch)
             except Exception as e:
                 err = e
-                self.conn = None
                 print("Exception, retrying in 1 second", e.__class__, e)
                 time.sleep(1)
         raise err
 
-    def _prepare_tables(self):
+    async def _prepare_tables(self):
         """Create database tables if not exists."""
-        for sql in self.sql_tables():
-            # if table not in existing_tables:
-            self._execute(sql)
+        async with self.pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                for sql in self.sql_tables():
+                    # if table not in existing_tables:
+                    self._execute(cur, sql)
 
-    def _prepare_indexes(self):
+    async def _prepare_indexes(self):
         """Create database indexes if not exists."""
-        for index in self.sql_indexes():
-            try:
-                c = self.get_conn().cursor()
-                c.execute(index)
-            except (MySQLdb.errors.ProgrammingError) as e:
-                if e.errno == 1061 and e.msg.startswith("Duplicate key name"):
-                    # index already exists
-                    pass
-                else:
-                    raise e
+        async with self.pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                for index in self.sql_indexes():
+                    try:                        
+                        cur.execute(index)
+                    except (MySQLdb.errors.ProgrammingError) as e:
+                        if e.errno == 1061 and e.msg.startswith("Duplicate key name"):
+                            # index already exists
+                            pass
+                        else:
+                            raise e
 
     #######################################################################
     # PUBLIC METHODS
     #######################################################################
 
+
     def table(self):
         """Return table name."""
         return self.cfg["db_table"]
 
-    def cursor_to_items(self, cursor):
+    async def cursor_to_items(self, cur):
         """
         Make batch of items from database cursor.
 
         Generator function based on batch-size.
         """
         while True:
-            items = []
-            for tup in cursor.fetchmany(self.BATCH_SIZE):
-                items.append(self.as_item(tup))
-            if items:
-                yield items
-            else:
+            rows = await cur.fetchall(self.BATCH_SIZE)
+            if not rows:
                 break
+            yield [self.as_item(row) for row in row]
 
-    def get(self, app, chnl):
+    async def get(self, app, chnl):
         """
         Return all items from (app,channel).
 
@@ -150,19 +145,20 @@ class BaseDB:
         """
         SQL = self.get_sql()
         args = self.get_sql_args(app, chnl)
-        c = self._execute(SQL, args)
-        for items in self.cursor_to_items(c):
-            yield items
-        c.close()
-
-    def get_all(self, app, chnl):
+        async with self.pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                await self._execute(cur, SQL, args)
+                async for items in self.cursor_to_items(cur):
+                    yield items
+        
+    async def get_all(self, app, chnl):
         """
         Convenience - return an iteable which is flat
         i.e. can be turned into flat list with list()
         """
-        return chain.from_iterable(self.get(app, chnl))
+        return await chain.from_iterable(self.get(app, chnl))
 
-    def insert(self, app, chnl, items):
+    async def insert(self, app, chnl, items):
         """
         Insert/replace items in (app, chnl).
 
@@ -184,21 +180,22 @@ class BaseDB:
         # support single item
         if not isinstance(items, list):
             items = [items]
-        # SQL
-        SQL = self.insert_sql()
-        records = []
-        for item in items:
-            rec = self.insert_sql_args(app, chnl, item)
-            if rec is None:
-                # drop empty records
-                continue
-            records.append(rec)
-        c = self._executemany(SQL, records)
-        if c is not None:
-            c.close()
-        return items
 
-    def remove(self, app, chnl, ids):
+        async with self.pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                # SQL
+                SQL = self.insert_sql()
+                records = []
+                for item in items:
+                    rec = self.insert_sql_args(app, chnl, item)
+                    if rec is None:
+                        # drop empty records
+                        continue
+                    records.append(rec)
+                await self._executemany(cur, SQL, records)
+                return items
+
+    async def remove(self, app, chnl, ids):
         """
         Remove items with given ids from (app, chnl).
 
@@ -216,49 +213,53 @@ class BaseDB:
         # support single id
         if not isinstance(ids, list):
             ids = [ids]
-        # batch operation
-        for id_batch in batch(ids, batch_size=BaseDB.BATCH_SIZE):
-            SQL = self.remove_sql(id_batch)
-            args = self.remove_sql_args(app, chnl, id_batch)
-            c = self._execute(SQL, args)
-            c.close()
-        return ids
 
-    def clear(self, app, chnl):
+        async with self.pool.acquire() as conn:
+            async with conn.cursor() as cur:        
+                # batch operation
+                for id_batch in batch(ids, batch_size=BaseDB.BATCH_SIZE):
+                    SQL = self.remove_sql(id_batch)
+                    args = self.remove_sql_args(app, chnl, id_batch)
+                    await self._execute(cur, SQL, args)                    
+                    return ids
+
+    async def delete(self, app, chnl):
         """
         Remove all items of (app, chnl).
         Return list of removed items.
         """
         SQL = self.delete_sql()
         args = self.delete_sql_args(app, chnl)
-        c = self._execute(SQL, args)
-        rowcount = c.rowcount
-        c.close()
-        return rowcount
+        async with self.pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                await self._execute(cur, SQL, args)
+                    return cur.rowcount
 
-    def apps(self):
+    async def apps(self):
         """
         Get all unique apps in database
         Returns entire result as list - not batch generator
         """
         SQL = self.apps_sql()
         args = self.apps_sql_args()
-        c = self._execute(SQL, args)
-        res = [tup[0] for tup in c.fetchall()]
-        c.close()
-        return res
+        async with self.pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                await self._execute(cur, SQL, args)
+                row = await cur.fetchall()
+                return [row[0] for row in await cur.fetchall()]
 
-    def channels(self, app):
+    async def channels(self, app):
         """
         Get all unique channels of app.
         Returns entire result as list - not batch generator
         """
         SQL = self.channels_sql()
         args = self.channels_sql_args(app)
-        c = self._execute(SQL, args)
-        res = [tup[0] for tup in c.fetchall()]
-        c.close()
-        return res
+        async with self.pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                await self._execute(cur, SQL, args)
+                row = await cur.fetchall()
+                return [row[0] for row in await cur.fetchall()]
 
     def timestamp(self):
         """Return timestamp of database."""
