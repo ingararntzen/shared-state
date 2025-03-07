@@ -15,5 +15,5 @@ dependencies = [
 ]
 
 [project.scripts]
-sharedstate = "src.server.ss_server:main"
+sharedstate = "src.server.ss_server:start"
 

@@ -57,6 +57,9 @@ class Clients:
         if ws in self._map:
             del self._map[ws]
 
+    def all_clients(self):
+        return self._map.keys()
+
     ######################################################
     # CLIENT SUBSCRIPTIONS
     ######################################################
@@ -107,6 +110,8 @@ class SharedStateServer:
     def __init__(self, port=8000, host="0.0.0.0", services=[]):
         self._host = host
         self._port = port
+        self._server = None
+        self._stop_event = None
 
         # client subscriptions
         self._clients = Clients()
@@ -125,35 +130,6 @@ class SharedStateServer:
 
         print(f"SharedState: Services: {list(self._services.keys())}")
 
-    ####################################################################
-    # RUN
-    ####################################################################
-
-    async def handler(self, ws):
-        self.on_connect(ws)
-        try:
-            async for data in ws:
-                try:
-                    await self.on_message(ws, data)
-                except Exception as e:
-                    print("Exception", e)
-                    traceback.print_exc()
-        except websockets.exceptions.ConnectionClosed:
-            self.on_disconnect(ws)
-
-    def stop(self):
-        self._stop_event.set()
-
-    async def serve_forever(self):
-        print(f"SharedState: Listen: ws://{self._host}:{self._port}")
-        self._stop_event = asyncio.Event()
-        for service in self._services.values():
-            await service.open()
-        async with websockets.serve(self.handler, self._host, self._port):
-            await self._stop_event.wait()
-        for service in self._services.values():
-            await service.close()
-        print("SharedState: Done")
 
     ####################################################################
     # HANDLERS
@@ -232,7 +208,7 @@ class SharedStateServer:
             changes = {"remove": [], "insert": [], "reset": True}
             if self._clients.is_subscribed_to_path(ws, path):
                 # get state
-                ok, result = self.handle_GET(ws, path)
+                ok, result = await self.handle_GET(ws, path)
                 if ok:
                     changes["insert"] = result
             msg = {
@@ -335,11 +311,47 @@ class SharedStateServer:
         return True, len(diffs)
 
 
+    ####################################################################
+    # RUN
+    ####################################################################
+
+    async def handler(self, ws):
+        self.on_connect(ws)
+        try:
+            async for data in ws:
+                try:
+                    await self.on_message(ws, data)
+                except Exception as e:
+                    print("Exception", e)
+                    traceback.print_exc()
+        except websockets.exceptions.ConnectionClosed:
+            self.on_disconnect(ws)
+
+    async def serve_forever(self):
+        self._stop_event = asyncio.Event()
+        for service in self._services.values():
+            await service.open()
+        self._server = await websockets.serve(self.handler, 
+                                              self._host, self._port)
+        await self._stop_event.wait()
+        
+    async def shutdown(self):
+        for ws in self._clients.all_clients():
+            await ws.close()
+        for service in self._services.values():
+            await service.close()
+        if self._server:
+            self._server.close()
+            await self._server.wait_closed()
+
+    def stop(self):
+        self._stop_event.set()
+
 ########################################################################
 # CLI
 ########################################################################
 
-def main():
+async def main():
 
     import argparse
     import json
@@ -358,21 +370,29 @@ def main():
     port = int(config["service"]["port"])
     services = config["services"]
     server = SharedStateServer(host=host, port=port, services=services)
-
+    print(f"SharedState: Listen: ws://{host}:{port}")
     try:
-        asyncio.run(server.serve_forever())
-    except KeyboardInterrupt:
-        server.stop()
+        await server.serve_forever()
+    except asyncio.CancelledError:
         print("")
+        await server.shutdown()
+    print("SharedState: Done")
+    server.stop()
 
+def start():
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        pass
 
 ########################################################################
 # MAIN
 ########################################################################
 
-if __name__ == '__main__':
-    main()
 
+if __name__ == '__main__':
+    start()
+    
 
 """
 NOTE - DESIGN - SERVER-SIDE SUBSCRIPTIONS

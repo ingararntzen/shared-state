@@ -29,7 +29,7 @@ class ItemsService:
 
         # update database
         if reset:
-            await self._db.clear(app, chnl)    
+            await self._db.delete(app, chnl)    
         else:
             if remove:
                 await self._db.remove(app, chnl, remove)
