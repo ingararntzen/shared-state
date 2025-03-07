@@ -9,7 +9,9 @@ dependencies = [
     "mysql-connector-python",
     "websockets",
     "aiomysql",
-    "pytest","pytest-asyncio"
+    "pytest",
+    "pytest-asyncio",
+    "aiosqlite"
 ]
 
 [project.scripts]
