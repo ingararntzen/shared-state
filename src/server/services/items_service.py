@@ -13,29 +13,28 @@ class ItemsService:
         # this service does not include old state in diffs
         self.oldstate_included = False
 
-    def get(self, app, chnl):
-        return list(self._db.get_all(app, chnl))
+    async def open(self):
+        await self._db.open()
 
-    def reset(self, app, chnl, insert_items):
-        # clear
-        self._db.clear(app, chnl)
-        # insert
-        self._db.insert(app, chnl, insert_items)
-        return insert_items
+    async def close(self):
+        await self._db.close()
 
-    def update(self, app, chnl, changes):
+    async def get(self, app, chnl):
+        return await self._db.get_all(app, chnl)
+
+    async def update(self, app, chnl, changes):
         insert = changes.get("insert", [])
         remove = changes.get("remove", [])
         reset = changes.get("reset", False)
 
         # update database
         if reset:
-            self._db.clear(app, chnl)    
+            await self._db.clear(app, chnl)    
         else:
             if remove:
-                self._db.remove(app, chnl, remove)
+                await self._db.remove(app, chnl, remove)
         if insert:
-            self._db.insert(app, chnl, insert)
+            await self._db.insert(app, chnl, insert)
 
         # diffs
         diffs = OrderedDict()

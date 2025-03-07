@@ -16,7 +16,7 @@
             "name": "mitems", "module": "items_service", 
             "config": {
                 "db_type": "sqlite",
-                "db_name": "dcbase",
+                "db_name": ":memory:",
                 "db_table": "items"
             }
         }

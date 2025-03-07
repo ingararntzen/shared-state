@@ -76,9 +76,9 @@ class MysqlDB:
             )
         # pool config
         kwargs.update(dict(
-            minsize=self.cfg.get("db_pool_minsize", 1), 
-            maxsize=self.cfg.get("db_pool_maxsize", 5))
-        )
+            minsize=self.cfg.get("db_pool_minsize", 1),
+            maxsize=self.cfg.get("db_pool_maxsize", 5)
+        ))
         self.pool = await aiomysql.create_pool(**kwargs)
         await self._prepare_tables()
 
@@ -93,7 +93,6 @@ class MysqlDB:
     #######################################################################
     # INTERNAL METHODS
     #######################################################################
-
 
     async def _execute(self, cur, statement, parameters=[]):
         """
@@ -127,10 +126,9 @@ class MysqlDB:
             except Exception as e:
                 err = e
                 print("Exception, retrying in 1 second", e.__class__, e)
-                time.sleep(1)        
+                time.sleep(1)
         if err:
             raise err
-
 
     async def _prepare_tables(self):
         """Create database tables if not exists."""
@@ -146,7 +144,14 @@ class MysqlDB:
         async with self.pool.acquire() as conn:
             async with conn.cursor() as cur:
                 # if table not in existing_tables:
-                await self._execute(cur, SQL)
+                try:
+                    await self._execute(cur, SQL)
+                except aiomysql.Warning as e:
+                    if "already exists" in str(e):
+                        # Ignore the warning if the table already exists
+                        pass
+                    else:
+                        raise e
 
     async def _cursor_to_items(self, cur):
         """
@@ -239,7 +244,7 @@ class MysqlDB:
         """
         ids = self._check_input(app, chnl, ids)
         async with self.pool.acquire() as conn:
-            async with conn.cursor() as cur: 
+            async with conn.cursor() as cur:
                 # batch operation
                 for id_batch in batch(ids, batch_size=BATCH_SIZE):
                     id_args = ",".join(["%s"] * len(ids))

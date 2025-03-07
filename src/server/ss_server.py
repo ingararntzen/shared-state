@@ -141,21 +141,18 @@ class SharedStateServer:
         except websockets.exceptions.ConnectionClosed:
             self.on_disconnect(ws)
 
-    async def _start_server(self):
-        self._stop_event = asyncio.Event()
-        async with websockets.serve(self.handler, self._host, self._port):
-            await self._stop_event.wait()
-
     def stop(self):
         self._stop_event.set()
 
-    def serve_forever(self):
+    async def serve_forever(self):
         print(f"SharedState: Listen: ws://{self._host}:{self._port}")
-        try:
-            asyncio.run(self._start_server())
-        except KeyboardInterrupt:
-            self.stop()
-            print("")
+        self._stop_event = asyncio.Event()
+        for service in self._services.values():
+            await service.open()
+        async with websockets.serve(self.handler, self._host, self._port):
+            await self._stop_event.wait()
+        for service in self._services.values():
+            await service.close()
         print("SharedState: Done")
 
     ####################################################################
@@ -179,11 +176,10 @@ class SharedStateServer:
         # handles client requests
         if msg['type'] == MsgType.REQUEST:
             ok, result = False, None
-
             if msg['cmd'] == MsgCmd.GET:
-                ok, result = self.handle_GET(ws, msg["path"])
+                ok, result = await self.handle_GET(ws, msg["path"])
             elif msg["cmd"] == MsgCmd.PUT:
-                ok, result = self.handle_PUT(ws, msg["path"], msg["arg"])
+                ok, result = await self.handle_PUT(ws, msg["path"], msg["arg"])
 
             reply = {
                 "type": MsgType.REPLY,
@@ -283,7 +279,7 @@ class SharedStateServer:
     # REQUEST HANDLERS
     ####################################################################
 
-    def handle_GET(self, ws, path):
+    async def handle_GET(self, ws, path):
         """
         returns (ok, result)
         """
@@ -308,9 +304,9 @@ class SharedStateServer:
         if srvc is None:
             return False, "no service"
         else:
-            return True, srvc.get(app, resource)
+            return True, await srvc.get(app, resource)
 
-    def handle_PUT(self, ws, path, changes):
+    async def handle_PUT(self, ws, path, changes):
         """
         returns (ok, result)
         """
@@ -332,7 +328,7 @@ class SharedStateServer:
         srvc = self._services.get(service, None)
         if srvc is None:
             return False, "no service"
-        diffs = srvc.update(app, chnl, changes)
+        diffs = await srvc.update(app, chnl, changes)
         oldstate_included = getattr(srvc, "oldstate_included", False)
         self._tasks.append(("multicast_notify", path, 
                             changes, diffs, oldstate_included))
@@ -362,7 +358,12 @@ def main():
     port = int(config["service"]["port"])
     services = config["services"]
     server = SharedStateServer(host=host, port=port, services=services)
-    server.serve_forever()
+
+    try:
+        asyncio.run(server.serve_forever())
+    except KeyboardInterrupt:
+        server.stop()
+        print("")
 
 
 ########################################################################
