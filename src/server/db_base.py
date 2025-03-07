@@ -1,10 +1,9 @@
 """Abstract base class for DataCannon Databases."""
-
-import mysql.connector as MySQLdb
 import threading
 import time
 from datetime import datetime, timezone
 from itertools import chain
+import aiomysql
 
 
 ###############################################################################
@@ -51,13 +50,15 @@ class BaseDB:
         else:
             self.stop_event = threading.Event()
 
-    async def initialise(self);
+    async def open(self):
+        """Initialise the database."""
         await self.init_pool()
         await self._prepare_tables()
         await self._prepare_indexes()
 
-    def stop(self):
+    async def close(self):
         """Stop the database."""
+        await self.close_pool()
         self.stop_event.set()
 
     async def _execute(self, cur, statement, parameters=[]):
@@ -75,7 +76,8 @@ class BaseDB:
                 err = e
                 print("Exception, retrying in 1 second", e.__class__, e)
                 time.sleep(1)
-        raise err
+        if err:
+            raise err
 
     async def _executemany(self, cur, statement, records):
         """Run a batch SQL statement."""
@@ -87,12 +89,13 @@ class BaseDB:
                 # not so important anymore, as batching is done
                 # on a higher level anyway
                 for record_batch in batch(records, self.BATCH_SIZE):
-                    await c.executemany(statement, record_batch)
+                    await cur.executemany(statement, record_batch)
             except Exception as e:
                 err = e
                 print("Exception, retrying in 1 second", e.__class__, e)
-                time.sleep(1)
-        raise err
+                time.sleep(1)        
+        if err:
+            raise err
 
     async def _prepare_tables(self):
         """Create database tables if not exists."""
@@ -100,16 +103,16 @@ class BaseDB:
             async with conn.cursor() as cur:
                 for sql in self.sql_tables():
                     # if table not in existing_tables:
-                    self._execute(cur, sql)
+                    await self._execute(cur, sql)
 
     async def _prepare_indexes(self):
         """Create database indexes if not exists."""
         async with self.pool.acquire() as conn:
             async with conn.cursor() as cur:
                 for index in self.sql_indexes():
-                    try:                        
-                        cur.execute(index)
-                    except (MySQLdb.errors.ProgrammingError) as e:
+                    try:
+                        await cur.execute(index)
+                    except (aiomysql.ProgrammingError) as e:
                         if e.errno == 1061 and e.msg.startswith("Duplicate key name"):
                             # index already exists
                             pass
@@ -119,7 +122,6 @@ class BaseDB:
     #######################################################################
     # PUBLIC METHODS
     #######################################################################
-
 
     def table(self):
         """Return table name."""
@@ -132,10 +134,10 @@ class BaseDB:
         Generator function based on batch-size.
         """
         while True:
-            rows = await cur.fetchall(self.BATCH_SIZE)
+            rows = await cur.fetchmany(self.BATCH_SIZE)
             if not rows:
                 break
-            yield [self.as_item(row) for row in row]
+            yield [self.as_item(row) for row in rows]
 
     async def get(self, app, chnl):
         """
@@ -150,13 +152,16 @@ class BaseDB:
                 await self._execute(cur, SQL, args)
                 async for items in self.cursor_to_items(cur):
                     yield items
-        
+
     async def get_all(self, app, chnl):
         """
-        Convenience - return an iteable which is flat
-        i.e. can be turned into flat list with list()
+        Convenience - return an iterable which is flat
+        i.e. can be turned into a flat list with list()
         """
-        return await chain.from_iterable(self.get(app, chnl))
+        items = []
+        async for batch in self.get(app, chnl):
+            items.extend(batch)
+        return items
 
     async def insert(self, app, chnl, items):
         """
@@ -233,7 +238,7 @@ class BaseDB:
         async with self.pool.acquire() as conn:
             async with conn.cursor() as cur:
                 await self._execute(cur, SQL, args)
-                    return cur.rowcount
+                return cur.rowcount
 
     async def apps(self):
         """
@@ -245,7 +250,6 @@ class BaseDB:
         async with self.pool.acquire() as conn:
             async with conn.cursor() as cur:
                 await self._execute(cur, SQL, args)
-                row = await cur.fetchall()
                 return [row[0] for row in await cur.fetchall()]
 
     async def channels(self, app):
@@ -258,7 +262,6 @@ class BaseDB:
         async with self.pool.acquire() as conn:
             async with conn.cursor() as cur:
                 await self._execute(cur, SQL, args)
-                row = await cur.fetchall()
                 return [row[0] for row in await cur.fetchall()]
 
     def timestamp(self):
