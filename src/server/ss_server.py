@@ -130,7 +130,6 @@ class SharedStateServer:
 
         print(f"SharedState: Services: {list(self._services.keys())}")
 
-
     ####################################################################
     # HANDLERS
     ####################################################################
@@ -310,7 +309,6 @@ class SharedStateServer:
                             changes, diffs, oldstate_included))
         return True, len(diffs)
 
-
     ####################################################################
     # RUN
     ####################################################################
@@ -334,7 +332,7 @@ class SharedStateServer:
         self._server = await websockets.serve(self.handler, 
                                               self._host, self._port)
         await self._stop_event.wait()
-        
+
     async def shutdown(self):
         for ws in self._clients.all_clients():
             await ws.close()
@@ -346,6 +344,7 @@ class SharedStateServer:
 
     def stop(self):
         self._stop_event.set()
+
 
 ########################################################################
 # CLI
@@ -379,6 +378,7 @@ async def main():
     print("SharedState: Done")
     server.stop()
 
+
 def start():
     try:
         asyncio.run(main())
@@ -392,7 +392,7 @@ def start():
 
 if __name__ == '__main__':
     start()
-    
+
 
 """
 NOTE - DESIGN - SERVER-SIDE SUBSCRIPTIONS

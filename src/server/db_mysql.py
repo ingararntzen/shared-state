@@ -2,6 +2,7 @@ import json
 import aiomysql
 import threading
 import time
+import warnings
 
 ###############################################################################
 # UTIL
@@ -144,14 +145,9 @@ class MysqlDB:
         async with self.pool.acquire() as conn:
             async with conn.cursor() as cur:
                 # if table not in existing_tables:
-                try:
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore", aiomysql.Warning)
                     await self._execute(cur, SQL)
-                except aiomysql.Warning as e:
-                    if "already exists" in str(e):
-                        # Ignore the warning if the table already exists
-                        pass
-                    else:
-                        raise e
 
     async def _cursor_to_items(self, cur):
         """
