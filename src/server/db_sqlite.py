@@ -18,11 +18,14 @@ def batch(iterable, batch_size=1):
 
 def as_item(record):
     """Convert a database record to item."""
-    app, chnl, id, ts, data = record
-    return {
-        "id": id,
-        "data": json.loads(data)
-    }
+    app, chnl, id, ts, json_data = record
+    return json.loads(json_data)
+
+
+def as_record(app, chnl, item):
+    """Convert an item to a database record."""
+    json_data = json.dumps(item)
+    return (app, chnl, item["id"], json_data)
 
 
 ###############################################################################
@@ -34,7 +37,9 @@ class SqliteDB:
     """
     Sqlite database
 
-    Database for collection of items {"id": ..., "data": ...}
+    Database for collection of items {"id":"unique_id", ...}
+    "id" is string and unique within (app, chnl)
+    Item as a whole must be serialized to JSON
     """
 
     def __init__(self, cfg):
@@ -141,8 +146,7 @@ class SqliteDB:
         )
         args = []
         for item in items:
-            data = json.dumps(item.get("data", None))
-            rec = (app, chnl, item["id"], data)
+            rec = as_record(app, chnl, item)
             if rec is None:
                 # drop empty records
                 continue
