@@ -73,9 +73,9 @@ export class Dataset {
     get_items() {
         return [...this._map.values()];
     };
-
-    get size() {return this._map.size}
-
+    get size() {return this._map.size};
+    get_item (id) {return this._map.get(id)} 
+    has_item(id) {return this._map.has(id)}
 
     /**
      * application dispatching update to server

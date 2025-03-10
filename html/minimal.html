@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<meta charset="utf-8" />
+<head>
+    <script type="module">
+        import {SharedStateClient} from "./js/sharedstate.es.js";
+        const client = new SharedStateClient("ws://0.0.0.0:9000");
+        client.connect();
+
+        // Dataset
+        const [handle, ds] = client.acquire("/app/items/chnl")
+
+        // Dataset Change Handler
+        ds.add_callback(function (eArgs) {
+            const item = ds.get_item("myid");
+            if (item != undefined) {
+                console.log(ds.get_item("myid").data)
+            }
+        });
+
+        // Update Button
+        document.querySelector("#updateBtn").onclick = () => {
+            const item = ds.get_item("myid");
+            if (item != undefined) {
+                // toggle data
+                ds.update({insert:[{id:"myid", data:!(item.data)}]});
+            } else {
+                // initialize data
+                ds.update({insert:[{id: "myid", data:true}]});
+            }
+        }
+        // Reset Button
+        document.querySelector("#resetBtn").onclick = () => {
+            ds.update({reset:true});
+        }
+    </script>
+</head>
+<body>
+    <button id="updateBtn">Update</button>
+    <button id="resetBtn">Reset</button>
+</body>
+</html> 
