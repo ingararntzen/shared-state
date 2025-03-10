@@ -1,5 +1,5 @@
 
-# SharedState Server
+# Shared State Server
 
 Python server and JavaScript client for real-time data sharing. 
 Communication between client and server is currently plain text 
@@ -47,7 +47,9 @@ Removal is performed ahead of insertion.
 will replace pre-existing items with same _id_.
 * _reset_ is a boolean flag. If true, all pre-existing items will be removed
   ahead of insertion  (_remove_ is ignored).
-
+* defaults for _remove_ and _insert_ is [], implying that they can be
+  omitted if there are no items to remove or insert.
+* default for _reset_ is false, implying that it is only needed when true.
 
 | UPDATE ARGUMENT                           | EFFECT                 |
 |-------------------------------------------|------------------------|
@@ -55,9 +57,9 @@ will replace pre-existing items with same _id_.
 | {remove:[], insert:[...], reset:false}    | INSERT ITEMS           |
 | {remove:[...], insert:[], reset:false}    | REMOVE ITEMS           |
 | {remove:[...], insert:[...], reset:false} | REMOVE + INSERT ITEMS  |
-|-------------------------------------------|------------------------|
 | {insert:[], reset:true}                   | RESET                  |
 | {insert:[...], reset:true}                | RESET INSERT           |
+
 
 
 ### Services
@@ -131,6 +133,7 @@ mysql -u root -p
 sudo mysql 
 ```
 
+**setup**
 ```sh
 create user if not exists myuser@localhost identified by 'mypassword';
 create database if not exists sharedstate;
@@ -138,7 +141,7 @@ grant all on sharedstate.* to myuser@localhost;
 flush privileges;
 ```
 
-# SharedState Client
+# Shared State Client
 
 The SharedState client allows application code to monitor service-side items collection.
 The client maintains a local _dataset_ for each referenced _path_, and ensures that
@@ -150,7 +153,7 @@ the SharedState server.
 ### Example
 
 The following example shows a minimal application toggling item.data between 
-true and false, for a given item within a collection *"/myapp/items/mycollection"*
+true and false, for a given item within a specific item collection.
 
 ```html
 <!DOCTYPE html>
