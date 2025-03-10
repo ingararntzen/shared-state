@@ -49,7 +49,6 @@ will replace pre-existing items with same _id_.
   ahead of insertion  (_remove_ is ignored).
 
 
-|-------------------------------------------|------------------------|
 | UPDATE ARGUMENT                           | EFFECT                 |
 |-------------------------------------------|------------------------|
 | {remove:[], insert:[], reset:false}       | NOOP                   |
@@ -59,7 +58,6 @@ will replace pre-existing items with same _id_.
 |-------------------------------------------|------------------------|
 | {insert:[], reset:true}                   | RESET                  |
 | {insert:[...], reset:true}                | RESET INSERT           |
-|-------------------------------------------|------------------------|
 
 
 ### Services
@@ -154,7 +152,6 @@ the SharedState server.
 The following example shows a minimal application toggling item.data between 
 true and false, for a given item within a collection *"/myapp/items/mycollection"*
 
-
 ```html
 <!DOCTYPE html>
 <meta charset="utf-8" />
@@ -199,7 +196,7 @@ true and false, for a given item within a collection *"/myapp/items/mycollection
 </html> 
 ```
 
-### Acquire Release
+### Acquire / Release
 
 Applications may acquire and release a dataset. A realeased dataset is
 no longer kept in sync with corresponding collection on the server.
@@ -231,7 +228,6 @@ const size = ds.size;
 Dataset reports changes through callback
 
 ```javascript
-
 const handle = ds.add_callback(function (diffs) {
     // handle diffs
 });
@@ -241,7 +237,6 @@ ds.remove_callback(handle);
 [
     {id: "id", new: {id, ...}, old: {id, ...}}
 ]
-
 ```
 
 The callback argument is a list of diffs, one for each items which have
@@ -249,23 +244,9 @@ been changed. *new* gives the new state of the item, whereas *old* gives the
 state of the item before the update. When a new item has been added, 
 *old* is undefined. Similarly, when an item has been remove, *new* is undefined.  
 
-|---------------------------------------------|----------|
 | DIFF                                        | EFFECT   |
 |---------------------------------------------|----------|
 | {id: "id", new: {id, ...}, old: undefined}  | INSERT   |
 | {id: "id", new: {id, ...}, old: {id, ...}}  | REPLACE  |
 | {id: "id", new: undefined, old: {id, ...}}  | DELETE   |
-|---------------------------------------------|----------|
-
-
-
-
-
-
-
-
-
-
-
-
 
