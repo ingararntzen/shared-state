@@ -91,10 +91,10 @@ _mitems_ and is based on an in-memory sqlite database.
                 "db_host": "localhost",
                 "db_user": "myuser",
                 "db_password": "mypassord",
-                "ssl.enabled": False,
-                "ssl.key": None,
-                "ssl.ca": None,
-                "ssl.cert": None
+                "ssl.enabled": false,
+                "ssl.key": null,
+                "ssl.ca": null,
+                "ssl.cert": null
             }
         },
         {
