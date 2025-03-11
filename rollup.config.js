@@ -17,7 +17,7 @@ const isDist = process.env.DIST == 'true';
 const isServe = process.env.SERVE == 'true';
 
 // target directory for build
-const target = "html/js";
+const target = "html/libs";
 // name of bundle
 const bundle = "sharedstate";
 // file extension
