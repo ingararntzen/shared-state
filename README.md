@@ -316,3 +316,12 @@ state of the item before the update. When a new item has been added,
 # SharedState Server
 
 Simple async websocket server.
+
+
+# Limitations
+
+* Currently, communication is plain text. SSL support has not been tested.
+
+* Currently no support for server-side filtering, though the server design is open to this feature as a future extension.
+
+* The provided client code is limited to JavaScript, implying that state sharing is limited the Web platform and nodejs environments. However, the concept itself is open to state sharing across any (connected) platform, provided only that a client implementation exists for the platforms.
