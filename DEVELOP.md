@@ -18,3 +18,22 @@ npm start
 # deploy (main branch)
 cp html/libs/*.js libs
 ```
+
+
+
+
+
+# Dev imports
+
+```sh
+pip install pytest
+pip flake8
+```
+
+
+# Testing
+
+```sh
+pytest
+```
+
