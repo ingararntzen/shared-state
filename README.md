@@ -84,7 +84,11 @@ and another named _mitems_ based on an in-memory sqlite database.
                 "db_table": "items",
                 "db_host": "localhost",
                 "db_user": "myuser",
-                "db_password": "mypassord"
+                "db_password": "mypassord",
+                "ssl.enabled": False,
+                "ssl.key": None,
+                "ssl.ca": None,
+                "ssl.cert": None
             }
         },
         {
