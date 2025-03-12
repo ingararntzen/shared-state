@@ -7,7 +7,7 @@
     <script type="module">
         import { SharedStateClient } from "./libs/sharedstate.es.js";
 
-        const client = new DataCannon("ws://0.0.0.0:9000");
+        const client = new SharedStateClient("ws://0.0.0.0:9000");
         client.connect();
 
 
@@ -42,19 +42,18 @@
                 ["/app/items/chnl", {}],
                 ["/app/items/test", {}]
             ];
-            client.reset("/subs", subs).then(({data}) => {
+            client.update("/subs", {insert:subs, reset:true}).then(({data}) => {
                 console.log("put subs", data);
             });
         }
         document.getElementById("put_subs_2").onclick = () => {
             const subs = [["/app/items/test", {}]];
-            client.reset("/subs", subs).then(({data}) => {
+            client.update("/subs", {insert:subs, reset:true}).then(({data}) => {
                 console.log("put subs", data);
             });
         }
         document.getElementById("put_subs_3").onclick = () => {
-            const subs = [];
-            client.reset("/subs", subs).then(({data}) => {
+            client.update("/subs", {insert:[], reset:true}).then(({data}) => {
                 console.log("put subs", data);
             });
         }
@@ -78,20 +77,20 @@
                 {id: "jalla", data: "jalladata"},
                 {id: "palla", data: "palladata"},
             ]
-            client.update("/app/items/chnl", [], items)
+            client.update("/app/items/chnl", {insert:items})
                 .then(({ok, path, data}) => {
                     if (ok) console.log(`put items ${path} ${data}`);
                 });
         }
         document.getElementById("put_items_2").onclick = () => {
             const remove_ids = ["palla"];
-            client.update("/app/items/chnl", remove_ids, [])
+            client.update("/app/items/chnl", {remove:remove_ids})
                 .then(({ok, path, data}) => {
                     if (ok) console.log(`put items ${path} ${data}`);
                 });
         }
         document.getElementById("put_items_3").onclick = () => {
-            client.reset("/app/items/chnl", [])
+            client.update("/app/items/chnl", {reset:true})
                 .then(({ok, path, data}) => {
                     if (ok) console.log(`put items ${path} ${data}`);
                 });

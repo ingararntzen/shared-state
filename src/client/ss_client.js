@@ -1,7 +1,6 @@
 import { WebSocketIO } from "./wsio.js";
 import { resolvablePromise } from "./util.js";
 import { Dataset } from "./dataset.js";
-import { ServerClock } from "./clock.js";
 
 const MsgType = Object.freeze({
     MESSAGE : "MESSAGE",
@@ -33,9 +32,6 @@ export class SharedStateClient extends WebSocketIO {
         // path -> ds
         this._ds_map = new Map();
         this._ds_handle_map = new Map();
-
-        // clock
-        this._clock = new ServerClock(this);
     }
 
     /*********************************************************************
@@ -43,9 +39,6 @@ export class SharedStateClient extends WebSocketIO {
     *********************************************************************/
 
     on_connect() {
-        // activate server clock
-        this._clock.resume();
-
         console.log(`Connect  ${this.url}`);
         // refresh local suscriptions
         if (this._subs_map.size > 0) {
@@ -54,7 +47,6 @@ export class SharedStateClient extends WebSocketIO {
         }
     }
     on_disconnect() {
-        this._clock.pause();
         console.error(`Disconnect ${this.url}`);
     }
     on_error(error) {
@@ -207,15 +199,6 @@ export class SharedStateClient extends WebSocketIO {
             this._ds_map.delete(path);
         }
     }
-
-
-    /**
-     * server clock
-     */
-    get clock () {
-        return this._clock;
-    }
-
 }
 
 

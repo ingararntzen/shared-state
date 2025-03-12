@@ -248,7 +248,12 @@ class SharedStateServer:
         }
         data = json.dumps(msg)
         for ws in self._clients.clients(path):
-            await ws.send(data)
+            try:
+                await ws.send(data)
+            except websockets.exceptions.ConnectionClosedOK as e:
+                print(ws.remote_address, "disconnect on send", e)
+                print(msg)
+                continue
 
     ####################################################################
     # REQUEST HANDLERS
@@ -322,8 +327,9 @@ class SharedStateServer:
                 except Exception as e:
                     print("Exception", e)
                     traceback.print_exc()
-        except websockets.exceptions.ConnectionClosed:
-            self.on_disconnect(ws)
+        except websockets.exceptions.ConnectionClosedOK:
+            pass
+        self.on_disconnect(ws)
 
     async def serve_forever(self):
         self._stop_event = asyncio.Event()
