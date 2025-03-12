@@ -1,5 +1,3 @@
-
-
 export class Dataset {
 
     constructor(ssclient, path) {
