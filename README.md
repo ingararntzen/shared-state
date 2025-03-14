@@ -257,23 +257,20 @@ true and false, for a given item within a specific item collection.
 </html> 
 ```
 
-### Acquire / Release
+### Dataset
 
 Datasets may be acquired and relased by applications. A realeased dataset is
-no longer kept in sync with corresponding collection on the server.
-Datasets will only be released when all handles have been released.
+no longer kept in sync with corresponding collection on the server, and
+does no longer accept any updates.
 
 ```javascript
 // acquire
-const [handle, ds] = client.acquire("/myapp/items/mycollection")
+const ds = client.acquire_dataset("/myapp/items/mycollection")
 // release
-client.release(handle);
+client.release("/myapp/items/mycollection");
 ```
 
-
-### Dataset
-
-Dataset provides the following methods for access to. 
+Datasets provide the following methods for access to. 
 
 ```javascript
 // return a single item, given id
@@ -296,7 +293,8 @@ ds.remove_callback(handle);
 
 // diffs
 [
-    {id: "id", new: {id, ...}, old: {id, ...}}
+    {id: "id", new: {id, ...}, old: {id, ...}},
+    ...
 ]
 ```
 
@@ -312,10 +310,30 @@ state of the item before the update. When a new item has been added,
 | {id: "id", new: undefined, old: {id, ...}}  | DELETE   |
 
 
+### Variables
+
+For convenience, the sharedstate client also supports a variable concept 
+implemented on top of the dataset concept. 
+Effectively, variables represent a single item from an item collection.
+The variable interface provides a setter/getter interface, and callback
+support like datasets.
+
+```javascript
+const v = client.acquire_variable("/myapp/items/mycollection", "myvar", {value:0});
+
+// render value
+elem.innerHTML = v.value;
+
+// set value or JSON serializeable object
+v.value = {...}
+
+// releases datasets and all variables
+client.release("/myapp/items/mycollection");
+```
 
 # SharedState Server
 
-Simple async websocket server.
+Async websocket server.
 
 
 # Limitations
