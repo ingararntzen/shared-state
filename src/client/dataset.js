@@ -1,6 +1,10 @@
+import { random_string } from "./util.js";
+
 export class Dataset {
 
-    constructor(ssclient, path) {
+    constructor(ssclient, path, options={}) {
+        this._options = options;
+        this._terminated = false;
         // sharedstate client
         this._ssclient = ssclient;
         this._path = path;
@@ -13,11 +17,26 @@ export class Dataset {
     /*********************************************************
         SHARED STATE CLIENT API
     **********************************************************/
+    /**
+     * Dataset released by ss client
+     */
+
+    _ssclient_terminate() {
+        this._terminated = true;
+        // empty dataset?
+        // disconnect from observers
+        this._handlers = [];
+    }
+
 
     /**
      * server update dataset 
      */
     _ssclient_update (changes={}) {
+
+        if (this._terminated) {
+            throw new Error("dataset already terminated")
+        }
 
         const {remove, insert, reset=false} = changes;
         const diff_map = new Map();
@@ -79,6 +98,15 @@ export class Dataset {
      * application dispatching update to server
      */
     update (changes={}) {
+        if (this._terminated) {
+            throw new Error("dataset already terminated")
+        }
+        // ensure that inserted items have ids
+        const {insert=[]} = changes;
+        changes.insert = insert.map((item) => {
+            item.id = item.id || random_string(10);
+            return item;
+        });
         return this._ssclient.update(this._path, changes);
     }
 

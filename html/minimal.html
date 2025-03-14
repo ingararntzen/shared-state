@@ -7,7 +7,7 @@
         client.connect();
 
         // Dataset
-        const [handle, ds] = client.acquire("/app/items/chnl")
+        const ds = client.acquire_dataset("/app/items/chnl")
 
         // Dataset Change Handler
         ds.add_callback(function (eArgs) {

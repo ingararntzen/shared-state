@@ -1,6 +1,7 @@
 import { WebSocketIO } from "./wsio.js";
 import { resolvablePromise } from "./util.js";
 import { Dataset } from "./dataset.js";
+import { Variable } from "./variable.js";
 
 const MsgType = Object.freeze({
     MESSAGE : "MESSAGE",
@@ -28,10 +29,11 @@ export class SharedStateClient extends WebSocketIO {
         // path -> {} 
         this._subs_map = new Map();
 
-        // datasets
-        // path -> ds
+        // datasets {path -> ds}
         this._ds_map = new Map();
-        this._ds_handle_map = new Map();
+
+        // variables {[path, id] -> variable}
+        this._var_map = new Map();
     }
 
     /*********************************************************************
@@ -140,10 +142,12 @@ export class SharedStateClient extends WebSocketIO {
         API
     *********************************************************************/
 
+    // get request for items by path
     get(path) {
         return this._request(MsgCmd.GET, path);
     }
     
+    // update request for path
     update(path, changes) {
         return this._request(MsgCmd.PUT, path, changes);
     }
@@ -151,53 +155,58 @@ export class SharedStateClient extends WebSocketIO {
     /**
      * acquire dataset for path
      * - automatically subscribes to path if needed
-     * returns handle and dataset
-     * handle used to release dataset
      */
 
-    acquire (path) {
-        // subscribe if not exists
+    acquire_dataset (path, options) {
+        // subscribe if subscription does not exists
         if (!this._subs_map.has(path)) {
             // subscribe to path
             this._sub(path);
         }
         // create dataset if not exists
         if (!this._ds_map.has(path)) {
-            this._ds_map.set(path, new Dataset(this, path));
+            this._ds_map.set(path, new Dataset(this, path, options));
         }
-        const ds = this._ds_map.get(path);
-        // create handle for path
-        const handle = {path};
-        if (!this._ds_handle_map.has(path)) {
-            this._ds_handle_map.set(path, []);
-        }
-        this._ds_handle_map.get(path).push(handle);
-        return [handle, ds];
+        return this._ds_map.get(path);
     }
 
     /**
-     * release dataset by handle
-     * - automatically unsubscribe if all handles have been released
+     * acquire variable for (path, id)
+     * - automatically acquire dataset
      */
 
-    release (handle) {
-        const path = handle.path;
-        const handles = this._ds_handle_map.get(path);
-        if (handles == undefined) {
-            return;
+
+    acquire_variable (path, name, options) {
+        const ds = this.acquire_dataset(path);
+        // create variable if not exists
+        if (!this._var_map.has(path)) {
+            this._var_map.set(path, new Map());
         }
-        // remove handle
-        const index = handles.indexOf(handle);
-        if (index > -1) {
-            handles.splice(index, 1);
+        const var_map = this._var_map.get(path);
+        if (!var_map.get(name)) {
+            var_map.set(name, new Variable(ds, name, options))
         }
-        // clean up if last handle released
-        if (handles.length == 0) {
+        return var_map.get(name)
+    }
+
+    /**
+     * release path, including datasets and variables
+     */
+
+    release(path) {
+        // unsubscribe
+        if (this._subs_map.has(path)) {
             this._unsub(path);
-            // clear/disable dataset
-            // const ds = this._ds_map.get(path);
-            this._ds_map.delete(path);
         }
+        // terminate dataset and variables
+        const ds = this._ds_map.get(path);
+        ds._ssclient_terminate();
+        const var_map = this._var_map.get(path);
+        for (const v of var_map.values()) {
+            v._ssclient_terminate();
+        }
+        this._ds_map.delete(path);
+        this._var_map.delete(path);
     }
 }
 

@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+
+<meta charset="utf-8" />
+
+<title>Variable</title>
+
+<head>
+    <script type="module">
+        import { SharedStateClient } from "./libs/sharedstate.es.js";
+
+        function getRandomInt(max) {
+          return Math.floor(Math.random() * max);
+        }
+
+        const client = new SharedStateClient("ws://0.0.0.0:9000");
+        client.connect();
+
+        // variable
+        const v = client.acquire_variable("/app/items/chnl", "myvar", {value:0});
+
+        // render variable
+        const elem = document.querySelector("#variable");
+        function render() {
+            elem.innerHTML = `${v.value}`;
+        }
+        render();
+        v.add_callback((diff) => {
+            render();
+        });
+        // set variable
+        document.querySelector("#setBtn").onclick = () => {
+            v.value = getRandomInt(100);
+        }
+    </script>
+</head>
+<body>
+
+    <h3> SharedState Variable </h3>
+    <p>
+        <button id="setBtn">Set</button>
+    </p>
+    <p>
+        <div>Value: <span id="variable"></span></div>
+    </p>
+</body>
+</html> 

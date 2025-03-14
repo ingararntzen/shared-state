@@ -26,12 +26,11 @@
         client.connect();
 
         // Dataset
-        const [handle, ds] = client.acquire("/app/items/chnl")
+        const ds = client.acquire_dataset("/app/items/chnl")
 
         // Dataset Viewer
         const elem = document.querySelector("#viewer");
         const viewer = new DatasetViewer(ds, elem, {delete:true});
-
 
         document.querySelector("#addBtn").onclick = () => {
             const idx = getRandomInt(100);
