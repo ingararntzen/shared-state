@@ -12,6 +12,16 @@ function resolvablePromise() {
     return [promise, resolver];
 }
 
+
+function random_string(length) {
+    var text = "";
+    var possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+    for(var i = 0; i < length; i++) {
+        text += possible.charAt(Math.floor(Math.random() * possible.length));
+    }
+    return text;
+}
+
 const MAX_RETRIES = 4;
 
 class WebSocketIO {
@@ -136,7 +146,9 @@ class WebSocketIO {
 
 class Dataset {
 
-    constructor(ssclient, path) {
+    constructor(ssclient, path, options={}) {
+        this._options = options;
+        this._terminated = false;
         // sharedstate client
         this._ssclient = ssclient;
         this._path = path;
@@ -149,11 +161,26 @@ class Dataset {
     /*********************************************************
         SHARED STATE CLIENT API
     **********************************************************/
+    /**
+     * Dataset released by ss client
+     */
+
+    _ssclient_terminate() {
+        this._terminated = true;
+        // empty dataset?
+        // disconnect from observers
+        this._handlers = [];
+    }
+
 
     /**
      * server update dataset 
      */
     _ssclient_update (changes={}) {
+
+        if (this._terminated) {
+            throw new Error("dataset already terminated")
+        }
 
         const {remove, insert, reset=false} = changes;
         const diff_map = new Map();
@@ -215,6 +242,15 @@ class Dataset {
      * application dispatching update to server
      */
     update (changes={}) {
+        if (this._terminated) {
+            throw new Error("dataset already terminated")
+        }
+        // ensure that inserted items have ids
+        const {insert=[]} = changes;
+        changes.insert = insert.map((item) => {
+            item.id = item.id || random_string(10);
+            return item;
+        });
         return this._ssclient.update(this._path, changes);
     }
 
@@ -232,6 +268,85 @@ class Dataset {
             this._handlers.splice(index, 1);
         }
     };    
+}
+
+/**
+ * Variable
+ * 
+ * Wrapper to expose a single id (item) from an dataset as a standalone variable
+ * 
+ * - if there is no item with id in dataset - the variable will be undefined
+ *   or have a default value
+ * - otherwise, the item will be the value of the variable
+ * 
+ *  Variable implements the same interface as a dataset
+ *  
+ *  Default value is given in options {value:}
+ */
+
+class Variable {
+
+    constructor(ds, id, options={}) {
+        this._terminiated = false;
+        this._ds = ds;
+        this._id = id;
+        this._options = options;
+        // callback
+        this._handlers = [];
+        this._handle = this._ds.add_callback(this._onchange.bind(this));
+    }
+
+    _onchange(diffs) {
+        if (this._terminated) {
+            throw new Error("variable terminated")
+        }
+        for (const diff of diffs) {
+            if (diff.id == this._id) {
+                this._item = diff.new;
+                this.notify_callbacks(diff);
+            }
+        }
+    }
+
+    add_callback (handler) {
+        const handle = {handler: handler};
+        this._handlers.push(handle);
+        return handle;
+    };
+    
+    remove_callback (handle) {
+        let index = this._handlers.indexOf(handle);
+        if (index > -1) {
+            this._handers.splice(index, 1);
+        }
+    };
+    
+    notify_callbacks (eArg) {
+        this._handlers.forEach(function(handle) {
+            handle.handler(eArg);
+        });
+    };
+    
+    set value (value) {
+        if (this._terminated) {
+            throw new Error("varible terminated")
+        }
+        const items = [{id:this._id, data:value}];
+        return this._ds.update({insert:items, reset:false});
+    }
+
+    get value() {
+        if (this._ds.has_item(this._id)) {
+            return this._ds.get_item(this._id).data;
+        } else {
+            return this._options.value;
+        }
+    }
+    
+    ss_client_terminate() {
+        this._terminated = true;
+        this._ds.remove_callback(this._handle);
+    }
 }
 
 const MsgType = Object.freeze({
@@ -260,10 +375,11 @@ class SharedStateClient extends WebSocketIO {
         // path -> {} 
         this._subs_map = new Map();
 
-        // datasets
-        // path -> ds
+        // datasets {path -> ds}
         this._ds_map = new Map();
-        this._ds_handle_map = new Map();
+
+        // variables {[path, id] -> variable}
+        this._var_map = new Map();
     }
 
     /*********************************************************************
@@ -372,10 +488,12 @@ class SharedStateClient extends WebSocketIO {
         API
     *********************************************************************/
 
+    // get request for items by path
     get(path) {
         return this._request(MsgCmd.GET, path);
     }
     
+    // update request for path
     update(path, changes) {
         return this._request(MsgCmd.PUT, path, changes);
     }
@@ -383,53 +501,58 @@ class SharedStateClient extends WebSocketIO {
     /**
      * acquire dataset for path
      * - automatically subscribes to path if needed
-     * returns handle and dataset
-     * handle used to release dataset
      */
 
-    acquire (path) {
-        // subscribe if not exists
+    acquire_dataset (path, options) {
+        // subscribe if subscription does not exists
         if (!this._subs_map.has(path)) {
             // subscribe to path
             this._sub(path);
         }
         // create dataset if not exists
         if (!this._ds_map.has(path)) {
-            this._ds_map.set(path, new Dataset(this, path));
+            this._ds_map.set(path, new Dataset(this, path, options));
         }
-        const ds = this._ds_map.get(path);
-        // create handle for path
-        const handle = {path};
-        if (!this._ds_handle_map.has(path)) {
-            this._ds_handle_map.set(path, []);
-        }
-        this._ds_handle_map.get(path).push(handle);
-        return [handle, ds];
+        return this._ds_map.get(path);
     }
 
     /**
-     * release dataset by handle
-     * - automatically unsubscribe if all handles have been released
+     * acquire variable for (path, id)
+     * - automatically acquire dataset
      */
 
-    release (handle) {
-        const path = handle.path;
-        const handles = this._ds_handle_map.get(path);
-        if (handles == undefined) {
-            return;
+
+    acquire_variable (path, name, options) {
+        const ds = this.acquire_dataset(path);
+        // create variable if not exists
+        if (!this._var_map.has(path)) {
+            this._var_map.set(path, new Map());
         }
-        // remove handle
-        const index = handles.indexOf(handle);
-        if (index > -1) {
-            handles.splice(index, 1);
+        const var_map = this._var_map.get(path);
+        if (!var_map.get(name)) {
+            var_map.set(name, new Variable(ds, name, options));
         }
-        // clean up if last handle released
-        if (handles.length == 0) {
+        return var_map.get(name)
+    }
+
+    /**
+     * release path, including datasets and variables
+     */
+
+    release(path) {
+        // unsubscribe
+        if (this._subs_map.has(path)) {
             this._unsub(path);
-            // clear/disable dataset
-            // const ds = this._ds_map.get(path);
-            this._ds_map.delete(path);
         }
+        // terminate dataset and variables
+        const ds = this._ds_map.get(path);
+        ds._ssclient_terminate();
+        const var_map = this._var_map.get(path);
+        for (const v of var_map.values()) {
+            v._ssclient_terminate();
+        }
+        this._ds_map.delete(path);
+        this._var_map.delete(path);
     }
 }
 
