@@ -1,5 +1,5 @@
 /*
-    Dataset Viewer
+    Collection Viewer
 */
 
 function item2string(item) {
@@ -17,12 +17,12 @@ function item2string(item) {
 }
 
 
-export class DatasetViewer {
+export class CollectionViewer {
 
-    constructor(dataset, elem, options={}) {
-        this._ds = dataset;
+    constructor(collection, elem, options={}) {
+        this._coll = collection;
         this._elem = elem;
-        const handle = this._ds.add_callback(this._onchange.bind(this)); 
+        const handle = this._coll.add_callback(this._onchange.bind(this)); 
 
         // options
         let defaults = {
@@ -42,12 +42,20 @@ export class DatasetViewer {
                 if (deleteBtn) {
                     const listItem = deleteBtn.closest(".list-item");
                     if (listItem) {
-                        this._ds.update({remove:[listItem.id]});
+                        this._coll.update({remove:[listItem.id]});
                         e.stopPropagation();
                     }
                 }
             });
         }
+
+        /*
+            render initial state
+        */ 
+        const diffs = this._coll.items().map(item => {
+                return {id:item.id, new:item}
+        });
+        this._onchange(diffs);
     }
 
     _onchange(diffs) {

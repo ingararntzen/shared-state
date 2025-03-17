@@ -2,27 +2,25 @@
 /**
  * Variable
  * 
- * Wrapper to expose a single id (item) from an dataset as a standalone variable
+ * Wrapper to expose a single id (item) from a collection as a standalone variable
  * 
- * - if there is no item with id in dataset - the variable will be undefined
+ * - if there is no item with id in collection - the variable will be undefined
  *   or have a default value
- * - otherwise, the item will be the value of the variable
+ * - otherwise, the variable will be the value of item.data
  * 
- *  Variable implements the same interface as a dataset
- *  
  *  Default value is given in options {value:}
  */
 
 export class Variable {
 
-    constructor(ds, id, options={}) {
+    constructor(coll, id, options={}) {
         this._terminiated = false;
-        this._ds = ds;
+        this._coll = coll;
         this._id = id;
         this._options = options;
         // callback
         this._handlers = [];
-        this._handle = this._ds.add_callback(this._onchange.bind(this));
+        this._handle = this._coll.add_callback(this._onchange.bind(this));
     }
 
     _onchange(diffs) {
@@ -61,12 +59,12 @@ export class Variable {
             throw new Error("varible terminated")
         }
         const items = [{id:this._id, data:value}];
-        return this._ds.update({insert:items, reset:false});
+        return this._coll.update({insert:items, reset:false});
     }
 
     get value() {
-        if (this._ds.has_item(this._id)) {
-            return this._ds.get_item(this._id).data;
+        if (this._coll.has(this._id)) {
+            return this._coll.get(this._id).data;
         } else {
             return this._options.value;
         }
@@ -74,6 +72,6 @@ export class Variable {
     
     ss_client_terminate() {
         this._terminated = true;
-        this._ds.remove_callback(this._handle);
+        this._coll.remove_callback(this._handle);
     }
 }

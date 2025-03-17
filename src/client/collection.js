@@ -1,6 +1,6 @@
 import { random_string } from "./util.js";
 
-export class Dataset {
+export class Collection {
 
     constructor(ssclient, path, options={}) {
         this._options = options;
@@ -17,6 +17,7 @@ export class Dataset {
     /*********************************************************
         SHARED STATE CLIENT API
     **********************************************************/
+
     /**
      * Dataset released by ss client
      */
@@ -27,7 +28,6 @@ export class Dataset {
         // disconnect from observers
         this._handlers = [];
     }
-
 
     /**
      * server update dataset 
@@ -84,15 +84,11 @@ export class Dataset {
         APPLICATION API
     **********************************************************/
 
-    /**
-     * application requesting items
-     */
-    get_items() {
-        return [...this._map.values()];
-    };
-    get size() {return this._map.size};
-    get_item (id) {return this._map.get(id)} 
-    has_item(id) {return this._map.has(id)}
+    get size() {return this._map.size}
+    get(id) {return this._map.get(id)} 
+    has(id) {return this._map.has(id)}
+    keys() {return [...this._map.keys()]}
+    items() {return [...this._map.values()]}
 
     /**
      * application dispatching update to server

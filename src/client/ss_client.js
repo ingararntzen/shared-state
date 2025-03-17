@@ -1,6 +1,6 @@
 import { WebSocketIO } from "./wsio.js";
 import { resolvablePromise } from "./util.js";
-import { Dataset } from "./dataset.js";
+import { Collection } from "./collection.js";
 import { Variable } from "./variable.js";
 
 const MsgType = Object.freeze({
@@ -29,8 +29,8 @@ export class SharedStateClient extends WebSocketIO {
         // path -> {} 
         this._subs_map = new Map();
 
-        // datasets {path -> ds}
-        this._ds_map = new Map();
+        // collections {path -> collection}
+        this._coll_map = new Map();
 
         // variables {[path, id] -> variable}
         this._var_map = new Map();
@@ -79,7 +79,7 @@ export class SharedStateClient extends WebSocketIO {
 
     _handle_notify(msg) {
         // update dataset state
-        const ds = this._ds_map.get(msg["path"]);
+        const ds = this._coll_map.get(msg["path"]);
         if (ds != undefined) {
             ds._ssclient_update(msg["data"]);
         }
@@ -153,31 +153,28 @@ export class SharedStateClient extends WebSocketIO {
     }
 
     /**
-     * acquire dataset for path
+     * acquire collection for path
      * - automatically subscribes to path if needed
      */
-
-    acquire_dataset (path, options) {
+    acquire_collection (path, options) {
         // subscribe if subscription does not exists
         if (!this._subs_map.has(path)) {
             // subscribe to path
             this._sub(path);
         }
-        // create dataset if not exists
-        if (!this._ds_map.has(path)) {
-            this._ds_map.set(path, new Dataset(this, path, options));
+        // create collection if not exists
+        if (!this._coll_map.has(path)) {
+            this._coll_map.set(path, new Collection(this, path, options));
         }
-        return this._ds_map.get(path);
+        return this._coll_map.get(path);
     }
 
     /**
-     * acquire variable for (path, id)
-     * - automatically acquire dataset
+     * acquire variable for (path, name)
+     * - automatically acquire collection
      */
-
-
     acquire_variable (path, name, options) {
-        const ds = this.acquire_dataset(path);
+        const ds = this.acquire_collection(path);
         // create variable if not exists
         if (!this._var_map.has(path)) {
             this._var_map.set(path, new Map());
@@ -190,22 +187,23 @@ export class SharedStateClient extends WebSocketIO {
     }
 
     /**
-     * release path, including datasets and variables
+     * release path, including collection and variables
      */
-
     release(path) {
         // unsubscribe
         if (this._subs_map.has(path)) {
             this._unsub(path);
         }
-        // terminate dataset and variables
-        const ds = this._ds_map.get(path);
+        // terminate collection and variables
+        const ds = this._coll_map.get(path);
         ds._ssclient_terminate();
         const var_map = this._var_map.get(path);
-        for (const v of var_map.values()) {
-            v._ssclient_terminate();
+        if (var_map != undefined) {
+            for (const v of var_map.values()) {
+                v._ssclient_terminate();
+            }    
         }
-        this._ds_map.delete(path);
+        this._coll_map.delete(path);
         this._var_map.delete(path);
     }
 }

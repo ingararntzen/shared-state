@@ -14,7 +14,7 @@
     <script type="module">
         import {
             SharedStateClient,
-            DatasetViewer
+            CollectionViewer
         } from "./libs/sharedstate.es.js";
 
 
@@ -25,30 +25,29 @@
         const client = new SharedStateClient("ws://0.0.0.0:9000");
         client.connect();
 
-        // Dataset
-        const ds = client.acquire_dataset("/app/items/chnl")
+        // Collection
+        const coll = client.acquire_collection("/app/items/chnl")
 
         // Dataset Viewer
         const elem = document.querySelector("#viewer");
-        const viewer = new DatasetViewer(ds, elem, {delete:true});
+        const viewer = new CollectionViewer(coll, elem, {delete:true});
 
         document.querySelector("#addBtn").onclick = () => {
             const idx = getRandomInt(100);
             const items = [{id: `id_${idx}`, data: `data_${idx}`}];
-            ds.update({insert:items});
+            coll.update({insert:items});
         }
 
         document.querySelector("#changeBtn").onclick = () => {
             // pick random item
-            const items = ds.get_items();
-            const idx = getRandomInt(items.length);
+            const idx = getRandomInt(coll.size);
             const new_idx = getRandomInt(100);
             const new_item = {id:`id_${idx}`, data: `data_${new_idx}`};
-            ds.update({insert:[new_item]});
+            coll.update({insert:[new_item]});
         }
 
         document.querySelector("#resetBtn").onclick = () => {
-            ds.update({reset:true});
+            coll.update({reset:true});
         }
 
     </script>

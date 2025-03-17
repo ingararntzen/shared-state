@@ -6,31 +6,31 @@
         const client = new SharedStateClient("ws://0.0.0.0:9000");
         client.connect();
 
-        // Dataset
-        const ds = client.acquire_dataset("/app/items/chnl")
+        // Collection
+        const coll = client.acquire_collection("/app/items/chnl")
 
         // Dataset Change Handler
-        ds.add_callback(function (eArgs) {
-            const item = ds.get_item("myid");
+        coll.add_callback(function (eArgs) {
+            const item = coll.get("myid");
             if (item != undefined) {
-                console.log(ds.get_item("myid").data)
+                console.log(coll.get("myid").data)
             }
         });
 
         // Update Button
         document.querySelector("#updateBtn").onclick = () => {
-            const item = ds.get_item("myid");
+            const item = coll.get("myid");
             if (item != undefined) {
                 // toggle data
-                ds.update({insert:[{id:"myid", data:!(item.data)}]});
+                coll.update({insert:[{id:"myid", data:!(item.data)}]});
             } else {
                 // initialize data
-                ds.update({insert:[{id: "myid", data:true}]});
+                coll.update({insert:[{id: "myid", data:true}]});
             }
         }
         // Reset Button
         document.querySelector("#resetBtn").onclick = () => {
-            ds.update({reset:true});
+            coll.update({reset:true});
         }
     </script>
 </head>

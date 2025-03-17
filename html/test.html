@@ -100,16 +100,12 @@
         /* 
             ACQUIRE RELEASE
         */
-        let handle;
-        let ds;
         document.getElementById("acquire").onclick = () => {
-            [handle, ds] = client.acquire("/app/items/chnl");
+            let coll = client.acquire_collection("/app/items/chnl");
         }
 
         document.getElementById("release").onclick = () => {
-            if (handle != undefined) {
-                client.release(handle);
-            }
+            client.release("/app/items/chnl");
         }
 
 
