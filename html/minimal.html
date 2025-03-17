@@ -9,7 +9,7 @@
         // Collection
         const coll = client.acquire_collection("/app/items/chnl")
 
-        // Dataset Change Handler
+        // Collection Change Handler
         coll.add_callback(function (eArgs) {
             const item = coll.get("myid");
             if (item != undefined) {

@@ -78,7 +78,7 @@ export class SharedStateClient extends WebSocketIO {
     }
 
     _handle_notify(msg) {
-        // update dataset state
+        // update collection state
         const ds = this._coll_map.get(msg["path"]);
         if (ds != undefined) {
             ds._ssclient_update(msg["data"]);

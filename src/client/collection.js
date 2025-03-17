@@ -19,23 +19,23 @@ export class Collection {
     **********************************************************/
 
     /**
-     * Dataset released by ss client
+     * Collection released by ss client
      */
 
     _ssclient_terminate() {
         this._terminated = true;
-        // empty dataset?
+        // empty collection?
         // disconnect from observers
         this._handlers = [];
     }
 
     /**
-     * server update dataset 
+     * server update collection 
      */
     _ssclient_update (changes={}) {
 
         if (this._terminated) {
-            throw new Error("dataset already terminated")
+            throw new Error("collection already terminated")
         }
 
         const {remove, insert, reset=false} = changes;
@@ -87,15 +87,14 @@ export class Collection {
     get size() {return this._map.size}
     get(id) {return this._map.get(id)} 
     has(id) {return this._map.has(id)}
-    keys() {return [...this._map.keys()]}
-    items() {return [...this._map.values()]}
+    get_all() {return [...this._map.values()]}
 
     /**
      * application dispatching update to server
      */
     update (changes={}) {
         if (this._terminated) {
-            throw new Error("dataset already terminated")
+            throw new Error("collection already terminated")
         }
         // ensure that inserted items have ids
         const {insert=[]} = changes;

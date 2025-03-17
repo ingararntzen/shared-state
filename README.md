@@ -1,5 +1,5 @@
 
-# Shared State Server
+# Shared State
 
 Python server and JavaScript client for real-time data sharing. 
 
@@ -128,18 +128,18 @@ sharedstate myconfig.json
 
 # Concepts
 
-### Item Collections
+### Collections
 
-The SharedState server hosts named item collections, and allow clients
-to monitor dynamic changes within these collections, including
-removal, addition or modifications of items. Communication
-is multiplexed over a single websocket connection, even if
-clients monitor multiple item collections on the server.
+The SharedState server hosts named collections of items, and allow
+clients to monitor dynamic changes within these collections, including removal,
+addition or modifications of items. Communication is multiplexed over a single
+websocket connection, even if clients monitor multiple item collections on the
+server.
 
 
 ### Items
 
-Items are JSON-serializeable objects with an _id_ property.
+Items are JSON-serializeable objects with an _"id"_ property.
 The _id_ must be a string, and is assumed to be unique within the
 collection. Otherwise, applications are free to specify the contents 
 of items as needed. 
@@ -151,18 +151,17 @@ a batch operation, allowing the *removal* and *insertion* of multiple items in a
 single operation.
 
 ```javascript
-dataset.update({remove:[], insert:[], reset:false}) {}
+collection.update({remove:[], insert:[], reset:false}) {}
 ```
 
-* _remove_ lists the _id_ of items to be removed from the collection. 
+* _remove_ lists _id's_ of items to be removed from the collection. 
 Removal is performed ahead of insertion.
-* _insert_ is a list of _items_ to insert into the collection. Inserted _items_
-will replace pre-existing items with same _id_.
-* _reset_ is a boolean flag. If true, all pre-existing items will be removed
+* _insert_ is a list of _items_ to be inserted into the collection. Inserted _items_ will replace pre-existing items with same _id_.
+* _reset_ (boolean). If true, all pre-existing items will be removed
   ahead of insertion  (_remove_ is ignored).
 * defaults for _remove_ and _insert_ is [], implying that they can be
   omitted if there are no items to remove or insert.
-* default for _reset_ is false, implying that it is only needed when true.
+* default for _reset_ is false.
 
 | UPDATE ARGUMENT                           | EFFECT                 |
 |-------------------------------------------|------------------------|
@@ -201,11 +200,9 @@ Item collections hosted by the SharedState server are identified by a _path_.
 
 # Shared State Client
 
-The SharedState client allows application to monitor server-side items
-collection. The client maintains a local _dataset_ for each referenced _path_.
-This _dataset_ acts as a proxy to the server-side collection, and is
-automatically synchronized with state changes in server-side item collections.
-Additionally, the _dataset_ provides and update method - which forwards update
+The SharedState client allows application to monitor server-side
+collections. The client maintains a local _collection_ for each referenced _path_. This local _collection_ acts as a proxy to the server-side collection, and is automatically synchronized with server-side state changes.
+Additionally, the _collection_ provides and update method - which forwards update
 requests to the SharedState server.
 
 ### Example
@@ -222,31 +219,31 @@ true and false, for a given item within a specific item collection.
         const client = new SharedStateClient("ws://0.0.0.0:9000");
         client.connect();
 
-        // Dataset
-        const [handle, ds] = client.acquire("/myapp/items/mycollection")
+        // Collection
+        const coll = client.acquire_collection("/app/items/chnl")
 
-        // Dataset Change Handler
-        ds.add_callback(function (eArgs) {
-            const item = ds.get_item("myid");
+        // Collection Change Handler
+        coll.add_callback(function (eArgs) {
+            const item = coll.get("myid");
             if (item != undefined) {
-                console.log(ds.get_item("myid").data)
+                console.log(coll.get("myid").data)
             }
         });
 
         // Update Button
         document.querySelector("#updateBtn").onclick = () => {
-            const item = ds.get_item("myid");
+            const item = coll.get("myid");
             if (item != undefined) {
                 // toggle data
-                ds.update({insert:[{id:"myid", data:!(item.data)}]});
+                coll.update({insert:[{id:"myid", data:!(item.data)}]});
             } else {
                 // initialize data
-                ds.update({insert:[{id: "myid", data:true}]});
+                coll.update({insert:[{id: "myid", data:true}]});
             }
         }
         // Reset Button
         document.querySelector("#resetBtn").onclick = () => {
-            ds.update({reset:true});
+            coll.update({reset:true});
         }
     </script>
 </head>
@@ -257,33 +254,32 @@ true and false, for a given item within a specific item collection.
 </html> 
 ```
 
-### Dataset
+### Collection
 
-Datasets may be acquired and relased by applications. A realeased dataset is
-no longer kept in sync with corresponding collection on the server, and
-does no longer accept any updates.
+Collections may be acquired (and relased) by application code. 
+A realeased collection is no longer kept in sync with the corresponding server-side collection, and does no longer accept any updates.
 
 ```javascript
 // acquire
-const ds = client.acquire_dataset("/myapp/items/mycollection")
+const coll = client.acquire_collection("/myapp/items/mycollection")
 // release
 client.release("/myapp/items/mycollection");
 ```
 
-Datasets provide the following methods for access to. 
+Collections provide the following methods. 
 
 ```javascript
 // return a single item, given id
-const item = ds.get_item(id)
-// return true if dataset has item with id
-const ok = ds.has_item(id)
-// return list of all items in dataset
-const items = ds.get_items()
-// return size of dataset
+const item = ds.get(id)
+// return true if collection has item with id
+const ok = ds.has(id)
+// return list of all items in collection
+const items = ds.get_all()
+// return size of collection
 const size = ds.size;
 ```
 
-Dataset reports changes through callback
+Collection changes reported through callback
 
 ```javascript
 const handle = ds.add_callback(function (diffs) {
@@ -312,11 +308,11 @@ state of the item before the update. When a new item has been added,
 
 ### Variables
 
-For convenience, the sharedstate client also supports a variable concept 
-implemented on top of the dataset concept. 
-Effectively, variables represent a single item from an item collection.
-The variable interface provides a setter/getter interface, and callback
-support like datasets.
+For convenience, the sharedstate client also supports a _variable_ concept 
+implemented on top of the _collection_ concept. 
+Effectively, variables represent a single item from a collection.
+The variable interface provides a setter/getter interface, and supports
+callbacks like collections.
 
 ```javascript
 const v = client.acquire_variable("/myapp/items/mycollection", "myvar", {value:0});
@@ -327,7 +323,7 @@ elem.innerHTML = v.value;
 // set value or JSON serializeable object
 v.value = {...}
 
-// releases datasets and all variables
+// releases collection (and associated variables)
 client.release("/myapp/items/mycollection");
 ```
 
@@ -340,6 +336,6 @@ Async websocket server.
 
 * Currently, communication is plain text. SSL support has not been tested.
 
-* Currently no support for server-side filtering, though the server design is open to this feature as a future extension.
+* Currently no support for server-side filtering, though the server design is open to this feature being added as a future extension.
 
-* The provided client code is limited to JavaScript, implying that state sharing is limited the Web platform and nodejs environments. However, the concept itself is open to state sharing across any (connected) platform, provided only that a client implementation exists for the platforms.
+* The provided client code is limited to JavaScript, implying that state sharing is limited the Web platform and nodejs environments. However, the concept itself is open to state sharing across any connected platform, provided only that a client implementation exists for the given platform.

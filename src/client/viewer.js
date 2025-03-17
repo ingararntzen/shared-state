@@ -52,9 +52,10 @@ export class CollectionViewer {
         /*
             render initial state
         */ 
-        const diffs = this._coll.items().map(item => {
+        const diffs = this._coll.get_all()
+            .map(item => {
                 return {id:item.id, new:item}
-        });
+            });
         this._onchange(diffs);
     }
 

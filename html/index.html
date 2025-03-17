@@ -28,7 +28,7 @@
         // Collection
         const coll = client.acquire_collection("/app/items/chnl")
 
-        // Dataset Viewer
+        // Collection Viewer
         const elem = document.querySelector("#viewer");
         const viewer = new CollectionViewer(coll, elem, {delete:true});
 
@@ -54,7 +54,7 @@
 </head>
 <body>
 
-    <h3> SharedState Dataset Viewer</h3>
+    <h3> SharedState Collection Viewer</h3>
     <p>
         <button id="addBtn">Add</button>
         <button id="changeBtn">Change</button>
