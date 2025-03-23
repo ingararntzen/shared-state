@@ -274,7 +274,7 @@ const item = ds.get(id)
 // return true if collection has item with id
 const ok = ds.has(id)
 // return list of all items in collection
-const items = ds.get_all()
+const items = ds.get()
 // return size of collection
 const size = ds.size;
 ```
@@ -318,10 +318,10 @@ callbacks like collections.
 const v = client.acquire_variable("/myapp/items/mycollection", "myvar", {value:0});
 
 // render value
-elem.innerHTML = v.value;
+elem.innerHTML = v.get();
 
 // set value or JSON serializeable object
-v.value = {...}
+v.set(obj)
 
 // releases collection (and associated variables)
 client.release("/myapp/items/mycollection");

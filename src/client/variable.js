@@ -53,8 +53,9 @@ export class Variable {
             handle.handler(eArg);
         });
     };
+
     
-    set value (value) {
+    set (value) {
         if (this._terminated) {
             throw new Error("varible terminated")
         }
@@ -62,7 +63,7 @@ export class Variable {
         return this._coll.update({insert:items, reset:false});
     }
 
-    get value() {
+    get () {
         if (this._coll.has(this._id)) {
             return this._coll.get(this._id).data;
         } else {
