@@ -144,7 +144,7 @@ class WebSocketIO {
     }
 }
 
-class Dataset {
+class Collection {
 
     constructor(ssclient, path, options={}) {
         this._options = options;
@@ -161,25 +161,25 @@ class Dataset {
     /*********************************************************
         SHARED STATE CLIENT API
     **********************************************************/
+
     /**
-     * Dataset released by ss client
+     * Collection released by ss client
      */
 
     _ssclient_terminate() {
         this._terminated = true;
-        // empty dataset?
+        // empty collection?
         // disconnect from observers
         this._handlers = [];
     }
 
-
     /**
-     * server update dataset 
+     * server update collection 
      */
     _ssclient_update (changes={}) {
 
         if (this._terminated) {
-            throw new Error("dataset already terminated")
+            throw new Error("collection already terminated")
         }
 
         const {remove, insert, reset=false} = changes;
@@ -228,22 +228,22 @@ class Dataset {
         APPLICATION API
     **********************************************************/
 
-    /**
-     * application requesting items
-     */
-    get_items() {
-        return [...this._map.values()];
-    };
-    get size() {return this._map.size};
-    get_item (id) {return this._map.get(id)} 
-    has_item(id) {return this._map.has(id)}
+    get size() {return this._map.size}
+    has(id) {return this._map.has(id)}
+    get(id) {
+        if (id == undefined) {
+            return [...this._map.values()]
+        } else {
+            return this._map.get(id)
+        }
+    }
 
     /**
      * application dispatching update to server
      */
     update (changes={}) {
         if (this._terminated) {
-            throw new Error("dataset already terminated")
+            throw new Error("collection already terminated")
         }
         // ensure that inserted items have ids
         const {insert=[]} = changes;
@@ -273,27 +273,25 @@ class Dataset {
 /**
  * Variable
  * 
- * Wrapper to expose a single id (item) from an dataset as a standalone variable
+ * Wrapper to expose a single id (item) from a collection as a standalone variable
  * 
- * - if there is no item with id in dataset - the variable will be undefined
+ * - if there is no item with id in collection - the variable will be undefined
  *   or have a default value
- * - otherwise, the item will be the value of the variable
+ * - otherwise, the variable will be the value of item.data
  * 
- *  Variable implements the same interface as a dataset
- *  
  *  Default value is given in options {value:}
  */
 
 class Variable {
 
-    constructor(ds, id, options={}) {
+    constructor(coll, id, options={}) {
         this._terminiated = false;
-        this._ds = ds;
+        this._coll = coll;
         this._id = id;
         this._options = options;
         // callback
         this._handlers = [];
-        this._handle = this._ds.add_callback(this._onchange.bind(this));
+        this._handle = this._coll.add_callback(this._onchange.bind(this));
     }
 
     _onchange(diffs) {
@@ -326,18 +324,19 @@ class Variable {
             handle.handler(eArg);
         });
     };
+
     
-    set value (value) {
+    set (value) {
         if (this._terminated) {
             throw new Error("varible terminated")
         }
         const items = [{id:this._id, data:value}];
-        return this._ds.update({insert:items, reset:false});
+        return this._coll.update({insert:items, reset:false});
     }
 
-    get value() {
-        if (this._ds.has_item(this._id)) {
-            return this._ds.get_item(this._id).data;
+    get () {
+        if (this._coll.has(this._id)) {
+            return this._coll.get(this._id).data;
         } else {
             return this._options.value;
         }
@@ -345,7 +344,164 @@ class Variable {
     
     ss_client_terminate() {
         this._terminated = true;
-        this._ds.remove_callback(this._handle);
+        this._coll.remove_callback(this._handle);
+    }
+}
+
+// webpage clock - performance now - seconds
+const local = {
+    now: function() {
+        return performance.now()/1000.0;
+    }
+};
+// system clock - epoch - seconds
+const epoch = {
+    now: function() {
+        return new Date()/1000.0;
+    }
+};
+
+/**
+ * CLOCK gives epoch values, but is implemented
+ * using performance now for better
+ * time resolution and protection against system 
+ * time adjustments.
+ */
+
+const CLOCK = function () {
+    const t0_local = local.now();
+    const t0_epoch = epoch.now();
+    return {
+        now: function () {
+            const t1_local = local.now();
+            return t0_epoch + (t1_local - t0_local);
+        }
+    };
+}();
+
+
+/**
+ * Estimate the clock of the server 
+ */
+
+const MAX_SAMPLE_COUNT = 30;
+
+class ServerClock {
+
+    constructor(ssclient) {
+        // sharestate client
+        this._ssclient = ssclient;
+        // pinger
+        this._pinger = new Pinger(this._onping.bind(this));
+        // samples
+        this._samples = [];
+        // estimates
+        this._trans = 1000.0;
+        this._skew = 0.0;
+    }
+
+    resume() {
+        this._pinger.resume();
+    }
+
+    pause() {
+        this._pinger.pause();
+    }
+
+    _onping() {
+        const ts0 = CLOCK.now();
+        this._ssclient.get("/clock").then(({ok, data}) => {
+            if (ok) {
+                const ts1 = CLOCK.now();
+                this._add_sample(ts0, data, ts1);    
+            }
+        });
+    }
+
+    _add_sample(cs, ss, cr) {
+        let trans = (cr - cs) / 2.0;
+        let skew = ss - (cr + cs) / 2.0;
+        let sample = [cs, ss, cr, trans, skew];
+        // add to samples
+        this._samples.push(sample);
+        if (this._samples.length > MAX_SAMPLE_COUNT) {
+            // remove first sample
+            this._samples.shift();
+        }
+        // reevaluate estimates for skew and trans
+        trans = 100000.0;
+        skew = 0.0;
+        for (const sample of this._samples) {
+            if (sample[3] < trans) {
+                trans = sample[3];
+                skew = sample[4];
+            }
+        }
+        this._skew = skew;
+        this._trans = trans;
+    }
+
+    get skew() {return this._skew;}
+    get trans() {return this._trans;}
+
+    now() {
+        // server clock is local clock + estimated skew
+        return CLOCK.now() + this._skew;
+    }
+
+}
+
+
+/*********************************************************
+    PINGER
+**********************************************************/
+
+/**
+ * Pinger invokes a callback repeatedly, indefinitely. 
+ * Pinging in 3 stages, first frequently, then moderately, 
+ * then slowly.
+ */
+
+const SMALL_DELAY = 20; // ms
+const MEDIUM_DELAY = 500; // ms
+const LARGE_DELAY = 10000; // ms
+
+const DELAY_SEQUENCE = [
+    ...new Array(3).fill(SMALL_DELAY), 
+    ...new Array(7).fill(MEDIUM_DELAY),
+    ...[LARGE_DELAY]
+];
+
+class Pinger {
+
+    constructor (callback) {
+        this._count = 0;
+        this._tid = undefined;
+        this._callback = callback;
+        this._ping = this.ping.bind(this);
+        this._delays = [...DELAY_SEQUENCE];
+    }
+    pause() {
+        clearTimeout(this._tid);
+    }
+    resume() {
+        clearTimeout(this._tid);
+        this.ping();
+    }
+    restart() {
+        this._delays = [...DELAY_SEQUENCE];
+        clearTimeout(this._tid);
+        this.ping();
+    }
+    ping () {
+        let next_delay = this._delays[0];
+        if (this._delays.length > 1) {
+            this._delays.shift();
+        }
+        if (this._callback) {
+            this._callback();
+        }
+        this._tid = setTimeout(this._ping, next_delay);
     }
 }
 
@@ -375,11 +531,14 @@ class SharedStateClient extends WebSocketIO {
         // path -> {} 
         this._subs_map = new Map();
 
-        // datasets {path -> ds}
-        this._ds_map = new Map();
+        // collections {path -> collection}
+        this._coll_map = new Map();
 
         // variables {[path, id] -> variable}
         this._var_map = new Map();
+
+        // server clock
+        this._server_clock;
     }
 
     /*********************************************************************
@@ -393,9 +552,17 @@ class SharedStateClient extends WebSocketIO {
             const items = [...this._subs_map.entries()];
             this.update("/subs", {insert:items, reset:true});
         }
+        // server clock
+        if (this._server_clock != undefined) {
+            this._server_clock.resume();
+        }
     }
     on_disconnect() {
         console.error(`Disconnect ${this.url}`);
+        // server clock
+        if (this._server_clock != undefined) {
+            this._server_clock.pause();
+        }
     }
     on_error(error) {
         const {debug=false} = this._options;
@@ -424,8 +591,8 @@ class SharedStateClient extends WebSocketIO {
     }
 
     _handle_notify(msg) {
-        // update dataset state
-        const ds = this._ds_map.get(msg["path"]);
+        // update collection state
+        const ds = this._coll_map.get(msg["path"]);
         if (ds != undefined) {
             ds._ssclient_update(msg["data"]);
         }
@@ -488,6 +655,17 @@ class SharedStateClient extends WebSocketIO {
         API
     *********************************************************************/
 
+    // accsessor for server clock
+    get clock() {
+        if (this._server_clock == undefined) {
+            this._server_clock = new ServerClock(this);
+            if (this.connected) {
+                this._server_clock.resume();
+            }
+        }
+        return this._server_clock;
+    }
+
     // get request for items by path
     get(path) {
         return this._request(MsgCmd.GET, path);
@@ -499,31 +677,28 @@ class SharedStateClient extends WebSocketIO {
     }
 
     /**
-     * acquire dataset for path
+     * acquire collection for path
      * - automatically subscribes to path if needed
      */
-
-    acquire_dataset (path, options) {
+    acquire_collection (path, options) {
         // subscribe if subscription does not exists
         if (!this._subs_map.has(path)) {
             // subscribe to path
             this._sub(path);
         }
-        // create dataset if not exists
-        if (!this._ds_map.has(path)) {
-            this._ds_map.set(path, new Dataset(this, path, options));
+        // create collection if not exists
+        if (!this._coll_map.has(path)) {
+            this._coll_map.set(path, new Collection(this, path, options));
         }
-        return this._ds_map.get(path);
+        return this._coll_map.get(path);
     }
 
     /**
-     * acquire variable for (path, id)
-     * - automatically acquire dataset
+     * acquire variable for (path, name)
+     * - automatically acquire collection
      */
-
-
     acquire_variable (path, name, options) {
-        const ds = this.acquire_dataset(path);
+        const ds = this.acquire_collection(path);
         // create variable if not exists
         if (!this._var_map.has(path)) {
             this._var_map.set(path, new Map());
@@ -536,28 +711,29 @@ class SharedStateClient extends WebSocketIO {
     }
 
     /**
-     * release path, including datasets and variables
+     * release path, including collection and variables
      */
-
     release(path) {
         // unsubscribe
         if (this._subs_map.has(path)) {
             this._unsub(path);
         }
-        // terminate dataset and variables
-        const ds = this._ds_map.get(path);
+        // terminate collection and variables
+        const ds = this._coll_map.get(path);
         ds._ssclient_terminate();
         const var_map = this._var_map.get(path);
-        for (const v of var_map.values()) {
-            v._ssclient_terminate();
+        if (var_map != undefined) {
+            for (const v of var_map.values()) {
+                v._ssclient_terminate();
+            }    
         }
-        this._ds_map.delete(path);
+        this._coll_map.delete(path);
         this._var_map.delete(path);
     }
 }
 
 /*
-    Dataset Viewer
+    Collection Viewer
 */
 
 function item2string(item) {
@@ -575,12 +751,12 @@ function item2string(item) {
 }
 
 
-class DatasetViewer {
+class CollectionViewer {
 
-    constructor(dataset, elem, options={}) {
-        this._ds = dataset;
+    constructor(collection, elem, options={}) {
+        this._coll = collection;
         this._elem = elem;
-        this._ds.add_callback(this._onchange.bind(this)); 
+        this._handle = this._coll.add_callback(this._onchange.bind(this)); 
 
         // options
         let defaults = {
@@ -600,12 +776,21 @@ class DatasetViewer {
                 if (deleteBtn) {
                     const listItem = deleteBtn.closest(".list-item");
                     if (listItem) {
-                        this._ds.update({remove:[listItem.id]});
+                        this._coll.update({remove:[listItem.id]});
                         e.stopPropagation();
                     }
                 }
             });
         }
+
+        /*
+            render initial state
+        */ 
+        const diffs = this._coll.get()
+            .map(item => {
+                return {id:item.id, new:item}
+            });
+        this._onchange(diffs);
     }
 
     _onchange(diffs) {
@@ -632,4 +817,4 @@ class DatasetViewer {
     }
 }
 
-export { DatasetViewer, SharedStateClient };
+export { CollectionViewer, SharedStateClient };

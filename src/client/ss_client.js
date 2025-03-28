@@ -2,6 +2,7 @@ import { WebSocketIO } from "./wsio.js";
 import { resolvablePromise } from "./util.js";
 import { Collection } from "./collection.js";
 import { Variable } from "./variable.js";
+import { ServerClock } from "./serverclock.js";
 
 const MsgType = Object.freeze({
     MESSAGE : "MESSAGE",
@@ -34,6 +35,9 @@ export class SharedStateClient extends WebSocketIO {
 
         // variables {[path, id] -> variable}
         this._var_map = new Map();
+
+        // server clock
+        this._server_clock;
     }
 
     /*********************************************************************
@@ -47,9 +51,17 @@ export class SharedStateClient extends WebSocketIO {
             const items = [...this._subs_map.entries()];
             this.update("/subs", {insert:items, reset:true});
         }
+        // server clock
+        if (this._server_clock != undefined) {
+            this._server_clock.resume();
+        }
     }
     on_disconnect() {
         console.error(`Disconnect ${this.url}`);
+        // server clock
+        if (this._server_clock != undefined) {
+            this._server_clock.pause();
+        }
     }
     on_error(error) {
         const {debug=false} = this._options;
@@ -141,6 +153,17 @@ export class SharedStateClient extends WebSocketIO {
     /*********************************************************************
         API
     *********************************************************************/
+
+    // accsessor for server clock
+    get clock() {
+        if (this._server_clock == undefined) {
+            this._server_clock = new ServerClock(this);
+            if (this.connected) {
+                this._server_clock.resume();
+            }
+        }
+        return this._server_clock;
+    }
 
     // get request for items by path
     get(path) {

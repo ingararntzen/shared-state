@@ -22,7 +22,7 @@ export class CollectionViewer {
     constructor(collection, elem, options={}) {
         this._coll = collection;
         this._elem = elem;
-        const handle = this._coll.add_callback(this._onchange.bind(this)); 
+        this._handle = this._coll.add_callback(this._onchange.bind(this)); 
 
         // options
         let defaults = {
@@ -52,7 +52,7 @@ export class CollectionViewer {
         /*
             render initial state
         */ 
-        const diffs = this._coll.get_all()
+        const diffs = this._coll.get()
             .map(item => {
                 return {id:item.id, new:item}
             });
