@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<meta charset="utf-8" />
+<head>
+    <script type="module">
+        import {SharedStateClient} from "./libs/sharedstate.es.js";
+        const client = new SharedStateClient("ws://0.0.0.0:9000");
+        client.connect();
+
+        /*
+            Display Clock
+        */
+        const elem_clock = document.querySelector("#clock");
+        const elem_trans = document.querySelector("#trans");
+        const elem_skew = document.querySelector("#skew");
+        
+        setInterval(() => {
+            elem_clock.textContent = `${client.clock.now()}`; 
+            elem_trans.textContent = `${client.clock.trans}`;
+            elem_skew.textContent = `${client.clock.skew}`;
+        }, 200);
+
+    </script>
+</head>
+<body>
+    <h3>Clock</h3>
+    <p>
+        <div>Clock: <span id="clock"></span></div>
+        <div>Trans: <span id="trans"></span></div>
+        <div>Skew: <span id="skew"></span></div>
+    </p>
+</body>
+</html> 
