@@ -85,9 +85,14 @@ export class Collection {
     **********************************************************/
 
     get size() {return this._map.size}
-    get(id) {return this._map.get(id)} 
     has(id) {return this._map.has(id)}
-    get_all() {return [...this._map.values()]}
+    get(id) {
+        if (id == undefined) {
+            return [...this._map.values()]
+        } else {
+            return this._map.get(id)
+        }
+    }
 
     /**
      * application dispatching update to server

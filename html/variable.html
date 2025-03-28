@@ -21,7 +21,7 @@
         // render variable
         const elem = document.querySelector("#variable");
         function render() {
-            elem.innerHTML = `${v.value}`;
+            elem.innerHTML = `${v.get()}`;
         }
         render();
         v.add_callback((diff) => {
@@ -29,7 +29,7 @@
         });
         // set variable
         document.querySelector("#setBtn").onclick = () => {
-            v.value = getRandomInt(100);
+            v.set(getRandomInt(100));
         }
     </script>
 </head>
