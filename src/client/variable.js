@@ -29,7 +29,6 @@ export class Variable {
         }
         for (const diff of diffs) {
             if (diff.id == this._id) {
-                this._item = diff.new;
                 this.notify_callbacks(diff);
             }
         }

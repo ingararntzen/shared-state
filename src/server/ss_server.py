@@ -300,6 +300,7 @@ class SharedStateServer:
 
         if n_path == PurePosixPath("/subs"):
             subs = changes.get("insert", [])
+            # TODO: check that subs are valid
             self._clients.put_subs(ws, subs)
             reset_paths = [path for path, sub in subs]
             self._tasks.append(("unicast_reset", ws, reset_paths))
@@ -314,7 +315,7 @@ class SharedStateServer:
             return False, "no service"
         diffs = await srvc.update(app, chnl, changes)
         oldstate_included = getattr(srvc, "oldstate_included", False)
-        self._tasks.append(("multicast_notify", path, 
+        self._tasks.append(("multicast_notify", path,
                             changes, diffs, oldstate_included))
         return True, len(diffs)
 
