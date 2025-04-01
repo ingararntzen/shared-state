@@ -13,7 +13,6 @@
         }
 
         const client = new SharedStateClient("ws://0.0.0.0:9000");
-        client.connect();
 
         // variable
         const v = client.acquire_variable("/app/items/chnl", "myvar", {value:0});

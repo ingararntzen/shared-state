@@ -23,7 +23,6 @@
         }
 
         const client = new SharedStateClient("ws://0.0.0.0:9000");
-        client.connect();
 
         // Collection
         const coll = client.acquire_collection("/app/items/chnl")

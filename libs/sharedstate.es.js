@@ -300,7 +300,6 @@ class Variable {
         }
         for (const diff of diffs) {
             if (diff.id == this._id) {
-                this._item = diff.new;
                 this.notify_callbacks(diff);
             }
         }
@@ -539,6 +538,8 @@ class SharedStateClient extends WebSocketIO {
 
         // server clock
         this._server_clock;
+
+        this.connect();
     }
 
     /*********************************************************************
@@ -681,6 +682,7 @@ class SharedStateClient extends WebSocketIO {
      * - automatically subscribes to path if needed
      */
     acquire_collection (path, options) {
+        path = path.startsWith("/") ? path : "/" + path;
         // subscribe if subscription does not exists
         if (!this._subs_map.has(path)) {
             // subscribe to path
@@ -698,6 +700,7 @@ class SharedStateClient extends WebSocketIO {
      * - automatically acquire collection
      */
     acquire_variable (path, name, options) {
+        path = path.startsWith("/") ? path : "/" + path;
         const ds = this.acquire_collection(path);
         // create variable if not exists
         if (!this._var_map.has(path)) {

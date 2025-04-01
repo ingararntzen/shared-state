@@ -38,6 +38,8 @@ export class SharedStateClient extends WebSocketIO {
 
         // server clock
         this._server_clock;
+
+        this.connect();
     }
 
     /*********************************************************************
