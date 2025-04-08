@@ -58,7 +58,7 @@ Alternatively, create a new service based on a different database.
 mysql -u root -p 
 ```
 
-**Mariadb**
+**Mariadb/MySQL 8.x**
 ```sh
 sudo mysql 
 ```
@@ -110,19 +110,12 @@ _mitems_ and is based on an in-memory sqlite database.
 }
 ```
 
-### Virtual environment
-Python version >= 3.7
+### Poetry
 
 ```sh
-# create venv sharedstate
-python3.8 -m venv sharedstate
-# activate venv
-source venv/bin/activate
-pip install --upgrade pip
-# install package
-pip install .
-# start server
-sharedstate myconfig.json
+poetry install
+poetry run sharedstate-server myconfig.json
+poetr run pytest
 ```
 
 
@@ -217,7 +210,6 @@ true and false, for a given item within a specific item collection.
     <script type="module">
         import {SharedStateClient} from "https://github.com/ingararntzen/shared-state/raw/main/libs/sharedstate.es.js";
         const client = new SharedStateClient("ws://0.0.0.0:9000");
-        client.connect();
 
         // Collection
         const coll = client.acquire_collection("/app/items/chnl")
