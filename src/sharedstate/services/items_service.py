@@ -1,5 +1,5 @@
-from src.server.db_mysql import MysqlDB
-from src.server.db_sqlite import SqliteDB
+from sharedstate.db_mysql import MysqlDB
+from sharedstate.db_sqlite import SqliteDB
 from collections import OrderedDict
 
 

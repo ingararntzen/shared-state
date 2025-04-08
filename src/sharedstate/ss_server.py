@@ -123,7 +123,7 @@ class SharedStateServer:
         self._services = {}
         # load services
         for service in services:
-            module_path = f"src.server.services.{service['module']}"
+            module_path = f"sharedstate.services.{service['module']}"
             module = importlib.import_module(module_path)
             service_obj = module.get_service(service.get("config", {}))
             self._services[service['name']] = service_obj

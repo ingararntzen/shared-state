@@ -11,9 +11,11 @@ dependencies = [
     "aiomysql",
     "pytest",
     "pytest-asyncio",
-    "aiosqlite"
+    "aiosqlite",
+    "cryptography"
 ]
 
+
 [project.scripts]
-sharedstate = "src.server.ss_server:start"
+sharedstate-server = "sharedstate.ss_server:start"
 

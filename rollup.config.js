@@ -24,7 +24,7 @@ const bundle = "sharedstate";
 const ext = isDist ? "min.js" : "js"; 
 
 export default {
-  input: 'src/client/index.js',
+  input: 'client/index.js',
   output: [
     {
       file: `${target}/${bundle}.iife.${ext}`,

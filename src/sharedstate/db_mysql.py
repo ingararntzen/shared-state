@@ -220,9 +220,9 @@ class MysqlDB:
         SQL = (
             f"INSERT INTO {self._table} "
             "(app, chnl, id, data) "
-            "VALUES (%s, %s, %s, %s) "
+            "VALUES (%s, %s, %s, %s) AS new "
             "ON DUPLICATE KEY UPDATE "
-            "data = VALUES(data)"
+            "data = new.data"
         )
         async with self.pool.acquire() as conn:
             async with conn.cursor() as cur:

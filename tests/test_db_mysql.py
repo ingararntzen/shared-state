@@ -1,7 +1,7 @@
 
 """Test items db."""
 import pytest
-from src.server.db_mysql import MysqlDB
+from sharedstate.db_mysql import MysqlDB
 
 MYSQL_CONFIG = {
     "db_type": "mysql",

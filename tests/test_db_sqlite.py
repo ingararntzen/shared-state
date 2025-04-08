@@ -1,7 +1,7 @@
 
 """Test items db."""
 import pytest
-from src.server.db_sqlite import SqliteDB
+from sharedstate.db_sqlite import SqliteDB
 
 SQLITE_CONFIG = {
     "db_name": ":memory:",
