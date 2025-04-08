@@ -115,7 +115,6 @@ _mitems_ and is based on an in-memory sqlite database.
 ```sh
 poetry install
 poetry run sharedstate-server myconfig.json
-poetr run pytest
 ```
 
 

@@ -1,5 +1,5 @@
 
-# Build process
+# JavaScript Client build process
 
 ```sh
 
@@ -19,21 +19,9 @@ npm start
 cp html/libs/*.js libs
 ```
 
-
-
-
-
-# Dev imports
+# Server Testing
 
 ```sh
-pip install pytest
-pip flake8
-```
-
-
-# Testing
-
-```sh
-pytest
+poetry run pytest
 ```
 
