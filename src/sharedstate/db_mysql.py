@@ -87,6 +87,9 @@ class MysqlDB:
         ))
         self.pool = await aiomysql.create_pool(**kwargs)
         await self._prepare_tables()
+        # figure out if db type is mariaDB or mysql
+        db_version = await self._get_db_version()
+        self.cfg["is_mariadb"] = "mariadb" in db_version.lower()
 
     async def close(self):
         """Close the connection pool properly."""
@@ -154,6 +157,13 @@ class MysqlDB:
                     warnings.simplefilter("ignore", aiomysql.Warning)
                     await self._execute(cur, SQL)
 
+    async def _get_db_version(self):
+        SQL = "SELECT VERSION()"
+        async with self.pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(SQL)
+                return (await cur.fetchone())[0]
+
     async def _cursor_to_items(self, cur):
         """
         Make batch of items from database cursor.
@@ -217,13 +227,22 @@ class MysqlDB:
         Operation is batched within executemany.
         """
         items = self._check_input(app, chnl, items)
-        SQL = (
-            f"INSERT INTO {self._table} "
-            "(app, chnl, id, data) "
-            "VALUES (%s, %s, %s, %s) AS new "
-            "ON DUPLICATE KEY UPDATE "
-            "data = new.data"
-        )
+        if self.cfg["is_mariadb"]:
+            SQL = (
+                f"INSERT INTO {self._table} "
+                "(app, chnl, id, data) "
+                "VALUES (%s, %s, %s, %s) "
+                "ON DUPLICATE KEY UPDATE "
+                "data = VALUES(data)"
+            )
+        else:
+            SQL = (
+                f"INSERT INTO {self._table} "
+                "(app, chnl, id, data) "
+                "VALUES (%s, %s, %s, %s) AS new "
+                "ON DUPLICATE KEY UPDATE "
+                "data = new.data"
+            )
         async with self.pool.acquire() as conn:
             async with conn.cursor() as cur:
                 args = []
