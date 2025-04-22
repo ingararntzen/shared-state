@@ -144,7 +144,7 @@ class WebSocketIO {
     }
 }
 
-class Collection {
+class ProxyCollection {
 
     constructor(ssclient, path, options={}) {
         this._options = options;
@@ -271,22 +271,24 @@ class Collection {
 }
 
 /**
- * Variable
+ * Proxy Object
  * 
- * Wrapper to expose a single id (item) from a collection as a standalone variable
+ * Client-side proxy object for a server-side object.
+ *
+ * Implementation leverages ProxyCollection. As such, the value of the proxy object
+ * corresponds to the data property of a single item with *id* within a 
+ * specific server-side collection. If no item with *id* exists in the collection, the
+ * value of the proxy object is undefined. 
  * 
- * - if there is no item with id in collection - the variable will be undefined
- *   or have a default value
- * - otherwise, the variable will be the value of item.data
+ * set() and get() methods are used to set and get the value of the proxy object.
  * 
- *  Default value is given in options {value:}
  */
 
-class Variable {
+class ProxyObject {
 
-    constructor(coll, id, options={}) {
+    constructor(proxyCollection, id, options={}) {
         this._terminiated = false;
-        this._coll = coll;
+        this._coll = proxyCollection;
         this._id = id;
         this._options = options;
         // callback
@@ -296,7 +298,7 @@ class Variable {
 
     _onchange(diffs) {
         if (this._terminated) {
-            throw new Error("variable terminated")
+            throw new Error("proxy object terminated")
         }
         for (const diff of diffs) {
             if (diff.id == this._id) {
@@ -325,11 +327,11 @@ class Variable {
     };
 
     
-    set (value) {
+    set (obj) {
         if (this._terminated) {
-            throw new Error("varible terminated")
+            throw new Error("proxy object terminated")
         }
-        const items = [{id:this._id, data:value}];
+        const items = [{id:this._id, data:obj}];
         return this._coll.update({insert:items, reset:false});
     }
 
@@ -337,7 +339,7 @@ class Variable {
         if (this._coll.has(this._id)) {
             return this._coll.get(this._id).data;
         } else {
-            return this._options.value;
+            return undefined;
         }
     }
     
@@ -530,11 +532,11 @@ class SharedStateClient extends WebSocketIO {
         // path -> {} 
         this._subs_map = new Map();
 
-        // collections {path -> collection}
+        // proxy collections {path -> proxy collection}
         this._coll_map = new Map();
 
-        // variables {[path, id] -> variable}
-        this._var_map = new Map();
+        // proxy objects {[path, id] -> proxy object}
+        this._obj_map = new Map();
 
         // server clock
         this._server_clock;
@@ -592,7 +594,7 @@ class SharedStateClient extends WebSocketIO {
     }
 
     _handle_notify(msg) {
-        // update collection state
+        // update proxy collection state
         const ds = this._coll_map.get(msg["path"]);
         if (ds != undefined) {
             ds._ssclient_update(msg["data"]);
@@ -678,7 +680,7 @@ class SharedStateClient extends WebSocketIO {
     }
 
     /**
-     * acquire collection for path
+     * acquire proxy collection for path
      * - automatically subscribes to path if needed
      */
     acquire_collection (path, options) {
@@ -690,48 +692,48 @@ class SharedStateClient extends WebSocketIO {
         }
         // create collection if not exists
         if (!this._coll_map.has(path)) {
-            this._coll_map.set(path, new Collection(this, path, options));
+            this._coll_map.set(path, new ProxyCollection(this, path, options));
         }
         return this._coll_map.get(path);
     }
 
     /**
-     * acquire variable for (path, name)
-     * - automatically acquire collection
+     * acquire object for (path, name)
+     * - automatically acquire proxy collection
      */
-    acquire_variable (path, name, options) {
+    acquire_object (path, name, options) {
         path = path.startsWith("/") ? path : "/" + path;
         const ds = this.acquire_collection(path);
-        // create variable if not exists
-        if (!this._var_map.has(path)) {
-            this._var_map.set(path, new Map());
+        // create proxy object if not exists
+        if (!this._obj_map.has(path)) {
+            this._obj_map.set(path, new Map());
         }
-        const var_map = this._var_map.get(path);
-        if (!var_map.get(name)) {
-            var_map.set(name, new Variable(ds, name, options));
+        const obj_map = this._obj_map.get(path);
+        if (!obj_map.get(name)) {
+            obj_map.set(name, new ProxyObject(ds, name, options));
         }
-        return var_map.get(name)
+        return obj_map.get(name)
     }
 
     /**
-     * release path, including collection and variables
+     * release path, including proxy collection and proxy objects
      */
     release(path) {
         // unsubscribe
         if (this._subs_map.has(path)) {
             this._unsub(path);
         }
-        // terminate collection and variables
+        // terminate proxy collection and proxy objects
         const ds = this._coll_map.get(path);
         ds._ssclient_terminate();
-        const var_map = this._var_map.get(path);
-        if (var_map != undefined) {
-            for (const v of var_map.values()) {
+        const obj_map = this._obj_map.get(path);
+        if (obj_map != undefined) {
+            for (const v of obj_map.values()) {
                 v._ssclient_terminate();
             }    
         }
         this._coll_map.delete(path);
-        this._var_map.delete(path);
+        this._obj_map.delete(path);
     }
 }
 
