@@ -1,6 +1,6 @@
 import { random_string } from "./util.js";
 
-export class Collection {
+export class ProxyCollection {
 
     constructor(ssclient, path, options={}) {
         this._options = options;

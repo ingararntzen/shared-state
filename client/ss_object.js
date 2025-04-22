@@ -1,21 +1,23 @@
 
 /**
- * Variable
+ * Proxy Object
  * 
- * Wrapper to expose a single id (item) from a collection as a standalone variable
+ * Client-side proxy object for a server-side object.
+ *
+ * Implementation leverages ProxyCollection. As such, the value of the proxy object
+ * corresponds to the data property of a single item with *id* within a 
+ * specific server-side collection. If no item with *id* exists in the collection, the
+ * value of the proxy object is undefined. 
  * 
- * - if there is no item with id in collection - the variable will be undefined
- *   or have a default value
- * - otherwise, the variable will be the value of item.data
+ * set() and get() methods are used to set and get the value of the proxy object.
  * 
- *  Default value is given in options {value:}
  */
 
-export class Variable {
+export class ProxyObject {
 
-    constructor(coll, id, options={}) {
+    constructor(proxyCollection, id, options={}) {
         this._terminiated = false;
-        this._coll = coll;
+        this._coll = proxyCollection;
         this._id = id;
         this._options = options;
         // callback
@@ -25,7 +27,7 @@ export class Variable {
 
     _onchange(diffs) {
         if (this._terminated) {
-            throw new Error("variable terminated")
+            throw new Error("proxy object terminated")
         }
         for (const diff of diffs) {
             if (diff.id == this._id) {
@@ -54,11 +56,11 @@ export class Variable {
     };
 
     
-    set (value) {
+    set (obj) {
         if (this._terminated) {
-            throw new Error("varible terminated")
+            throw new Error("proxy object terminated")
         }
-        const items = [{id:this._id, data:value}];
+        const items = [{id:this._id, data:obj}];
         return this._coll.update({insert:items, reset:false});
     }
 
@@ -66,7 +68,7 @@ export class Variable {
         if (this._coll.has(this._id)) {
             return this._coll.get(this._id).data;
         } else {
-            return this._options.value;
+            return undefined;
         }
     }
     

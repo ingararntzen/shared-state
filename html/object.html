@@ -2,7 +2,7 @@
 
 <meta charset="utf-8" />
 
-<title>Variable</title>
+<title>Proxy Object</title>
 
 <head>
     <script type="module">
@@ -15,31 +15,31 @@
         const client = new SharedStateClient("ws://0.0.0.0:9000");
 
         // variable
-        const v = client.acquire_variable("/app/items/chnl", "myvar", {value:0});
+        const myvar = client.acquire_object("/app/items/chnl", "myvar", {value:0});
 
         // render variable
-        const elem = document.querySelector("#variable");
+        const elem = document.querySelector("#proxyobject");
         function render() {
-            elem.innerHTML = `${v.get()}`;
+            elem.innerHTML = `${myvar.get()}`;
         }
         render();
-        v.add_callback((diff) => {
+        myvar.add_callback((diff) => {
             render();
         });
         // set variable
         document.querySelector("#setBtn").onclick = () => {
-            v.set(getRandomInt(100));
+            myvar.set(getRandomInt(100));
         }
     </script>
 </head>
 <body>
 
-    <h3> SharedState Variable </h3>
+    <h3> SharedState Proxy Object </h3>
     <p>
         <button id="setBtn">Set</button>
     </p>
     <p>
-        <div>Value: <span id="variable"></span></div>
+        <div>Value: <span id="proxyobject"></span></div>
     </p>
 </body>
 </html> 

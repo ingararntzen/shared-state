@@ -36,7 +36,7 @@ ES6 Module Import
 </script>
 ```
 
-Import to global variable
+Import into global variable
 
 ```html
 <script src="https://github.com/ingararntzen/shared-state/raw/main/libs/sharedstate.iife.js"></script>
@@ -245,10 +245,12 @@ true and false, for a given item within a specific item collection.
 </html> 
 ```
 
-### Collection
+### Proxy Collection
 
-Collections may be acquired (and relased) by application code. 
-A realeased collection is no longer kept in sync with the corresponding server-side collection, and does no longer accept any updates.
+The SharedState client manages local collections serving as proxies to server-side collections.
+
+ProxyCollections may be acquired (and relased) by application code. A released ProxyCollection 
+is no longer kept in sync with the corresponding server-side collection, and does no longer accept updates.
 
 ```javascript
 // acquire
@@ -257,7 +259,7 @@ const coll = client.acquire_collection("/myapp/items/mycollection")
 client.release("/myapp/items/mycollection");
 ```
 
-Collections provide the following methods. 
+ProxyCollections provide the following methods. 
 
 ```javascript
 // return a single item, given id
@@ -270,7 +272,8 @@ const items = ds.get()
 const size = ds.size;
 ```
 
-Collection changes reported through callback
+ProxyCollection changes reported through callback.
+Changes include both membership changes (INSERT, DELETE) and item changes (REPLACE).
 
 ```javascript
 const handle = ds.add_callback(function (diffs) {
@@ -297,24 +300,31 @@ state of the item before the update. When a new item has been added,
 | {id: "id", new: undefined, old: {id, ...}}  | DELETE   |
 
 
-### Variables
+### Proxy Objects
 
-For convenience, the sharedstate client also supports a _variable_ concept 
-implemented on top of the _collection_ concept. 
-Effectively, variables represent a single item from a collection.
-The variable interface provides a setter/getter interface, and supports
-callbacks like collections.
+The SharedState client also supports ProxyObjects, allowing developers to
+work with independent server-side objects in the exact same way they would
+work with local objects, that is using set() and get() operations. The only 
+distinction from a local variable, is that the set() operation returns a 
+Promise, which is resolve only after the set operation has taken effect on
+the server. In other words, set() operations are delayed by server round-trip-time, 
+just like the update() method of ProxyCollections. The ProxyObject interface 
+provides change callbacks like ProxyCollection.
+
+In terms of implementation, a ProxyObject represents a single item within a collection.
+Multiple ProxyObjects can be hosted by the same collection. Typically, developers would
+set aside one collection which is exclusively reserved for ProxyObjects.
 
 ```javascript
-const v = client.acquire_variable("/myapp/items/mycollection", "myvar", {value:0});
+const myobj = client.acquire_object("/myapp/items/mycollection", "myobj");
 
 // render value
-elem.innerHTML = v.get();
+elem.innerHTML = JSON.stringify(myobj.get());
 
 // set value or JSON serializeable object
-v.set(obj)
+myobj.set(obj)
 
-// releases collection (and associated variables)
+// releases proxy collection and associated proxy objects
 client.release("/myapp/items/mycollection");
 ```
 
