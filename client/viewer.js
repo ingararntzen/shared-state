@@ -3,16 +3,16 @@
 */
 
 function item2string(item) {
-    const {id, itv, data} = item;
-    let data_txt = JSON.stringify(data);
+    const {id, itv, state} = item;
+    let state_txt = JSON.stringify(state);
     let itv_txt = (itv != undefined) ? JSON.stringify(itv) : "";
     let id_html = `<span class="id">${id}</span>`;
     let itv_html = `<span class="itv">${itv_txt}</span>`;
-    let data_html = `<span class="data">${data_txt}</span>`;
+    let state_html = `<span class="state">${state_txt}</span>`;
     return `
         <div>
             <button id="delete">X</button>
-            ${id_html}: ${itv_html} ${data_html}
+            ${id_html}: ${itv_html} ${state_html}
         </div>`;
 }
 
@@ -42,7 +42,7 @@ export class CollectionViewer {
                 if (deleteBtn) {
                     const listItem = deleteBtn.closest(".list-item");
                     if (listItem) {
-                        this._coll.update({remove:[listItem.id]});
+                        this._coll.update_items({remove:[listItem.id]});
                         e.stopPropagation();
                     }
                 }

@@ -65,12 +65,12 @@ const size = coll.size;
 
 ### Updates
 
-Modifications are performed as batch operations using `update(changes)`:
+Modifications are performed as batch operations using `update_items(changes)`:
 
 ```javascript
-coll.update({
+coll.update_items({
     remove: ["id1", "id2"], // List of IDs to remove (performed first)
-    insert: [{ id: "id3", data: "value" }], // List of items to insert or replace
+    insert: [{ id: "id3", state: "value" }], // List of items to insert or replace
     reset: false // If true, removes all pre-existing items before inserting
 });
 ```
@@ -108,7 +108,14 @@ coll.remove_callback(handle);
 
 ## Proxy Objects
 
-Proxy Objects allow developers to interact with a single shared object using simple `set()` and `get()` methods. A Proxy Object internally maps to a single item within a Proxy Collection.
+Proxy Objects manage a set of items (an array) stored within a single server-side item on the service.
+
+The ProxyObject interface implements the same querying methods as ProxyCollections:
+
+* `set_items(items)`: Sets the entire array of items. Returns a Promise resolved after the set operation has taken effect on the server.
+* `get_items()`: Returns all items in the array.
+* `get_item(id)`: Returns a single item from the array, given its ID.
+* `has_item(id)`: Returns true if an item with the given ID exists in the array.
 
 ### Acquiring a Proxy Object
 
@@ -120,16 +127,22 @@ const myobj = client.acquire_object("/myapp/items/mycollection", "myobj");
 ### Accessing and Modifying the Object
 
 ```javascript
-// Get the current value
-const value = myobj.get();
+// set items
+myobj.set_items([
+    {id: "sub_id_1", state: "foo"},
+    {id: "sub_id_2", state: "bar"}
+]);
 
-// Set the value (returns a Promise resolved after server round-trip)
-myobj.set({ someKey: "someValue" }).then(() => {
-    console.log("Object successfully updated on server");
-});
+// get all items
+const items = myobj.get_items();
+
+// get a single item by id
+const item = myobj.get_item("sub_id_1");
 ```
 
 ### Callbacks for Proxy Objects
+
+Like ProxyCollections, changes are reported through callback subscriptions.
 
 ```javascript
 const handle = myobj.add_callback((diff) => {
@@ -152,6 +165,6 @@ import { CollectionViewer } from "./libs/sharedstate.es.js";
 const container = document.getElementById("my-list-container");
 const viewer = new CollectionViewer(coll, container, {
     delete: true, // Enables click-to-delete behavior
-    toString: (item) => `<div>${item.id}: ${JSON.stringify(item.data)}</div>`
+    toString: (item) => `<div>${item.id}: ${JSON.stringify(item.state)}</div>`
 });
 ```

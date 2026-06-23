@@ -236,7 +236,7 @@ class ProxyCollection {
     /**
      * application dispatching update to server
      */
-    update (changes={}) {
+    update_items (changes={}) {
         if (this._terminated) {
             throw new Error("collection already terminated")
         }
@@ -271,18 +271,23 @@ class ProxyCollection {
  * Client-side proxy object for a server-side object.
  *
  * Implementation leverages ProxyCollection. As such, the value of the proxy object
- * corresponds to the data property of a single item with *id* within a 
+ * corresponds to the state property of a single item with *id* within a 
  * specific server-side collection. If no item with *id* exists in the collection, the
  * value of the proxy object is undefined. 
  * 
- * set() and get() methods are used to set and get the value of the proxy object.
+ * ProxyObject manages a set of items (an array) stored within a single item's state.
+ * 
+ * set_items() sets the entire array of items.
+ * get_items() returns all items in the array.
+ * get_item(id) returns a single item from the array.
+ * has_item(id) returns true if an item with id exists in the array.
  * 
  */
 
 class ProxyObject {
 
     constructor(proxyCollection, id, options={}) {
-        this._terminiated = false;
+        this._terminated = false;
         this._coll = proxyCollection;
         this._id = id;
         this._options = options;
@@ -311,7 +316,7 @@ class ProxyObject {
     remove_callback (handle) {
         let index = this._handlers.indexOf(handle);
         if (index > -1) {
-            this._handers.splice(index, 1);
+            this._handlers.splice(index, 1);
         }
     };
     
@@ -321,21 +326,33 @@ class ProxyObject {
         });
     };
 
-    
-    set (obj) {
+    set_items (items) {
         if (this._terminated) {
             throw new Error("proxy object terminated")
         }
-        const items = [{id:this._id, data:obj}];
-        return this._coll.update({insert:items, reset:false});
+        if (!Array.isArray(items)) {
+            throw new Error("items must be an array")
+        }
+        const insertItems = [{id:this._id, state:items}];
+        return this._coll.update_items({insert:insertItems, reset:false});
     }
 
-    get () {
+    get_items () {
         if (this._coll.has_item(this._id)) {
-            return this._coll.get_item(this._id).data;
+            const item = this._coll.get_item(this._id);
+            return (item && item.state) ? item.state : [];
         } else {
-            return undefined;
+            return [];
         }
+    }
+
+    get_item (id) {
+        const items = this.get_items();
+        return items.find(item => item.id === id);
+    }
+
+    has_item (id) {
+        return this.get_item(id) !== undefined;
     }
     
     ss_client_terminate() {
@@ -737,16 +754,16 @@ class SharedStateClient extends WebSocketIO {
 */
 
 function item2string(item) {
-    const {id, itv, data} = item;
-    let data_txt = JSON.stringify(data);
+    const {id, itv, state} = item;
+    let state_txt = JSON.stringify(state);
     let itv_txt = (itv != undefined) ? JSON.stringify(itv) : "";
     let id_html = `<span class="id">${id}</span>`;
     let itv_html = `<span class="itv">${itv_txt}</span>`;
-    let data_html = `<span class="data">${data_txt}</span>`;
+    let state_html = `<span class="state">${state_txt}</span>`;
     return `
         <div>
             <button id="delete">X</button>
-            ${id_html}: ${itv_html} ${data_html}
+            ${id_html}: ${itv_html} ${state_html}
         </div>`;
 }
 
@@ -776,7 +793,7 @@ class CollectionViewer {
                 if (deleteBtn) {
                     const listItem = deleteBtn.closest(".list-item");
                     if (listItem) {
-                        this._coll.update({remove:[listItem.id]});
+                        this._coll.update_items({remove:[listItem.id]});
                         e.stopPropagation();
                     }
                 }

@@ -92,7 +92,7 @@ export class ProxyCollection {
     /**
      * application dispatching update to server
      */
-    update (changes={}) {
+    update_items (changes={}) {
         if (this._terminated) {
             throw new Error("collection already terminated")
         }

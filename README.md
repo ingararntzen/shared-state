@@ -143,7 +143,7 @@ a batch operation, allowing the *removal* and *insertion* of multiple items in a
 single operation.
 
 ```javascript
-collection.update({remove:[], insert:[], reset:false}) {}
+collection.update_items({remove:[], insert:[], reset:false}) {}
 ```
 
 * _remove_ lists _id's_ of items to be removed from the collection. 
@@ -194,12 +194,12 @@ Item collections hosted by the SharedState server are identified by a _path_.
 
 The SharedState client allows application to monitor server-side
 collections. The client maintains a local _collection_ for each referenced _path_. This local _collection_ acts as a proxy to the server-side collection, and is automatically synchronized with server-side state changes.
-Additionally, the _collection_ provides and update method - which forwards update
+Additionally, the _collection_ provides an update_items method - which forwards update
 requests to the SharedState server.
 
 ### Example
 
-The following example shows a minimal application toggling item.data between 
+The following example shows a minimal application toggling item.state between 
 true and false, for a given item within a specific item collection.
 
 ```html
@@ -217,7 +217,7 @@ true and false, for a given item within a specific item collection.
         coll.add_callback(function (eArgs) {
             const item = coll.get_item("myid");
             if (item != undefined) {
-                console.log(coll.get_item("myid").data)
+                console.log(coll.get_item("myid").state)
             }
         });
 
@@ -225,16 +225,16 @@ true and false, for a given item within a specific item collection.
         document.querySelector("#updateBtn").onclick = () => {
             const item = coll.get_item("myid");
             if (item != undefined) {
-                // toggle data
-                coll.update({insert:[{id:"myid", data:!(item.data)}]});
+                // toggle state
+                coll.update_items({insert:[{id:"myid", state:!(item.state)}]});
             } else {
-                // initialize data
-                coll.update({insert:[{id: "myid", data:true}]});
+                // initialize state
+                coll.update_items({insert:[{id: "myid", state:true}]});
             }
         }
         // Reset Button
         document.querySelector("#resetBtn").onclick = () => {
-            coll.update({reset:true});
+            coll.update_items({reset:true});
         }
     </script>
 </head>
@@ -302,27 +302,31 @@ state of the item before the update. When a new item has been added,
 
 ### Proxy Objects
 
-The SharedState client also supports ProxyObjects, allowing developers to
-work with independent server-side objects in the exact same way they would
-work with local objects, that is using set() and get() operations. The only 
-distinction from a local variable, is that the set() operation returns a 
-Promise, which is resolved only after the set operation has taken effect on
-the server. In other words, set() operations are delayed by server round-trip-time, 
-just like the update() method of ProxyCollections. The ProxyObject interface 
-provides change callbacks like ProxyCollection.
+ProxyObjects manage a set of items (an array) stored within a single server-side item on the service.
 
-In terms of implementation, a ProxyObject represents a single item within a collection.
-Multiple ProxyObjects can be hosted by the same collection. Typically, developers would
-set aside one collection which is exclusively reserved for ProxyObjects.
+The ProxyObject interface implements the same querying methods as ProxyCollections:
+
+* `set_items(items)`: Sets the entire array of items. Returns a Promise resolved after the set operation has taken effect on the server.
+* `get_items()`: Returns all items in the array.
+* `get_item(id)`: Returns a single item from the array, given its ID.
+* `has_item(id)`: Returns true if an item with the given ID exists in the array.
+
+Like ProxyCollections, changes are reported through callback subscriptions.
 
 ```javascript
 const myobj = client.acquire_object("/myapp/items/mycollection", "myobj");
 
-// render value
-elem.innerHTML = JSON.stringify(myobj.get());
+// set items
+myobj.set_items([
+    {id: "sub_id_1", state: "foo"},
+    {id: "sub_id_2", state: "bar"}
+]);
 
-// set value or JSON serializeable object
-myobj.set(obj)
+// get all items
+const items = myobj.get_items();
+
+// get a single item by id
+const item = myobj.get_item("sub_id_1");
 
 // releases proxy collection and associated proxy objects
 client.release("/myapp/items/mycollection");

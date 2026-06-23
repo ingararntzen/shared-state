@@ -8,7 +8,7 @@
     <style>
         .id {color:red;}
         .itv {color: green;}
-        .data {color: blue;}
+        .state {color: blue;}
     </style>
 
     <script type="module">
@@ -33,20 +33,20 @@
 
         document.querySelector("#addBtn").onclick = () => {
             const idx = getRandomInt(100);
-            const items = [{id: `id_${idx}`, data: `data_${idx}`}];
-            coll.update({insert:items});
+            const items = [{id: `id_${idx}`, state: `state_${idx}`}];
+            coll.update_items({insert:items});
         }
 
         document.querySelector("#changeBtn").onclick = () => {
             // pick random item
             const idx = getRandomInt(coll.size);
             const new_idx = getRandomInt(100);
-            const new_item = {id:`id_${idx}`, data: `data_${new_idx}`};
-            coll.update({insert:[new_item]});
+            const new_item = {id:`id_${idx}`, state: `state_${new_idx}`};
+            coll.update_items({insert:[new_item]});
         }
 
         document.querySelector("#resetBtn").onclick = () => {
-            coll.update({reset:true});
+            coll.update_items({reset:true});
         }
 
     </script>

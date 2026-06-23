@@ -12,7 +12,7 @@
         coll.add_callback(function (eArgs) {
             const item = coll.get_item("myid");
             if (item != undefined) {
-                console.log(coll.get_item("myid").data)
+                console.log(coll.get_item("myid").state)
             }
         });
 
@@ -20,16 +20,16 @@
         document.querySelector("#updateBtn").onclick = () => {
             const item = coll.get_item("myid");
             if (item != undefined) {
-                // toggle data
-                coll.update({insert:[{id:"myid", data:!(item.data)}]});
+                // toggle state
+                coll.update_items({insert:[{id:"myid", state:!(item.state)}]});
             } else {
-                // initialize data
-                coll.update({insert:[{id: "myid", data:true}]});
+                // initialize state
+                coll.update_items({insert:[{id: "myid", state:true}]});
             }
         }
         // Reset Button
         document.querySelector("#resetBtn").onclick = () => {
-            coll.update({reset:true});
+            coll.update_items({reset:true});
         }
     </script>
 </head>

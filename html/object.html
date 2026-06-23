@@ -17,10 +17,21 @@
         // variable
         const myvar = client.acquire_object("/app/items/chnl", "myvar", {value:0});
 
+        // Application-level value wrappers on top of ProxyObject items API
+        function set_value(val) {
+            return myvar.set_items([{id: "value", state: val}]);
+        }
+
+        function get_value() {
+            const item = myvar.get_item("value");
+            return item ? item.state : undefined;
+        }
+
         // render variable
         const elem = document.querySelector("#proxyobject");
         function render() {
-            elem.innerHTML = `${myvar.get()}`;
+            const val = get_value();
+            elem.innerHTML = `${val !== undefined ? val : ""}`;
         }
         render();
         myvar.add_callback((diff) => {
@@ -28,7 +39,7 @@
         });
         // set variable
         document.querySelector("#setBtn").onclick = () => {
-            myvar.set(getRandomInt(100));
+            set_value(getRandomInt(100));
         }
     </script>
 </head>
