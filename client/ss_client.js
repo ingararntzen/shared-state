@@ -55,14 +55,14 @@ export class SharedStateClient extends WebSocketIO {
         }
         // server clock
         if (this._server_clock != undefined) {
-            this._server_clock.resume();
+            this._server_clock.pinger.resume();
         }
     }
     on_disconnect() {
         console.error(`Disconnect ${this.url}`);
         // server clock
         if (this._server_clock != undefined) {
-            this._server_clock.pause();
+            this._server_clock.pinger.pause();
         }
     }
     on_error(error) {
@@ -161,7 +161,7 @@ export class SharedStateClient extends WebSocketIO {
         if (this._server_clock == undefined) {
             this._server_clock = new ServerClock(this);
             if (this.connected) {
-                this._server_clock.resume();
+                this._server_clock.pinger.resume();
             }
         }
         return this._server_clock;

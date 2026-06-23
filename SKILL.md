@@ -168,3 +168,39 @@ const viewer = new CollectionViewer(coll, container, {
     toString: (item) => `<div>${item.id}: ${JSON.stringify(item.state)}</div>`
 });
 ```
+
+---
+
+## Server Clock Synchronization
+
+The SharedState client includes a built-in mechanism to estimate the server's clock and synchronize time. The client automatically sends ping requests to keep a sliding window of time samples.
+
+### Accessing the Synchronized Clock
+
+The synchronized clock is accessed via the `clock` property on the `SharedStateClient` instance:
+
+```javascript
+// Get the current estimated server epoch time (in seconds)
+const serverTime = client.clock.now();
+
+// Get the estimated transit delay (one-way round-trip latency in seconds)
+const transitTime = client.clock.trans;
+
+// Get the estimated skew between the local client and the server clock (in seconds)
+const skew = client.clock.skew;
+```
+
+### Pausing and Resuming Synchronization
+
+By default, the clock starts synchronizing when the connection is established. You can manually pause, resume, or restart the background pinging/sampling mechanism by interacting with the `pinger` object exposed by the clock:
+
+```javascript
+// Pause background pinging/sampling
+client.clock.pinger.pause();
+
+// Resume background pinging/sampling
+client.clock.pinger.resume();
+
+// Restart the background pinging/sampling sequence
+client.clock.pinger.restart();
+```

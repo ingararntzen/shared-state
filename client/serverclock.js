@@ -50,12 +50,8 @@ export class ServerClock {
         this._skew = 0.0;
     }
 
-    resume() {
-        this._pinger.resume();
-    }
-
-    pause() {
-        this._pinger.pause();
+    get pinger() {
+        return this._pinger;
     }
 
     _onping() {
