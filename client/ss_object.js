@@ -65,8 +65,8 @@ export class ProxyObject {
     }
 
     get () {
-        if (this._coll.has(this._id)) {
-            return this._coll.get(this._id).data;
+        if (this._coll.has_item(this._id)) {
+            return this._coll.get_item(this._id).data;
         } else {
             return undefined;
         }

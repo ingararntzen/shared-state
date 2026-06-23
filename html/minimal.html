@@ -10,15 +10,15 @@
 
         // Collection Change Handler
         coll.add_callback(function (eArgs) {
-            const item = coll.get("myid");
+            const item = coll.get_item("myid");
             if (item != undefined) {
-                console.log(coll.get("myid").data)
+                console.log(coll.get_item("myid").data)
             }
         });
 
         // Update Button
         document.querySelector("#updateBtn").onclick = () => {
-            const item = coll.get("myid");
+            const item = coll.get_item("myid");
             if (item != undefined) {
                 // toggle data
                 coll.update({insert:[{id:"myid", data:!(item.data)}]});

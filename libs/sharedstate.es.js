@@ -229,14 +229,9 @@ class ProxyCollection {
     **********************************************************/
 
     get size() {return this._map.size}
-    has(id) {return this._map.has(id)}
-    get(id) {
-        if (id == undefined) {
-            return [...this._map.values()]
-        } else {
-            return this._map.get(id)
-        }
-    }
+    has_item(id) {return this._map.has(id)}
+    get_item(id) {return this._map.get(id)}
+    get_items() {return [...this._map.values()]}
 
     /**
      * application dispatching update to server
@@ -336,8 +331,8 @@ class ProxyObject {
     }
 
     get () {
-        if (this._coll.has(this._id)) {
-            return this._coll.get(this._id).data;
+        if (this._coll.has_item(this._id)) {
+            return this._coll.get_item(this._id).data;
         } else {
             return undefined;
         }
@@ -791,7 +786,7 @@ class CollectionViewer {
         /*
             render initial state
         */ 
-        const diffs = this._coll.get()
+        const diffs = this._coll.get_items()
             .map(item => {
                 return {id:item.id, new:item}
             });

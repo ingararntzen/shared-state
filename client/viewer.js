@@ -52,7 +52,7 @@ export class CollectionViewer {
         /*
             render initial state
         */ 
-        const diffs = this._coll.get()
+        const diffs = this._coll.get_items()
             .map(item => {
                 return {id:item.id, new:item}
             });

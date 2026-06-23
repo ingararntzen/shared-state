@@ -215,15 +215,15 @@ true and false, for a given item within a specific item collection.
 
         // Collection Change Handler
         coll.add_callback(function (eArgs) {
-            const item = coll.get("myid");
+            const item = coll.get_item("myid");
             if (item != undefined) {
-                console.log(coll.get("myid").data)
+                console.log(coll.get_item("myid").data)
             }
         });
 
         // Update Button
         document.querySelector("#updateBtn").onclick = () => {
-            const item = coll.get("myid");
+            const item = coll.get_item("myid");
             if (item != undefined) {
                 // toggle data
                 coll.update({insert:[{id:"myid", data:!(item.data)}]});
@@ -254,7 +254,7 @@ is no longer kept in sync with the corresponding server-side collection, and doe
 
 ```javascript
 // acquire
-const coll = client.acquire_collection("/myapp/items/mycollection")
+const ds = client.acquire_collection("/myapp/items/mycollection")
 // release
 client.release("/myapp/items/mycollection");
 ```
@@ -263,11 +263,11 @@ ProxyCollections provide the following methods.
 
 ```javascript
 // return a single item, given id
-const item = ds.get(id)
+const item = ds.get_item(id)
 // return true if collection has item with id
-const ok = ds.has(id)
+const ok = ds.has_item(id)
 // return list of all items in collection
-const items = ds.get()
+const items = ds.get_items()
 // return size of collection
 const size = ds.size;
 ```
@@ -306,7 +306,7 @@ The SharedState client also supports ProxyObjects, allowing developers to
 work with independent server-side objects in the exact same way they would
 work with local objects, that is using set() and get() operations. The only 
 distinction from a local variable, is that the set() operation returns a 
-Promise, which is resolve only after the set operation has taken effect on
+Promise, which is resolved only after the set operation has taken effect on
 the server. In other words, set() operations are delayed by server round-trip-time, 
 just like the update() method of ProxyCollections. The ProxyObject interface 
 provides change callbacks like ProxyCollection.

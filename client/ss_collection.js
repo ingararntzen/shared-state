@@ -85,14 +85,9 @@ export class ProxyCollection {
     **********************************************************/
 
     get size() {return this._map.size}
-    has(id) {return this._map.has(id)}
-    get(id) {
-        if (id == undefined) {
-            return [...this._map.values()]
-        } else {
-            return this._map.get(id)
-        }
-    }
+    has_item(id) {return this._map.has(id)}
+    get_item(id) {return this._map.get(id)}
+    get_items() {return [...this._map.values()]}
 
     /**
      * application dispatching update to server
