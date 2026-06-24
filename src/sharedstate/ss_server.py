@@ -346,7 +346,7 @@ class SharedStateServer:
         await self._stop_event.wait()
 
     async def shutdown(self):
-        for ws in self._clients.all_clients():
+        for ws in list(self._clients.all_clients()):
             await ws.close()
         for service in self._services.values():
             await service.close()
