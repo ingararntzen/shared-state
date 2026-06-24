@@ -4,6 +4,7 @@ import json
 import traceback
 import importlib
 import time
+from datetime import datetime, timezone
 from pathlib import PurePosixPath
 from urllib.parse import urlparse
 
@@ -278,7 +279,7 @@ class SharedStateServer:
             return True, self._clients.get_subs(ws)
 
         if n_path == PurePosixPath("/clock"):
-            return True, time.time()
+            return True, datetime.now(timezone.utc).timestamp()
 
         # /app/service
         app, service, resource = n_path.parts[1:4]
