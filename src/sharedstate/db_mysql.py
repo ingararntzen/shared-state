@@ -70,6 +70,7 @@ class MysqlDB:
             use_unicode=True,
             autocommit=True,
             charset="utf8",
+            init_command="SET time_zone = '+00:00'",
         )
         # ssl config
         if self.cfg["ssl.enabled"]:
