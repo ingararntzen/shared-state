@@ -54,6 +54,13 @@ export class ServerClock {
         return this._pinger;
     }
 
+    restart() {
+        this._samples = [];
+        this._trans = 1000.0;
+        this._skew = 0.0;
+        this._pinger.restart();
+    }
+
     _onping() {
         const ts0 = CLOCK.now();
         this._ssclient.get("/clock").then(({ok, data}) => {

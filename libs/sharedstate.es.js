@@ -417,6 +417,13 @@ class ServerClock {
         return this._pinger;
     }
 
+    restart() {
+        this._samples = [];
+        this._trans = 1000.0;
+        this._skew = 0.0;
+        this._pinger.restart();
+    }
+
     _onping() {
         const ts0 = CLOCK.now();
         this._ssclient.get("/clock").then(({ok, data}) => {
@@ -565,7 +572,7 @@ class SharedStateClient extends WebSocketIO {
         }
         // server clock
         if (this._server_clock != undefined) {
-            this._server_clock.pinger.resume();
+            this._server_clock.restart();
         }
     }
     on_disconnect() {
@@ -671,7 +678,7 @@ class SharedStateClient extends WebSocketIO {
         if (this._server_clock == undefined) {
             this._server_clock = new ServerClock(this);
             if (this.connected) {
-                this._server_clock.pinger.resume();
+                this._server_clock.restart();
             }
         }
         return this._server_clock;
