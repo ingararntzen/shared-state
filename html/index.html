@@ -696,10 +696,13 @@
         import { SharedStateClient } from "./libs/sharedstate.es.js";
 
         function formatInterval(itv, truncate = true) {
-            if (!Array.isArray(itv) || itv.length < 4) {
+            if (!Array.isArray(itv) || itv.length < 2) {
                 return { base: "-", alt: null };
             }
-            const [low, high, lowClosed, highClosed] = itv;
+            const low = itv[0];
+            const high = itv[1];
+            const lowClosed = itv.length >= 3 ? itv[2] : true;
+            const highClosed = itv.length >= 4 ? itv[3] : false;
             
             function formatVal(val, direction) {
                 if (val === null || val === undefined) {
