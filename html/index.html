@@ -1076,8 +1076,33 @@
         // Update items lists
         function updateItems(items) {
             itemsList = [...items];
-            // Stable sort by ID
-            itemsList.sort((a, b) => a.id.localeCompare(b.id));
+            // Sort by interval low bound (ascending) if available, otherwise by ID
+            itemsList.sort((a, b) => {
+                const aHasItv = Array.isArray(a.itv) && a.itv.length >= 2;
+                const bHasItv = Array.isArray(b.itv) && b.itv.length >= 2;
+
+                if (!aHasItv && !bHasItv) {
+                    return a.id.localeCompare(b.id);
+                }
+                if (!aHasItv) return 1;
+                if (!bHasItv) return -1;
+
+                const aLow = a.itv[0];
+                const bLow = b.itv[0];
+
+                if (aLow === bLow) {
+                    return a.id.localeCompare(b.id);
+                }
+
+                // null represents negative infinity, sort it first
+                if (aLow === null || aLow === undefined) return -1;
+                if (bLow === null || bLow === undefined) return 1;
+
+                if (typeof aLow === 'number' && typeof bLow === 'number') {
+                    return aLow - bLow;
+                }
+                return String(aLow).localeCompare(String(bLow));
+            });
             
             // Adjust current page if list shrank
             const maxPage = Math.max(1, Math.ceil(itemsList.length / itemsPerPage));
