@@ -186,14 +186,14 @@ const viewer = new CollectionViewer(coll, container, {
 
 ## Server Clock Synchronization
 
-The SharedState client includes a built-in mechanism to estimate the server's clock and synchronize time. The client automatically sends ping requests to keep a sliding window of time samples.
+The SharedState client includes a built-in mechanism to estimate the server's clock and synchronize time. The client automatically sends ping requests to keep a sliding window of time samples. The server clock is represented as a standardized UTC timestamp expressed in seconds after the Unix epoch (float/fractional seconds since January 1, 1970 00:00:00 UTC).
 
 ### Accessing the Synchronized Clock
 
 The synchronized clock is accessed via the `clock` property on the `SharedStateClient` instance:
 
 ```javascript
-// Get the current estimated server epoch time (in seconds)
+// Get the current estimated server UTC time (in seconds since epoch)
 const serverTime = client.clock.now();
 
 // Get the estimated transit delay (one-way round-trip latency in seconds)
