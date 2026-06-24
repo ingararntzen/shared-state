@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+
+<meta charset="utf-8" />
+
+<title>SharedState Viewer</title>
+
+<head>
+    <style>
+        .id {color:red;}
+        .itv {color: green;}
+        .state {color: blue;}
+    </style>
+
+    <script type="module">
+        import {
+            SharedStateClient,
+            CollectionViewer
+        } from "./libs/sharedstate.es.js";
+
+
+        function getRandomInt(max) {
+          return Math.floor(Math.random() * max);
+        }
+
+        const client = new SharedStateClient("ws://0.0.0.0:9000");
+
+        // Collection
+        const coll = client.acquire_collection("/app/items/chnl")
+
+        // Collection Viewer
+        const elem = document.querySelector("#viewer");
+        const viewer = new CollectionViewer(coll, elem, {delete:true});
+
+        document.querySelector("#addBtn").onclick = () => {
+            const idx = getRandomInt(100);
+            const items = [{id: `id_${idx}`, state: `state_${idx}`}];
+            coll.update_items({insert:items});
+        }
+
+        document.querySelector("#changeBtn").onclick = () => {
+            // pick random item
+            const idx = getRandomInt(coll.size);
+            const new_idx = getRandomInt(100);
+            const new_item = {id:`id_${idx}`, state: `state_${new_idx}`};
+            coll.update_items({insert:[new_item]});
+        }
+
+        document.querySelector("#resetBtn").onclick = () => {
+            coll.update_items({reset:true});
+        }
+
+    </script>
+</head>
+<body>
+
+    <h3> SharedState Collection Viewer</h3>
+    <p>
+        <button id="addBtn">Add</button>
+        <button id="changeBtn">Change</button>
+        <button id="resetBtn">Reset</button>
+    </p>
+
+    <h3>Viewer</h3>
+    <div id="viewer"></div>
+
+</body>
+</html> 

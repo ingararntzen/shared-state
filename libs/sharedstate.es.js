@@ -642,7 +642,7 @@ class SharedStateClient extends WebSocketIO {
             // set new path
             subs_map.set(path, {});
             // reset subs on server
-            const items = [...this._subs_map.entries()];
+            const items = [...subs_map.entries()];
             return this.update("/subs", {insert:items, reset:true});
         } else {
             // update local subs - subscribe on reconnect
