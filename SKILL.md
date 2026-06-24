@@ -16,7 +16,10 @@ The JavaScript client can be imported either as an ES6 module or via a global va
 ```html
 <script type="module">
     import { SharedStateClient } from "./libs/sharedstate.es.js";
-    const client = new SharedStateClient("ws://localhost:9000");
+    const client = new SharedStateClient("ws://localhost:9000", {
+        debug: true,  // Optional: enable console log debugging
+        retries: 5    // Optional: max reconnection attempts (default: 4)
+    });
 </script>
 ```
 
@@ -27,6 +30,16 @@ The JavaScript client can be imported either as an ES6 module or via a global va
 <script>
     const client = new SHAREDSTATE.SharedStateClient("ws://localhost:9000");
 </script>
+```
+
+### Waiting for Connection
+
+You can wait for the connection to be successfully established using the `connectedPromise()` method:
+
+```javascript
+client.connectedPromise().then(() => {
+    console.log("Client connected to Shared State server!");
+});
 ```
 
 ---

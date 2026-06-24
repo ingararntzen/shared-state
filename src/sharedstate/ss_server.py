@@ -175,7 +175,7 @@ class SharedStateServer:
     async def _send(self, ws, data):
         try:
             await ws.send(data)
-        except websockets.exceptions.ConnectionClosedOK as e:
+        except websockets.exceptions.ConnectionClosed as e:
             print(ws.remote_address, "disconnect on send", e)
             print(data)
             self._clients.unregister(ws)
@@ -332,7 +332,7 @@ class SharedStateServer:
                 except Exception as e:
                     print("Exception", e)
                     traceback.print_exc()
-        except websockets.exceptions.ConnectionClosedOK:
+        except websockets.exceptions.ConnectionClosed:
             pass
         self.on_disconnect(ws)
 
