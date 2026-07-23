@@ -88,7 +88,7 @@ export class ProxyObject {
         return this.get_item(id) !== undefined;
     }
     
-    ss_client_terminate() {
+    _ssclient_terminate() {
         this._terminated = true;
         this._coll.remove_callback(this._handle);
     }

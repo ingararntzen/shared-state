@@ -19,9 +19,16 @@ npm start
 cp html/libs/*.js libs
 ```
 
-# Server Testing
+# Client Testing (Vitest)
+
+```sh
+npm test
+```
+
+# Server Testing (Pytest)
 
 ```sh
 poetry run pytest
 ```
+
 

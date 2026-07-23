@@ -1,21 +1,16 @@
-
 """Test items db."""
 import pytest
-from sharedstate.db_mysql import MysqlDB
+from sharedstate.db_sqlite import SqliteDB
 
-MYSQL_CONFIG = {
-    "db_type": "mysql",
-    "db_name": "dcbase",
+SQLITE_CONFIG = {
+    "db_name": ":memory:",
     "db_table": "items",
-    "db_host": "localhost",
-    "db_user": "dcuser",
-    "db_password": "GrefseFysa"
 }
 
 
 @pytest.fixture
 async def db():
-    db_instance = MysqlDB(MYSQL_CONFIG)
+    db_instance = SqliteDB(SQLITE_CONFIG)
     await db_instance.open()
     yield db_instance
     await db_instance.close()

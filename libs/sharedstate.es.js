@@ -182,7 +182,7 @@ class ProxyCollection {
             throw new Error("collection already terminated")
         }
 
-        const {remove, insert, reset=false} = changes;
+        const {remove=[], insert=[], reset=false} = changes;
         const diff_map = new Map();
 
         // remove items - create diff
@@ -355,7 +355,7 @@ class ProxyObject {
         return this.get_item(id) !== undefined;
     }
     
-    ss_client_terminate() {
+    _ssclient_terminate() {
         this._terminated = true;
         this._coll.remove_callback(this._handle);
     }
@@ -740,7 +740,9 @@ class SharedStateClient extends WebSocketIO {
         }
         // terminate proxy collection and proxy objects
         const ds = this._coll_map.get(path);
-        ds._ssclient_terminate();
+        if (ds != undefined) {
+            ds._ssclient_terminate();
+        }
         const obj_map = this._obj_map.get(path);
         if (obj_map != undefined) {
             for (const v of obj_map.values()) {
@@ -752,89 +754,4 @@ class SharedStateClient extends WebSocketIO {
     }
 }
 
-/*
-    Collection Viewer
-*/
-
-function item2string(item) {
-    const {id, itv, state} = item;
-    let state_txt = JSON.stringify(state);
-    let itv_txt = (itv != undefined) ? JSON.stringify(itv) : "";
-    let id_html = `<span class="id">${id}</span>`;
-    let itv_html = `<span class="itv">${itv_txt}</span>`;
-    let state_html = `<span class="state">${state_txt}</span>`;
-    return `
-        <div>
-            <button id="delete">X</button>
-            ${id_html}: ${itv_html} ${state_html}
-        </div>`;
-}
-
-
-class CollectionViewer {
-
-    constructor(collection, elem, options={}) {
-        this._coll = collection;
-        this._elem = elem;
-        this._handle = this._coll.add_callback(this._onchange.bind(this)); 
-
-        // options
-        let defaults = {
-            delete:false,
-            toString:item2string
-        };
-        this._options = {...defaults, ...options};
-
-        /*
-            Support delete
-        */
-        if (this._options.delete) {
-            // listen for click events on root element
-            elem.addEventListener("click", (e) => {
-                // catch click event from delete button
-                const deleteBtn = e.target.closest("#delete");
-                if (deleteBtn) {
-                    const listItem = deleteBtn.closest(".list-item");
-                    if (listItem) {
-                        this._coll.update_items({remove:[listItem.id]});
-                        e.stopPropagation();
-                    }
-                }
-            });
-        }
-
-        /*
-            render initial state
-        */ 
-        const diffs = this._coll.get_items()
-            .map(item => {
-                return {id:item.id, new:item}
-            });
-        this._onchange(diffs);
-    }
-
-    _onchange(diffs) {
-        const {toString} = this._options;
-        for (let diff of diffs) {
-            if (diff.new) {
-                // add
-                let node = this._elem.querySelector(`#${diff.id}`);
-                if (node == null) {
-                    node = document.createElement("div");
-                    node.setAttribute("id", diff.id);
-                    node.classList.add("list-item");
-                    this._elem.appendChild(node);
-                }
-                node.innerHTML = toString(diff.new);
-            } else if (diff.old) {
-                // remove
-                let node = this._elem.querySelector(`#${diff.id}`);
-                if (node) {
-                    node.parentNode.removeChild(node);
-                }
-            }
-        }
-    }
-}
-
-export { CollectionViewer, SharedStateClient };
+export { SharedStateClient };

@@ -1,0 +1,45 @@
+import { describe, test, expect, vi } from "vitest";
+import { ServerClock } from "../../client/ss_clock.js";
+
+describe("ServerClock Unit Tests", () => {
+    function createMockClient() {
+        return {
+            get: vi.fn().mockResolvedValue({ ok: true, data: Date.now() / 1000 })
+        };
+    }
+
+    test("initial estimates", () => {
+        const mockClient = createMockClient();
+        const clock = new ServerClock(mockClient);
+
+        expect(clock.trans).toBe(1000.0);
+        expect(clock.skew).toBe(0.0);
+        expect(typeof clock.now()).toBe("number");
+    });
+
+    test("add_sample calculates transit delay and skew correctly", () => {
+        const mockClient = createMockClient();
+        const clock = new ServerClock(mockClient);
+
+        // cs = 10.0 (client send), ss = 10.5 (server received/responded), cr = 10.2 (client receive)
+        // round trip = cr - cs = 0.2s
+        // transit = 0.1s
+        // estimated server time at midpoint (10.1) = 10.5 -> skew = 10.5 - 10.1 = 0.4
+        clock._add_sample(10.0, 10.5, 10.2);
+
+        expect(clock.trans).toBeCloseTo(0.1);
+        expect(clock.skew).toBeCloseTo(0.4);
+    });
+
+    test("pinger controls pause, resume, and restart", () => {
+        const mockClient = createMockClient();
+        const clock = new ServerClock(mockClient);
+
+        expect(() => {
+            clock.pinger.pause();
+            clock.pinger.resume();
+            clock.restart();
+            clock.pinger.pause();
+        }).not.toThrow();
+    });
+});

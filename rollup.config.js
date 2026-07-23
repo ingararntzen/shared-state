@@ -17,11 +17,11 @@ const isDist = process.env.DIST == 'true';
 const isServe = process.env.SERVE == 'true';
 
 // target directory for build
-const target = "html/libs";
+const target = "libs";
 // name of bundle
 const bundle = "sharedstate";
 // file extension
-const ext = isDist ? "min.js" : "js"; 
+const ext = isDist ? "min.js" : "js";
 
 export default {
   input: 'client/index.js',
@@ -49,7 +49,7 @@ export default {
       port: 8000,
     }),
     // dev server livereload browser
-    !isDist && isServe && livereload({watch : 'html'}),
+    !isDist && isServe && livereload({ watch: 'html' }),
   ],
 }
 

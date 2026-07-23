@@ -38,7 +38,7 @@ export class ProxyCollection {
             throw new Error("collection already terminated")
         }
 
-        const {remove, insert, reset=false} = changes;
+        const {remove=[], insert=[], reset=false} = changes;
         const diff_map = new Map();
 
         // remove items - create diff

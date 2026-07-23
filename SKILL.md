@@ -168,21 +168,7 @@ myobj.remove_callback(handle);
 
 ---
 
-## Collection Viewer Utility
 
-The built-in `CollectionViewer` class binds a Proxy Collection directly to a DOM container.
-
-```javascript
-import { CollectionViewer } from "./libs/sharedstate.es.js";
-
-const container = document.getElementById("my-list-container");
-const viewer = new CollectionViewer(coll, container, {
-    delete: true, // Enables click-to-delete behavior
-    toString: (item) => `<div>${item.id}: ${JSON.stringify(item.state)}</div>`
-});
-```
-
----
 
 ## Server Clock Synchronization
 

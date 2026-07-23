@@ -2,7 +2,7 @@ import { WebSocketIO } from "./wsio.js";
 import { resolvablePromise } from "./util.js";
 import { ProxyCollection } from "./ss_collection.js";
 import { ProxyObject } from "./ss_object.js";
-import { ServerClock } from "./serverclock.js";
+import { ServerClock } from "./ss_clock.js";
 
 const MsgType = Object.freeze({
     MESSAGE : "MESSAGE",
@@ -223,7 +223,9 @@ export class SharedStateClient extends WebSocketIO {
         }
         // terminate proxy collection and proxy objects
         const ds = this._coll_map.get(path);
-        ds._ssclient_terminate();
+        if (ds != undefined) {
+            ds._ssclient_terminate();
+        }
         const obj_map = this._obj_map.get(path);
         if (obj_map != undefined) {
             for (const v of obj_map.values()) {
