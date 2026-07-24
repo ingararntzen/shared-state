@@ -914,7 +914,7 @@
             // Connect to server running locally (or fallback to host window location if needed)
             const host = window.location.hostname || "localhost";
             const urlParams = new URLSearchParams(window.location.search);
-            const wsPort = urlParams.get("port") || "9000";
+            const wsPort = urlParams.get("port") || "9001";
             const wsUrl = `ws://${host}:${wsPort}`;
             
             try {

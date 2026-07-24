@@ -178,3 +178,6 @@ html/libs/
 
 # config directory
 cfg/
+
+# logs directory
+logs/

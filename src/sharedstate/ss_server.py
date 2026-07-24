@@ -3,10 +3,11 @@ import websockets
 import json
 import traceback
 import importlib
-import time
+import logging
+import mimetypes
+from pathlib import Path, PurePosixPath
+from urllib.parse import urlparse, unquote
 from datetime import datetime, timezone
-from pathlib import PurePosixPath
-from urllib.parse import urlparse
 
 
 def normalize(path):
@@ -16,19 +17,40 @@ def normalize(path):
     return n_path
 
 
+def setup_logger(name, log_file, level=logging.INFO):
+    """Setup logger with file handler."""
+    logger = logging.getLogger(name)
+    logger.setLevel(level)
+    logger.propagate = False
+    
+    # Avoid duplicate handlers
+    if not logger.handlers:
+        if log_file:
+            log_path = Path(log_file)
+            log_path.parent.mkdir(parents=True, exist_ok=True)
+            handler = logging.FileHandler(log_path, encoding="utf-8")
+        else:
+            handler = logging.NullHandler()
+            
+        formatter = logging.Formatter('%(asctime)s [%(levelname)s] %(message)s')
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
+    return logger
+
+
 ########################################################################
 # Messages
 ########################################################################
 
 class MsgType:
-    """Message types used by dcserver and dcclient."""
+    """Message types used by server and client."""
     MESSAGE = "MESSAGE"
     REQUEST = "REQUEST"
     REPLY = "REPLY"
 
 
 class MsgCmd:
-    """Message commands used by dcserver and dcclient."""
+    """Message commands used by server and client."""
     GET = "GET"
     PUT = "PUT"
     NOTIFY = "NOTIFY"
@@ -44,10 +66,6 @@ class Clients:
         # websocket -> {path -> subscription}
         self._map = {}
 
-    ######################################################
-    # CONNECTED CLIENTS
-    ######################################################
-
     def register(self, ws):
         """Register client. No subscriptions"""
         if ws not in self._map:
@@ -59,36 +77,18 @@ class Clients:
             del self._map[ws]
 
     def all_clients(self):
-        return self._map.keys()
-
-    ######################################################
-    # CLIENT SUBSCRIPTIONS
-    ######################################################
+        return list(self._map.keys())
 
     def get_subs(self, ws):
-        """
-        GET subscriptions of client
-        [(path, sub), ...]
-        """
+        """GET subscriptions of client [(path, sub), ...]"""
         return list(self._map.get(ws, {}).items())
 
     def put_subs(self, ws, subs):
-        """
-        PUT subscriptions for client
-        subs: [(path, sub)]
-        empty list clears all subscriptions
-        """
+        """PUT subscriptions for client subs: [(path, sub)]"""
         self._map[ws] = dict(subs)
 
-    ######################################################
-    # SUBSCTIPTIONS BY PATH
-    ######################################################
-
     def clients(self, path):
-        """
-        Get all clients subscribed to path
-        Return websocket of each client
-        """
+        """Get all clients subscribed to path"""
         res = []
         for ws, sub_map in self._map.items():
             if path in sub_map:
@@ -96,10 +96,17 @@ class Clients:
         return res
 
     def is_subscribed_to_path(self, ws, path):
-        """
-        Return true if websocket is subscribed to path.
-        """
+        """Return true if websocket is subscribed to path."""
         return self._map.get(ws, None) is not None
+
+    def all_subs_summary(self):
+        """Return summary of all active client subscriptions."""
+        subs = []
+        for ws, sub_map in self._map.items():
+            addr = str(ws.remote_address) if hasattr(ws, 'remote_address') else "unknown"
+            for path, sub in sub_map.items():
+                subs.append({"client": addr, "path": path, "options": sub})
+        return subs
 
 
 ########################################################################
@@ -108,11 +115,24 @@ class Clients:
 
 class SharedStateServer:
 
-    def __init__(self, port=8000, host="0.0.0.0", services=[]):
+    def __init__(self, http_port=9000, ws_port=9001, host="0.0.0.0", services=[],
+                 http_log="logs/http.log", ws_log="logs/ws.log", html_dir=None):
         self._host = host
-        self._port = port
-        self._server = None
+        self._http_port = http_port
+        self._ws_port = ws_port
+        self._http_log_path = http_log
+        self._ws_log_path = ws_log
+        
+        self._http_server = None
+        self._ws_server = None
         self._stop_event = None
+
+        # Root directory for serving static HTML/JS assets
+        self._html_dir = Path(html_dir) if html_dir else Path(__file__).resolve().parent.parent.parent / "html"
+
+        # Setup loggers
+        self.http_logger = setup_logger("sharedstate_http", self._http_log_path)
+        self.ws_logger = setup_logger("sharedstate_ws", self._ws_log_path)
 
         # client subscriptions
         self._clients = Clients()
@@ -122,34 +142,50 @@ class SharedStateServer:
 
         # services
         self._services = {}
-        # load services
         for service in services:
             module_path = f"sharedstate.services.{service['module']}"
             module = importlib.import_module(module_path)
             service_obj = module.get_service(service.get("config", {}))
             self._services[service['name']] = service_obj
 
-        print(f"SharedState: Services: {list(self._services.keys())}")
+        self.ws_logger.info(f"Loaded services: {list(self._services.keys())}")
 
     ####################################################################
-    # HANDLERS
+    # WEBSOCKET HANDLERS & LOGGING
     ####################################################################
+
+    async def _handle_ws_client(self, ws):
+        """Handle incoming WebSocket client connection lifecycle."""
+        self.on_connect(ws)
+        try:
+            async for data in ws:
+                try:
+                    await self.on_message(ws, data)
+                except Exception as e:
+                    self.ws_logger.error(f"WebSocket Exception: {e}")
+                    traceback.print_exc()
+        except websockets.exceptions.ConnectionClosed:
+            pass
+        self.on_disconnect(ws)
 
     def on_connect(self, ws):
         """Handle client connect."""
         self._clients.register(ws)
-        print(ws.remote_address, 'connected')
+        addr = str(ws.remote_address) if hasattr(ws, 'remote_address') else "unknown"
+        self.ws_logger.info(f"Connected: {addr}")
 
     def on_disconnect(self, ws):
-        """Handle client diconnect."""
+        """Handle client disconnect."""
         self._clients.unregister(ws)
-        print(ws.remote_address, 'disconnected')
+        addr = str(ws.remote_address) if hasattr(ws, 'remote_address') else "unknown"
+        self.ws_logger.info(f"Disconnected: {addr}")
 
     async def on_message(self, ws, data):
         """Handle message from client."""
+        addr = str(ws.remote_address) if hasattr(ws, 'remote_address') else "unknown"
+        self.ws_logger.debug(f"Received from {addr}: {data}")
         msg = json.loads(data)
 
-        # handles client requests
         if msg['type'] == MsgType.REQUEST:
             ok, result = False, None
             if msg['cmd'] == MsgCmd.GET:
@@ -164,21 +200,15 @@ class SharedStateServer:
                 "ok": ok,
                 "data": result
             }
-            await self._send(ws, json.dumps(reply)) 
-
-            # process any tasks generated by client requests
+            await self._send(ws, json.dumps(reply))
             return await self._process_tasks()
-
-    ####################################################################
-    # TASK PROCESSING
-    ####################################################################
 
     async def _send(self, ws, data):
         try:
             await ws.send(data)
         except websockets.exceptions.ConnectionClosed as e:
-            print(ws.remote_address, "disconnect on send", e)
-            print(data)
+            addr = str(ws.remote_address) if hasattr(ws, 'remote_address') else "unknown"
+            self.ws_logger.warning(f"Disconnect on send to {addr}: {e}")
             self._clients.unregister(ws)
 
     async def _process_tasks(self):
@@ -187,35 +217,14 @@ class SharedStateServer:
             method, *args = task
             if method == "unicast_reset":
                 await self._process_unicast_reset(*args)
-            elif method == "multicast_reset":
-                await self._process_multicast_reset(*args)
             elif method == "multicast_notify":
                 await self._process_multicast_notify(*args)
         self._tasks = []
 
     async def _process_unicast_reset(self, ws, paths):
-        """
-        Reset a client connection, with respect to a list of paths.
-
-        A connections is reset following a change in subscriptions.
-
-        For a given path, there are three types of subscription changes
-        - (sub) no sub -> sub
-        - (reset) sub -> sub
-        - (unsub) sub -> no sub
-
-        (reset) is only possible if subscriptions are more advanced
-        than just boolean - e.g. including filters etc.
-
-        The distinction between (sub, reset, unsub) is not important,
-        though, as the connection will be reset in either case,
-        by sending the correct state, with [] being the correct state
-        for unsub.
-        """
         for path in paths:
             changes = {"remove": [], "insert": [], "reset": True}
             if self._clients.is_subscribed_to_path(ws, path):
-                # get state
                 ok, result = await self.handle_GET(ws, path)
                 if ok:
                     changes["insert"] = result
@@ -227,16 +236,7 @@ class SharedStateServer:
             }
             await self._send(ws, json.dumps(msg))
 
-    async def _process_multicast_notify(self, path, changes,
-                                        diffs, oldstate_included):
-        """
-        Multicast notifications to clients which have
-        subscribed to this resource (path).
-
-        Notifications are triggered after PUT path changes
-
-        Current implementation uses only current state (i.e. diff.new).
-        """
+    async def _process_multicast_notify(self, path, changes, diffs, oldstate_included):
         insert = []
         remove = []
         for diff in diffs:
@@ -258,104 +258,269 @@ class SharedStateServer:
         data = json.dumps(msg)
         for ws in self._clients.clients(path):
             await self._send(ws, data)
-            continue
 
     ####################################################################
-    # REQUEST HANDLERS
+    # WEBSOCKET REQUEST HANDLERS
     ####################################################################
 
     async def handle_GET(self, ws, path):
-        """
-        returns (ok, result)
-        """
         n_path = normalize(path)
 
         if n_path == PurePosixPath("/"):
-            # return service listing
             return True, list(self._services.keys())
 
         if n_path == PurePosixPath("/subs"):
-            # return subscriptions of client
             return True, self._clients.get_subs(ws)
 
         if n_path == PurePosixPath("/clock"):
             return True, datetime.now(timezone.utc).timestamp()
 
-        # /app/service
-        app, service, resource = n_path.parts[1:4]
-
-        # service
-        srvc = self._services.get(service, None)
-        if srvc is None:
-            return False, "no service"
-        else:
-            return True, await srvc.get(app, resource)
+        # /app/service/chnl
+        parts = n_path.parts[1:]
+        if len(parts) >= 3:
+            app, service, resource = parts[0], parts[1], parts[2]
+            srvc = self._services.get(service, None)
+            if srvc is None:
+                return False, "no service"
+            else:
+                return True, await srvc.get(app, resource)
+        return False, "invalid path"
 
     async def handle_PUT(self, ws, path, changes):
-        """
-        returns (ok, result)
-        """
         parsed_url = urlparse(path)
         n_path = normalize(parsed_url.path)
-        path = str(n_path)
+        path_str = str(n_path)
 
         if n_path == PurePosixPath("/subs"):
             subs = changes.get("insert", [])
-            # TODO: check that subs are valid
             self._clients.put_subs(ws, subs)
-            reset_paths = [path for path, sub in subs]
+            reset_paths = [p for p, sub in subs]
             self._tasks.append(("unicast_reset", ws, reset_paths))
-            # return subscriptions of client
             return True, self._clients.get_subs(ws)
 
-        # /app/service
-        app, service, chnl = n_path.parts[1:4]
-
-        srvc = self._services.get(service, None)
-        if srvc is None:
-            return False, "no service"
-        diffs = await srvc.update(app, chnl, changes)
-        oldstate_included = getattr(srvc, "oldstate_included", False)
-        self._tasks.append(("multicast_notify", path,
-                            changes, diffs, oldstate_included))
-        return True, len(diffs)
+        parts = n_path.parts[1:]
+        if len(parts) >= 3:
+            app, service, chnl = parts[0], parts[1], parts[2]
+            srvc = self._services.get(service, None)
+            if srvc is None:
+                return False, "no service"
+            diffs = await srvc.update(app, chnl, changes)
+            oldstate_included = getattr(srvc, "oldstate_included", False)
+            self._tasks.append(("multicast_notify", path_str, changes, diffs, oldstate_included))
+            return True, len(diffs)
+        return False, "invalid path"
 
     ####################################################################
-    # RUN
+    # HTTP REST & STATIC ASSET SERVER
     ####################################################################
 
-    async def handler(self, ws):
-        self.on_connect(ws)
+    async def _handle_http_client(self, reader, writer):
         try:
-            async for data in ws:
-                try:
-                    await self.on_message(ws, data)
-                except Exception as e:
-                    print("Exception", e)
-                    traceback.print_exc()
-        except websockets.exceptions.ConnectionClosed:
+            request_line = await reader.readline()
+            if not request_line:
+                writer.close()
+                await writer.wait_closed()
+                return
+
+            req_str = request_line.decode('utf-8', errors='ignore').strip()
+            parts = req_str.split(' ')
+            if len(parts) < 2:
+                writer.close()
+                await writer.wait_closed()
+                return
+
+            method, raw_path = parts[0], parts[1]
+            
+            # Read headers until empty line
+            while True:
+                header_line = await reader.readline()
+                if not header_line or header_line == b'\r\n' or header_line == b'\n':
+                    break
+
+            peer_addr = writer.get_extra_info('peername')
+            client_ip = str(peer_addr[0]) if peer_addr else "unknown"
+            self.http_logger.info(f"{client_ip} - {method} {raw_path}")
+
+            parsed = urlparse(raw_path)
+            clean_path = unquote(parsed.path)
+
+            if method.upper() != "GET":
+                await self._send_http_json(writer, 405, {"ok": False, "error": "Method Not Allowed"})
+                return
+
+            await self._route_http_get(writer, clean_path)
+        except Exception as e:
+            self.http_logger.error(f"HTTP Error: {e}")
+            try:
+                await self._send_http_json(writer, 500, {"ok": False, "error": str(e)})
+            except Exception:
+                pass
+
+    async def _route_http_get(self, writer, path_str):
+        n_path = normalize(path_str)
+        parts = [p for p in n_path.parts if p != '/']
+
+        # 1. Root / Explorer UI
+        if not parts or parts == ['index.html']:
+            index_file = self._html_dir / "index.html"
+            if index_file.exists():
+                await self._send_http_file(writer, 200, "text/html; charset=utf-8", index_file.read_bytes())
+            else:
+                await self._send_http_json(writer, 404, {"ok": False, "error": "index.html not found"})
+            return
+
+        # 2. Administrative Diagnostic Endpoints
+        if parts == ['services']:
+            await self._send_http_json(writer, 200, {"ok": True, "data": list(self._services.keys())})
+            return
+
+        if parts == ['subs']:
+            await self._send_http_json(writer, 200, {"ok": True, "data": self._clients.all_subs_summary()})
+            return
+
+        if parts == ['connections']:
+            conns = [str(ws.remote_address) for ws in self._clients.all_clients() if hasattr(ws, 'remote_address')]
+            await self._send_http_json(writer, 200, {"ok": True, "data": conns})
+            return
+
+        # 3. RESTful Service Hierarchy: /services/<service>/...
+        if parts[0] == 'services':
+            service_name = parts[1] if len(parts) > 1 else None
+            srvc = self._services.get(service_name) if service_name else None
+
+            if service_name and not srvc:
+                await self._send_http_json(writer, 404, {"ok": False, "error": f"no service '{service_name}'"})
+                return
+
+            # GET /services/<service>/ -> list app names
+            if len(parts) == 2:
+                if hasattr(srvc, 'apps'):
+                    apps = await srvc.apps()
+                    await self._send_http_json(writer, 200, {"ok": True, "data": apps})
+                else:
+                    await self._send_http_json(writer, 200, {"ok": True, "data": []})
+                return
+
+            # GET /services/<service>/<app>/ -> list channel/resource names
+            if len(parts) == 3:
+                app_name = parts[2]
+                if hasattr(srvc, 'channels'):
+                    channels = await srvc.channels(app_name)
+                    await self._send_http_json(writer, 200, {"ok": True, "data": channels})
+                else:
+                    await self._send_http_json(writer, 200, {"ok": True, "data": []})
+                return
+
+            # GET /services/<service>/<app>/<chnl> -> list items in collection
+            if len(parts) == 4:
+                app_name, chnl_name = parts[2], parts[3]
+                items = await srvc.get(app_name, chnl_name)
+                await self._send_http_json(writer, 200, {"ok": True, "data": items})
+                return
+
+        # 4. Static Asset Files (e.g. /libs/sharedstate.es.js)
+        rel_path = path_str.lstrip('/')
+        static_file = (self._html_dir / rel_path).resolve()
+        if static_file.exists() and static_file.is_file() and str(static_file).startswith(str(self._html_dir.resolve())):
+            content_type, _ = mimetypes.guess_type(str(static_file))
+            content_type = content_type or "application/octet-stream"
+            await self._send_http_file(writer, 200, content_type, static_file.read_bytes())
+            return
+
+        await self._send_http_json(writer, 404, {"ok": False, "error": "Not Found"})
+
+    async def _send_http_json(self, writer, status_code, data_obj):
+        body_bytes = json.dumps(data_obj).encode('utf-8')
+        status_text = {200: "OK", 404: "Not Found", 405: "Method Not Allowed", 500: "Internal Server Error"}.get(status_code, "OK")
+        header = (
+            f"HTTP/1.1 {status_code} {status_text}\r\n"
+            f"Content-Type: application/json; charset=utf-8\r\n"
+            f"Content-Length: {len(body_bytes)}\r\n"
+            f"Access-Control-Allow-Origin: *\r\n"
+            f"Connection: close\r\n\r\n"
+        )
+        try:
+            writer.write(header.encode('utf-8') + body_bytes)
+            await writer.drain()
+        except (ConnectionResetError, BrokenPipeError, OSError):
             pass
-        self.on_disconnect(ws)
+        finally:
+            try:
+                writer.close()
+                await writer.wait_closed()
+            except Exception:
+                pass
+
+    async def _send_http_file(self, writer, status_code, content_type, body_bytes):
+        header = (
+            f"HTTP/1.1 {status_code} OK\r\n"
+            f"Content-Type: {content_type}\r\n"
+            f"Content-Length: {len(body_bytes)}\r\n"
+            f"Access-Control-Allow-Origin: *\r\n"
+            f"Connection: close\r\n\r\n"
+        )
+        try:
+            writer.write(header.encode('utf-8') + body_bytes)
+            await writer.drain()
+        except (ConnectionResetError, BrokenPipeError, OSError):
+            pass
+        finally:
+            try:
+                writer.close()
+                await writer.wait_closed()
+            except Exception:
+                pass
+
+    ####################################################################
+    # RUN & LIFECYCLE
+    ####################################################################
 
     async def serve_forever(self):
         self._stop_event = asyncio.Event()
         for service in self._services.values():
             await service.open()
-        self._server = await websockets.serve(self.handler, 
-                                              self._host, self._port)
+            
+        self._ws_server = await websockets.serve(self._handle_ws_client, self._host, self._ws_port)
+        self._http_server = await asyncio.start_server(self._handle_http_client, self._host, self._http_port)
+
+        # Update bound ports in case port 0 was passed
+        if self._ws_server.sockets:
+            self._ws_port = self._ws_server.sockets[0].getsockname()[1]
+        if self._http_server.sockets:
+            self._http_port = self._http_server.sockets[0].getsockname()[1]
+
+        startup_http = f"SharedState: HTTP Admin Listen: http://{self._host}:{self._http_port}"
+        startup_ws = f"SharedState: WebSocket Listen:  ws://{self._host}:{self._ws_port}"
+        
+        print(startup_http)
+        print(startup_ws)
+        self.http_logger.info(startup_http)
+        self.ws_logger.info(startup_ws)
+
         await self._stop_event.wait()
 
     async def shutdown(self):
+        shutdown_msg = "SharedState: Server shutting down..."
+        print(shutdown_msg)
+        self.http_logger.info(shutdown_msg)
+        self.ws_logger.info(shutdown_msg)
+
         for ws in list(self._clients.all_clients()):
             await ws.close()
         for service in self._services.values():
             await service.close()
-        if self._server:
-            self._server.close()
-            await self._server.wait_closed()
+
+        if self._ws_server:
+            self._ws_server.close()
+            await self._ws_server.wait_closed()
+            
+        if self._http_server:
+            self._http_server.close()
+            await self._http_server.wait_closed()
 
     def stop(self):
-        self._stop_event.set()
+        if self._stop_event:
+            self._stop_event.set()
 
 
 ########################################################################
@@ -363,31 +528,36 @@ class SharedStateServer:
 ########################################################################
 
 async def main():
-
     import argparse
     import json
 
     parser = argparse.ArgumentParser(description="SharedState Server")
-    parser.add_argument('config',
-                        type=str,
-                        help='Path to the configuration file (JSON)')
-
+    parser.add_argument('config', type=str, help='Path to the configuration file (JSON)')
     args = parser.parse_args()
 
     with open(args.config) as f:
         config = json.load(f)
 
-    host = config["service"]["host"]
-    port = int(config["service"]["port"])
-    services = config["services"]
-    server = SharedStateServer(host=host, port=port, services=services)
-    print(f"SharedState: Listen: ws://{host}:{port}")
+    srv_cfg = config.get("service", {})
+    host = srv_cfg.get("host", "0.0.0.0")
+    http_port = int(srv_cfg.get("http_port", srv_cfg.get("port", 9000)))
+    ws_port = int(srv_cfg.get("ws_port", 9001))
+    http_log = srv_cfg.get("http_log", "logs/http.log")
+    ws_log = srv_cfg.get("ws_log", "logs/ws.log")
+    services = config.get("services", [])
+
+    server = SharedStateServer(
+        host=host,
+        http_port=http_port,
+        ws_port=ws_port,
+        http_log=http_log,
+        ws_log=ws_log,
+        services=services
+    )
     try:
         await server.serve_forever()
     except asyncio.CancelledError:
-        print("")
         await server.shutdown()
-    print("SharedState: Done")
     server.stop()
 
 
@@ -397,154 +567,6 @@ def start():
     except KeyboardInterrupt:
         pass
 
-########################################################################
-# MAIN
-########################################################################
-
 
 if __name__ == '__main__':
     start()
-
-
-"""
-NOTE - DESIGN - SERVER-SIDE SUBSCRIPTIONS
-
-Subscriptions could be more advanced than just on/off
-for a (client, resource) - which they currently are.
-
-For example, assuming the resource is a collection, then
-a subscription (for notifications) could be limited to only a
-subset of the collection.
-
-1) The key requirement for the notification protocol is that
-clients must trust that they receiven notification of ALL
-changes.
-
-2) At the same time, it is attractive to perform notification
-filtering on the server-side, so that only relevant
-notifications are sent to each client.
-
-This can be particularly usefult when many clients are only
-interested in monitoring a very small portion of a large
-collection, and when changes happen frequently in areas
-which are not of interest.
-
-Achieving both 1) and 2) is possible, but it also has
-a downside.
-
-Consider the relevance check to be performed by the server.
-Focusing on the update of a single item in a collection,
-this occurence falls into one of 4 distinct types
-of relevance transformations.
-
-Relevance transformations
-- 1) irrelevant -> relevant
-- 2) relevant -> relevant
-- 3) relevant -> irrelevant
-- 4) irrelevant -> irrelevant
-
-In order to maintain the correct state at the client
-side all occurences in group 1),2),3) must be communicated
-to the client. Only group 4) can safely be dropped.
-
-PROBLEM
-
-The problem though, in order to distinguish between group
-3) and 4) - access to the old state of the item is needed.
-
-Furthermore, this has implications for service implementations,
-as change operations become slower, if they always have to
-look up current state before changing it.
-
-
-ALTERNATIVE 1
-
-One alternative is to support server-side filter subscriptions.
-The service will then have to lookup old state ahead of
-update change, and produce diffs in the following format,
-representing the effects of the update operation. Following
-this, server-side filter processing can calculate
-relevance both before and after the operation, and use this
-to correctly identify and drop notification belonging to group 4)
-
-[
-    {
-        'id': 'id1',
-        'new': {...},
-        'old': None
-    },
-    {
-        'id': 'id2',
-        'new': None,
-        'old': {...}
-    }
-]
-
-ALTERNATIVE 2
-
-Another alternative is to multicast all notifications
-(including group 4) and leave relevance checking to the client.
-Upon receipt, the client will then use local state as old state,
-and be able to figure out exactly which items should be added,
-changed, or removed.
-
-If so, services would not have to include information about
-old state after an update operation. Instead, they would just
-include the new state of all changed items.
-
-[
-    {
-        'id': 'id1',
-        "new": {...}
-    },
-    {
-        'id': 'id2',
-        "new": None
-    }
-]
-
-
-ALTERNATIVE 3
-
-There is also a third alternative, which is to avoid diffs all
-togheter, and simply reset all affected client connections after
-every update. This is similar to ALTERNATIVE 2, in the sense that
-is shifts relevance-filtering to the client, and introduces
-inefficiency in communication. However, ALTERNATIVE 3 is significantly
-worse that ALTERNATIVE 2 as it will rebroadcast all state, as
-opposed to only the state that has changed.
-
-
-DISCUSSION
-
-Alternative 1 saves communiction bandwith when clients only
-want to subscribe to a small subset of a collection, while
-updates are applied across the collection. On the down side,
-update latency is higher.
-
-Alternative 2 implies some inefficiency as group 4) notifications
-will be unessesarily multicast to all clients always.
-On the other hand, it makes for an efficient solution on the
-server side, ensuring that change operations may be completed by
-a single database operation, and that relevance-filtering,
-which is essentially a client-specific operation, is performed
-by clients instead of the server - in reference to local state.
-
-DECISION
-
-The choice is to implement ALTERNATIVE 2 as default solution,
-but to make sure the design is open to future support for
-ALTERNATIVE 1 as well.
-
-We do this by
-- Defining a diff format (above) which suits both alternatives
-- Let services signal the supported mode
-  service.oldstate_included {True|False}
-- Sub args - can be extended with filter state
-- Implementation of server-side filtering can then be added later if needed,
-as part of reset and nofitication processing.
-- Clients do not need to know about this distinction, as long
-  as they can filter out group 4) notifications.
-- When service.reset is used instead of service.update
-  diffs are avoided, so this is not relevant in that case.
-"""

@@ -22,6 +22,12 @@ class ItemsService:
     async def get(self, app, chnl):
         return await self._db.get_all(app, chnl)
 
+    async def apps(self):
+        return await self._db.apps()
+
+    async def channels(self, app):
+        return await self._db.channels(app)
+
     async def update(self, app, chnl, changes):
         insert = changes.get("insert", [])
         remove = changes.get("remove", [])
