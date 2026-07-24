@@ -232,4 +232,4 @@ async def test_http_static_explorer_ui(server):
     _, http_port, _ = server
     status, content = await http_get_raw(http_port, "/")
     assert status == 200
-    assert "<title>SharedState Explorer</title>" in content
+    assert "<title>SharedState - Overview</title>" in content

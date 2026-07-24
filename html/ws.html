@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SharedState - WebSocket Status</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-canvas: #0b0f19;
+            --bg-surface: #1e293b;
+            --bg-surface-elevated: #283548;
+            --bg-card: rgba(30, 41, 59, 0.75);
+            --border-color: rgba(255, 255, 255, 0.08);
+            --border-highlight: rgba(56, 189, 248, 0.3);
+            
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            
+            --accent-primary: #38bdf8;
+            --accent-primary-hover: #0284c7;
+            --accent-success: #10b981;
+            --accent-warning: #f59e0b;
+            --accent-purple: #a855f7;
+
+            --radius-sm: 6px;
+            --radius-md: 10px;
+            --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg-canvas);
+            color: var(--text-primary);
+            line-height: 1.5;
+            min-height: 100vh;
+            padding-bottom: 3rem;
+        }
+
+        /* HEADER */
+        header {
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border-color);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0.65rem 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .brand-section {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .nav-back-link {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.8rem;
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.35rem 0.65rem;
+            background: var(--bg-surface);
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border-color);
+            transition: all 0.2s ease;
+        }
+
+        .nav-back-link:hover {
+            color: #fff;
+            border-color: var(--accent-primary);
+        }
+
+        .brand-title {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: #fff;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 1.25rem auto 0;
+            padding: 0 1.5rem;
+        }
+
+        /* WS BANNER */
+        .ws-banner-card {
+            background: var(--bg-card);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 1rem 1.25rem;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .ws-banner-info {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .ws-icon {
+            width: 36px;
+            height: 36px;
+            background: rgba(16, 185, 129, 0.15);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+            color: var(--accent-success);
+        }
+
+        .ws-endpoint-url {
+            font-family: monospace;
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: var(--accent-success);
+        }
+
+        .ws-meta-pills {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+        }
+
+        .meta-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.25rem 0.6rem;
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            font-size: 0.75rem;
+        }
+
+        .pill-lbl {
+            color: var(--text-muted);
+        }
+
+        .pill-val {
+            font-family: monospace;
+            color: var(--accent-primary);
+            font-weight: 600;
+        }
+
+        /* CLIENT CARDS */
+        .section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1rem;
+        }
+
+        .section-title {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #fff;
+        }
+
+        .clients-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .client-card {
+            background: var(--bg-card);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            overflow: hidden;
+        }
+
+        .client-header {
+            padding: 0.85rem 1.25rem;
+            background: rgba(15, 23, 42, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .client-addr {
+            font-family: monospace;
+            font-weight: 600;
+            color: var(--accent-primary);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .subs-container {
+            padding: 1rem 1.25rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .sub-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.55rem 0.85rem;
+            background: rgba(15, 23, 42, 0.4);
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border-color);
+        }
+
+        .sub-path {
+            font-family: monospace;
+            font-size: 0.85rem;
+            color: var(--accent-warning);
+        }
+
+        .btn-inspect {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.35rem 0.75rem;
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-primary-hover));
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-decoration: none;
+            cursor: pointer;
+            transition: opacity 0.2s ease;
+        }
+
+        .btn-inspect:hover {
+            opacity: 0.9;
+        }
+
+        .empty-state {
+            padding: 3rem 1.5rem;
+            text-align: center;
+            color: var(--text-muted);
+            background: var(--bg-card);
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-color);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- HEADER -->
+    <header>
+        <div class="header-container">
+            <div class="brand-section">
+                <a href="index.html" class="nav-back-link">← Overview</a>
+                <div class="brand-title">WebSocket Server Status</div>
+            </div>
+            <a href="monitor.html" class="nav-back-link">📊 Collection Monitor</a>
+        </div>
+    </header>
+
+    <div class="container">
+
+        <!-- WS ENDPOINT BANNER -->
+        <div class="ws-banner-card">
+            <div class="ws-banner-info">
+                <div class="ws-icon">🔌</div>
+                <div>
+                    <div class="ws-endpoint-url" id="wsEndpointUrl">ws://0.0.0.0:9001</div>
+                    <div style="font-size: 0.78rem; color: var(--text-secondary);">Real-Time State Synchronization Endpoint</div>
+                </div>
+            </div>
+            <div class="ws-meta-pills">
+                <div class="meta-pill"><span class="pill-lbl">Log File:</span> <span class="pill-val" id="wsLogFile">logs/ws.log</span></div>
+                <div class="meta-pill"><span class="pill-lbl">Active Clients:</span> <span class="pill-val" id="wsClientsCount">0</span></div>
+            </div>
+        </div>
+
+        <!-- CONNECTIONS & SUBSCRIPTIONS -->
+        <div class="section-header">
+            <h2 class="section-title">Connected Clients & Subscriptions</h2>
+        </div>
+
+        <div class="clients-list" id="clientsList">
+            <div class="empty-state">Loading active connections...</div>
+        </div>
+
+    </div>
+
+    <script>
+        async function fetchJSON(url) {
+            try {
+                const res = await fetch(url);
+                if (!res.ok) return null;
+                const data = await res.json();
+                return data.ok ? data.data : null;
+            } catch (e) {
+                console.error("Fetch error for", url, e);
+                return null;
+            }
+        }
+
+        async function loadWSStatus() {
+            const config = await fetchJSON('/config');
+            if (config) {
+                const host = config.host || "0.0.0.0";
+                const port = config.ws_port || 9001;
+                document.getElementById('wsEndpointUrl').textContent = `ws://${host}:${port}`;
+                document.getElementById('wsLogFile').textContent = config.ws_log || "logs/ws.log";
+            }
+
+            const connections = await fetchJSON('/connections') || [];
+            const subs = await fetchJSON('/subs') || [];
+
+            document.getElementById('wsClientsCount').textContent = connections.length;
+
+            const listContainer = document.getElementById('clientsList');
+            if (connections.length === 0) {
+                listContainer.innerHTML = '<div class="empty-state">No active WebSocket client connections at this moment.</div>';
+                return;
+            }
+
+            let html = '';
+            connections.forEach(clientAddr => {
+                const clientSubs = subs.filter(s => s.client === clientAddr);
+                html += `
+                    <div class="client-card">
+                        <div class="client-header">
+                            <div class="client-addr">
+                                💻 Client: ${clientAddr}
+                            </div>
+                            <span style="font-size: 0.78rem; color: var(--text-secondary);">${clientSubs.length} Active Subscription${clientSubs.length === 1 ? '' : 's'}</span>
+                        </div>
+                        <div class="subs-container">
+                `;
+
+                if (clientSubs.length === 0) {
+                    html += `<div style="color: var(--text-muted); font-size: 0.85rem;">No active path subscriptions for this client.</div>`;
+                } else {
+                    clientSubs.forEach(sub => {
+                        const monitorUrl = `monitor.html?path=${encodeURIComponent(sub.path)}`;
+                        html += `
+                            <div class="sub-row">
+                                <div class="sub-path">📌 ${sub.path}</div>
+                                <a href="${monitorUrl}" class="btn-inspect">Inspect Stream →</a>
+                            </div>
+                        `;
+                    });
+                }
+
+                html += `
+                        </div>
+                    </div>
+                `;
+            });
+
+            listContainer.innerHTML = html;
+        }
+
+        loadWSStatus();
+        setInterval(loadWSStatus, 3000);
+    </script>
+</body>
+</html>

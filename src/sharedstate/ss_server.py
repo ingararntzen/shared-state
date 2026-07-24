@@ -17,24 +17,31 @@ def normalize(path):
     return n_path
 
 
+from logging.handlers import RotatingFileHandler
+
+
 def setup_logger(name, log_file, level=logging.INFO):
-    """Setup logger with file handler."""
+    """Setup logger with rotating file handler (max ~1024 entries / 100 KB)."""
     logger = logging.getLogger(name)
     logger.setLevel(level)
     logger.propagate = False
     
-    # Avoid duplicate handlers
-    if not logger.handlers:
-        if log_file:
-            log_path = Path(log_file)
-            log_path.parent.mkdir(parents=True, exist_ok=True)
-            handler = logging.FileHandler(log_path, encoding="utf-8")
-        else:
-            handler = logging.NullHandler()
-            
-        formatter = logging.Formatter('%(asctime)s [%(levelname)s] %(message)s')
-        handler.setFormatter(formatter)
-        logger.addHandler(handler)
+    # Remove and close any existing handlers to prevent log bleeding across instances/tests
+    for h in list(logger.handlers):
+        logger.removeHandler(h)
+        h.close()
+        
+    if log_file:
+        log_path = Path(log_file)
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        # Limit log file size to ~100 KB (~1024 log lines) with 1 backup, appending to existing log
+        handler = RotatingFileHandler(log_path, mode='a', maxBytes=100_000, backupCount=1, encoding="utf-8")
+    else:
+        handler = logging.NullHandler()
+        
+    formatter = logging.Formatter('%(asctime)s [%(levelname)s] %(message)s')
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
     return logger
 
 
@@ -142,11 +149,17 @@ class SharedStateServer:
 
         # services
         self._services = {}
+        self._service_meta = []
         for service in services:
             module_path = f"sharedstate.services.{service['module']}"
             module = importlib.import_module(module_path)
             service_obj = module.get_service(service.get("config", {}))
             self._services[service['name']] = service_obj
+            self._service_meta.append({
+                "name": service['name'],
+                "module": service['module'],
+                "description": service.get("description", f"{service['module']} service")
+            })
 
         self.ws_logger.info(f"Loaded services: {list(self._services.keys())}")
 
@@ -370,6 +383,18 @@ class SharedStateServer:
             return
 
         # 2. Administrative Diagnostic Endpoints
+        if parts == ['config']:
+            cfg_data = {
+                "host": self._host,
+                "http_port": self._http_port,
+                "ws_port": self._ws_port,
+                "http_log": str(self._http_log_path),
+                "ws_log": str(self._ws_log_path),
+                "services": self._service_meta
+            }
+            await self._send_http_json(writer, 200, {"ok": True, "data": cfg_data})
+            return
+
         if parts == ['services']:
             await self._send_http_json(writer, 200, {"ok": True, "data": list(self._services.keys())})
             return
@@ -383,7 +408,57 @@ class SharedStateServer:
             await self._send_http_json(writer, 200, {"ok": True, "data": conns})
             return
 
-        # 3. RESTful Service Hierarchy: /services/<service>/...
+        # 3. Application-Centric Hierarchy: /apps/...
+        if parts[0] == 'apps':
+            # GET /apps -> list unique application names across all services
+            if len(parts) == 1:
+                all_apps = set()
+                for srv in self._services.values():
+                    if hasattr(srv, 'apps'):
+                        apps = await srv.apps()
+                        all_apps.update(apps)
+                await self._send_http_json(writer, 200, {"ok": True, "data": sorted(list(all_apps))})
+                return
+
+            app_name = parts[1]
+
+            # GET /apps/<app>/ -> list services containing data for <app>
+            if len(parts) == 2:
+                app_services = []
+                for srv_name, srv in self._services.items():
+                    if hasattr(srv, 'apps'):
+                        apps = await srv.apps()
+                        if app_name in apps:
+                            app_services.append(srv_name)
+                await self._send_http_json(writer, 200, {"ok": True, "data": app_services})
+                return
+
+            # GET /apps/<app>/<service>/ -> list channels under <app>/<service>
+            if len(parts) == 3:
+                srv_name = parts[2]
+                srvc = self._services.get(srv_name)
+                if not srvc:
+                    await self._send_http_json(writer, 404, {"ok": False, "error": f"no service '{srv_name}'"})
+                    return
+                if hasattr(srvc, 'channels'):
+                    channels = await srvc.channels(app_name)
+                    await self._send_http_json(writer, 200, {"ok": True, "data": channels})
+                else:
+                    await self._send_http_json(writer, 200, {"ok": True, "data": []})
+                return
+
+            # GET /apps/<app>/<service>/<chnl> -> list items in collection
+            if len(parts) == 4:
+                srv_name, chnl_name = parts[2], parts[3]
+                srvc = self._services.get(srv_name)
+                if not srvc:
+                    await self._send_http_json(writer, 404, {"ok": False, "error": f"no service '{srv_name}'"})
+                    return
+                items = await srvc.get(app_name, chnl_name)
+                await self._send_http_json(writer, 200, {"ok": True, "data": items})
+                return
+
+        # 4. Service Hierarchy Fallback: /services/<service>/...
         if parts[0] == 'services':
             service_name = parts[1] if len(parts) > 1 else None
             srvc = self._services.get(service_name) if service_name else None

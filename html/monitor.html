@@ -1,0 +1,1369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SharedState Explorer</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+    <style>
+        :root {
+            --bg-color: #030712;
+            --panel-bg: rgba(17, 24, 39, 0.7);
+            --border-color: rgba(255, 255, 255, 0.08);
+            --text-primary: #f3f4f6;
+            --text-secondary: #9ca3af;
+            --accent-blue: #3b82f6;
+            --accent-blue-glow: rgba(59, 130, 246, 0.35);
+            --accent-green: #10b981;
+            --accent-green-glow: rgba(16, 185, 129, 0.2);
+            --row-hover: rgba(59, 130, 246, 0.06);
+            --row-selected: rgba(59, 130, 246, 0.15);
+            --font-main: 'Outfit', sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            transition: background-color 0.2s, border-color 0.2s, box-shadow 0.2s;
+        }
+
+        body {
+            font-family: var(--font-main);
+            background: radial-gradient(circle at 50% 0%, #1e1b4b 0%, var(--bg-color) 70%);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+        }
+
+        header {
+            padding: 1.5rem 2rem;
+            border-bottom: 1px solid var(--border-color);
+            background: rgba(3, 7, 18, 0.5);
+            backdrop-filter: blur(12px);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .header-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1.5rem;
+        }
+
+        .logo-section {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .logo-dot {
+            width: 12px;
+            height: 12px;
+            background-color: var(--accent-green);
+            border-radius: 50%;
+            box-shadow: 0 0 12px var(--accent-green);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+        }
+
+        .logo-text {
+            font-size: 1.25rem;
+            font-weight: 700;
+            letter-spacing: -0.025em;
+            background: linear-gradient(to right, #ffffff, #93c5fd);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .connection-form {
+            display: flex;
+            gap: 0.5rem;
+            width: 100%;
+            max-width: 650px;
+            align-items: center;
+        }
+
+        .input-wrapper {
+            position: relative;
+            flex-grow: 1;
+            display: flex;
+            align-items: center;
+        }
+
+        .path-input {
+            width: 100%;
+            padding: 0.75rem 2.5rem 0.75rem 1rem;
+            background: rgba(17, 24, 39, 0.8);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-family: var(--font-mono);
+            font-size: 0.9rem;
+            outline: none;
+        }
+
+        .path-input:focus {
+            border-color: var(--accent-blue);
+            box-shadow: 0 0 0 3px var(--accent-blue-glow);
+        }
+
+        .path-input.monitored-active {
+            border-color: var(--accent-green);
+            box-shadow: 0 0 0 3px var(--accent-green-glow);
+        }
+
+        .history-toggle-btn {
+            position: absolute;
+            right: 0.75rem;
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 0.75rem;
+            padding: 0.25rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+        }
+
+        .history-toggle-btn:hover {
+            color: var(--text-primary);
+        }
+
+        .history-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: #0b0f19;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            margin-top: 4px;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 100;
+            display: none;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
+        }
+
+        .history-dropdown.show {
+            display: block;
+        }
+
+        .history-item {
+            padding: 0.75rem 1rem;
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: background-color 0.15s, color 0.15s;
+            text-align: left;
+        }
+
+        .history-item:hover {
+            background-color: var(--row-hover);
+            color: var(--text-primary);
+        }
+
+        .history-empty {
+            padding: 0.75rem 1rem;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            font-style: italic;
+            text-align: left;
+        }
+
+        .status-badge {
+            font-size: 0.75rem;
+            padding: 0.35rem 0.65rem;
+            border-radius: 6px;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            white-space: nowrap;
+        }
+
+        .status-badge.active {
+            background-color: rgba(16, 185, 129, 0.15);
+            color: var(--accent-green);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+
+        .status-badge.inactive {
+            background-color: rgba(156, 163, 175, 0.15);
+            color: var(--text-secondary);
+            border: 1px solid rgba(156, 163, 175, 0.3);
+        }
+
+        .status-badge.modified {
+            background-color: rgba(245, 158, 11, 0.15);
+            color: #f59e0b;
+            border: 1px solid rgba(245, 158, 11, 0.3);
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            font-family: var(--font-main);
+            font-weight: 600;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            outline: none;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary {
+            background-color: var(--accent-blue);
+            color: white;
+            box-shadow: 0 4px 12px var(--accent-blue-glow);
+        }
+
+        .btn-primary:hover {
+            background-color: #2563eb;
+            transform: translateY(-1px);
+        }
+
+        .btn-primary:active {
+            transform: translateY(1px);
+        }
+
+        .btn-danger {
+            background-color: #ef4444;
+            color: white;
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.35);
+        }
+
+        .btn-danger:hover {
+            background-color: #dc2626;
+            transform: translateY(-1px);
+        }
+
+        .btn-danger:active {
+            transform: translateY(1px);
+        }
+
+        main {
+            flex-grow: 1;
+            max-width: 1400px;
+            width: 100%;
+            margin: 0 auto;
+            padding: 2rem;
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 2rem;
+        }
+
+        @media (min-width: 1024px) {
+            main {
+                grid-template-columns: 1.6fr 1fr;
+            }
+        }
+
+        .card {
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            backdrop-filter: blur(16px);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        }
+
+        .card-header {
+            padding: 1.25rem 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .card-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .badge {
+            font-size: 0.75rem;
+            padding: 0.2rem 0.6rem;
+            border-radius: 20px;
+            font-weight: 600;
+        }
+
+        .badge-info {
+            background-color: rgba(59, 130, 246, 0.15);
+            color: var(--accent-blue);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+        }
+
+        .table-container {
+            overflow-x: auto;
+            flex-grow: 1;
+            min-height: 400px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+        }
+
+        th {
+            padding: 1rem 1.5rem;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-secondary);
+            border-bottom: 1px solid var(--border-color);
+            background: rgba(3, 7, 18, 0.2);
+        }
+
+        td {
+            padding: 1rem 1.5rem;
+            font-size: 0.9rem;
+            border-bottom: 1px solid var(--border-color);
+            vertical-align: middle;
+        }
+
+        .row-item {
+            cursor: pointer;
+        }
+
+        .row-item:hover {
+            background-color: var(--row-hover);
+        }
+
+        .row-item.selected {
+            background-color: var(--row-selected);
+            border-left: 3px solid var(--accent-blue);
+        }
+
+        .td-id {
+            font-family: var(--font-mono);
+            font-weight: 600;
+            color: #93c5fd;
+        }
+
+        .td-itv {
+            font-family: var(--font-mono);
+            color: var(--text-secondary);
+        }
+
+        .td-state {
+            font-family: var(--font-mono);
+            max-width: 400px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            color: var(--text-secondary);
+        }
+
+        .td-state.truncated {
+            color: #fca5a5; /* slight warning tint to represent truncated payload */
+            cursor: zoom-in;
+        }
+
+        .no-data {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: var(--text-secondary);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .no-data-icon {
+            font-size: 3rem;
+            opacity: 0.3;
+        }
+
+        /* Pagination style */
+        .pagination {
+            padding: 1rem 1.5rem;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(3, 7, 18, 0.2);
+        }
+
+        .pagination-info {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .pagination-controls {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .btn-nav {
+            padding: 0.5rem 1rem;
+            font-size: 0.85rem;
+            background: rgba(17, 24, 39, 0.8);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        .btn-nav:hover:not(:disabled) {
+            border-color: var(--accent-blue);
+            background: var(--row-hover);
+        }
+
+        .btn-nav:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        /* Details Panel */
+        .details-wrapper {
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            height: 100%;
+        }
+
+        .details-empty {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 300px;
+            color: var(--text-secondary);
+            text-align: center;
+            gap: 1rem;
+        }
+
+        .details-meta {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            font-size: 0.95rem;
+        }
+
+        .meta-row {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 1.25rem;
+        }
+
+        .meta-row:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+
+        .meta-row-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .meta-label {
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-secondary);
+        }
+
+        .meta-value {
+            font-family: var(--font-mono);
+            color: var(--text-primary);
+            word-break: break-all;
+            line-height: 1.4;
+        }
+
+        .json-viewer-container {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            flex-grow: 1;
+        }
+
+        .json-viewer-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .json-viewer-title {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .btn-copy {
+            background: transparent;
+            border: none;
+            color: var(--accent-blue);
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        .btn-copy:hover {
+            text-decoration: underline;
+        }
+
+        pre {
+            background: #020617;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1.25rem;
+            overflow: auto;
+            max-height: 400px;
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            line-height: 1.5;
+            color: #34d399; /* emerald code style */
+        }
+
+        .status-container {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .status-connected { background-color: var(--accent-green); box-shadow: 0 0 8px var(--accent-green); }
+        .status-connecting { background-color: var(--accent-blue); box-shadow: 0 0 8px var(--accent-blue); }
+        .status-disconnected { background-color: #ef4444; box-shadow: 0 0 8px #ef4444; }
+
+        .status-text {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="header-container">
+            <div class="logo-section">
+                <a href="index.html" style="color: var(--text-secondary); text-decoration: none; font-size: 0.85rem; font-weight: 500; display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.35rem 0.65rem; background: var(--bg-surface); border-radius: 6px; border: 1px solid var(--border-color);">← Overview</a>
+                <a href="#" id="backToAppBtn" style="display: none; color: var(--text-secondary); text-decoration: none; font-size: 0.85rem; font-weight: 500; align-items: center; gap: 0.4rem; padding: 0.35rem 0.65rem; background: var(--bg-surface); border-radius: 6px; border: 1px solid var(--border-color);">← App View</a>
+                <div class="logo-dot"></div>
+                <div class="logo-text">Collection Monitor</div>
+            </div>
+
+            <form class="connection-form" id="pathForm">
+                <span class="status-badge inactive" id="activeStatusBadge">Inactive</span>
+                <div class="input-wrapper">
+                    <input 
+                        type="text" 
+                        class="path-input" 
+                        id="pathInput" 
+                        placeholder="/app-name/service-name/resource-name" 
+                        required 
+                        autocomplete="off"
+                    />
+                    <button type="button" class="history-toggle-btn" id="historyToggleBtn" aria-label="Show history">▼</button>
+                    <div class="history-dropdown" id="historyDropdown"></div>
+                </div>
+                <button type="submit" class="btn btn-primary" id="monitorBtn">
+                    Monitor
+                </button>
+            </form>
+
+            <div class="status-container">
+                <div class="status-dot status-disconnected" id="connStateDot"></div>
+                <span class="status-text" id="connStateText">Disconnected</span>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <!-- Left Column: Items List -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">
+                    Collection Items
+                    <span class="badge badge-info" id="itemsCountBadge">0 items</span>
+                </div>
+                <div class="pagination-info" id="collectionPathDisplay">No collection monitored</div>
+            </div>
+
+            <div class="table-container">
+                <table id="itemsTable">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Interval</th>
+                            <th>State</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody">
+                        <!-- Filled in dynamically -->
+                    </tbody>
+                </table>
+                <div class="no-data" id="emptyState">
+                    <div class="no-data-icon">📡</div>
+                    <p>Enter a collection path above and click <strong>Monitor</strong> to begin real-time sync.</p>
+                </div>
+            </div>
+
+            <!-- Pagination Bar -->
+            <div class="pagination" id="paginationBar">
+                <div class="pagination-info" id="paginationInfo">Showing 0 - 0 of 0</div>
+                <div class="pagination-controls">
+                    <button class="btn-nav" id="prevPageBtn" disabled>&larr; Prev</button>
+                    <button class="btn-nav" id="nextPageBtn" disabled>Next &rarr;</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: Detail Inspector -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">Inspector</div>
+            </div>
+            <div class="table-container" style="min-height: unset; flex-grow: 1;">
+                <div class="details-wrapper" id="detailsWrapper">
+                    <div class="details-empty" id="detailsPlaceholder">
+                        <div style="font-size: 2.5rem; opacity: 0.2;">🔍</div>
+                        <p>Select an item from the list to view its full JSON state payload.</p>
+                    </div>
+
+                    <div id="detailsContent" style="display: none;" class="details-meta">
+                        <div class="meta-row">
+                            <div class="meta-row-header">
+                                <span class="meta-label">Item ID:</span>
+                            </div>
+                            <span class="meta-value" id="detailId"></span>
+                        </div>
+
+                        <div class="meta-row">
+                            <div class="meta-row-header">
+                                <span class="meta-label">Interval:</span>
+                            </div>
+                            <span class="meta-value" id="detailItv"></span>
+                            <div id="detailItvDate" style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.25rem; font-family: var(--font-mono);"></div>
+                        </div>
+
+                        <div class="meta-row json-viewer-container">
+                            <div class="meta-row-header" style="justify-content: space-between; width: 100%;">
+                                <span class="meta-label">Payload:</span>
+                                <button class="btn-copy" id="copyBtn">Copy JSON</button>
+                            </div>
+                            <pre><code id="detailStateJson"></code></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script type="module">
+        import { SharedStateClient } from "./libs/sharedstate.es.js";
+
+        function formatInterval(itv, truncate = true) {
+            if (!Array.isArray(itv) || itv.length < 2) {
+                return { base: "-", alt: null };
+            }
+            const low = itv[0];
+            const high = itv[1];
+            const lowClosed = itv.length >= 3 ? itv[2] : true;
+            const highClosed = itv.length >= 4 ? itv[3] : false;
+            
+            function formatVal(val, direction) {
+                if (val === null || val === undefined) {
+                    return direction === "low" ? "<-" : "->";
+                }
+                if (typeof val !== "number") {
+                    return String(val);
+                }
+                if (truncate) {
+                    const fixed = val.toFixed(2);
+                    const parts = fixed.split('.');
+                    const intPart = parts[0];
+                    const decPart = parts[1];
+                    
+                    const absoluteIntPart = intPart.replace('-', '');
+                    if (absoluteIntPart.length > 3) {
+                        const sign = intPart.startsWith('-') ? '-' : '';
+                        return `${sign}...${absoluteIntPart.slice(-3)}.${decPart}`;
+                    }
+                    return fixed;
+                }
+                return String(val);
+            }
+            
+            const startBracket = lowClosed ? "[" : "(";
+            const endBracket = highClosed ? "]" : ")";
+            
+            const lowStr = formatVal(low, "low");
+            const highStr = formatVal(high, "high");
+            
+            let lenStr = "infinite";
+            if (low !== null && low !== undefined && high !== null && high !== undefined) {
+                const len = high - low;
+                lenStr = truncate ? len.toFixed(2) : String(len);
+            }
+            
+            const baseStr = `${startBracket}${lowStr}, ${highStr}${endBracket} (len: ${lenStr})`;
+
+            // Alternative rendering check for epoch seconds
+            function isEpoch(val) {
+                return typeof val === 'number' && val > 900000000 && val < 3000000000;
+            }
+
+            const lowIsEpoch = low !== null && low !== undefined && isEpoch(low);
+            const highIsEpoch = high !== null && high !== undefined && isEpoch(high);
+            const isEpochInterval = (lowIsEpoch && (high === null || high === undefined || isEpoch(high))) ||
+                                    (highIsEpoch && (low === null || low === undefined || isEpoch(low)));
+
+            if (isEpochInterval) {
+                function formatDate(date) {
+                    const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+                    const d = date.getDate();
+                    const mName = months[date.getMonth()];
+                    const y = date.getFullYear();
+                    return `${d} ${mName} ${y}`;
+                }
+                function formatTime(date) {
+                    const hrs = String(date.getHours()).padStart(2, '0');
+                    const mins = String(date.getMinutes()).padStart(2, '0');
+                    const secs = String(date.getSeconds()).padStart(2, '0');
+                    return `${hrs}:${mins}:${secs}`;
+                }
+                function formatFullDateTime(date) {
+                    return `${formatDate(date)} ${formatTime(date)}`;
+                }
+
+                const lowDate = lowIsEpoch ? new Date(low * 1000) : null;
+                const highDate = highIsEpoch ? new Date(high * 1000) : null;
+
+                let sameDay = false;
+                if (lowDate && highDate) {
+                    sameDay = formatDate(lowDate) === formatDate(highDate);
+                }
+
+                let durationStr = "infinite";
+                if (low !== null && low !== undefined && high !== null && high !== undefined) {
+                    const secs = Math.round(high - low);
+                    durationStr = `${secs} second${secs === 1 ? '' : 's'}`;
+                }
+
+                let altRendering = "";
+                if (sameDay) {
+                    const dateStr = formatDate(lowDate);
+                    const lowTime = formatTime(lowDate);
+                    const highTime = formatTime(highDate);
+                    altRendering = `${dateStr} ${startBracket}${lowTime}, ${highTime}${endBracket} (${durationStr})`;
+                } else {
+                    const lStr = lowDate ? formatFullDateTime(lowDate) : "<-";
+                    const hStr = highDate ? formatFullDateTime(highDate) : "->";
+                    altRendering = `${startBracket}${lStr}, ${hStr}${endBracket} (${durationStr})`;
+                }
+
+                return { base: baseStr, alt: altRendering };
+            }
+
+            return { base: baseStr, alt: null };
+        }
+
+        // DOM elements
+        const pathForm = document.getElementById("pathForm");
+        const pathInput = document.getElementById("pathInput");
+        const connStateDot = document.getElementById("connStateDot");
+        const connStateText = document.getElementById("connStateText");
+        const tableBody = document.getElementById("tableBody");
+        const emptyState = document.getElementById("emptyState");
+        const itemsCountBadge = document.getElementById("itemsCountBadge");
+        const collectionPathDisplay = document.getElementById("collectionPathDisplay");
+        const paginationInfo = document.getElementById("paginationInfo");
+        const prevPageBtn = document.getElementById("prevPageBtn");
+        const nextPageBtn = document.getElementById("nextPageBtn");
+
+        // Detail elements
+        const detailsPlaceholder = document.getElementById("detailsPlaceholder");
+        const detailsContent = document.getElementById("detailsContent");
+        const detailId = document.getElementById("detailId");
+        const detailItv = document.getElementById("detailItv");
+        const detailStateJson = document.getElementById("detailStateJson");
+        const copyBtn = document.getElementById("copyBtn");
+
+        // Application State
+        let client = null;
+        let activeCollection = null;
+        let itemsList = [];
+        let selectedItemId = null;
+
+        // Pagination State
+        let currentPage = 1;
+        const itemsPerPage = 50;
+
+        // History Management
+        const HISTORY_KEY = "sharedstate_explorer_history";
+        const ACTIVE_PATH_KEY = "sharedstate_explorer_active_path";
+        let pathHistory = [];
+
+        function loadHistory() {
+            try {
+                const stored = localStorage.getItem(HISTORY_KEY);
+                if (stored) {
+                    pathHistory = JSON.parse(stored);
+                }
+            } catch (e) {
+                console.error("Error loading history from localStorage:", e);
+            }
+            if (!Array.isArray(pathHistory)) {
+                pathHistory = [];
+            }
+            updateHistoryDropdown();
+
+            // Set initial input value to active path
+            try {
+                const activePath = localStorage.getItem(ACTIVE_PATH_KEY);
+                if (activePath) {
+                    pathInput.value = activePath;
+                } else {
+                    pathInput.value = "";
+                }
+            } catch (e) {
+                console.error(e);
+            }
+            updateUIState();
+        }
+
+        function saveHistory(path) {
+            if (!path) return;
+            pathHistory = pathHistory.filter(p => p !== path);
+            pathHistory.unshift(path);
+            if (pathHistory.length > 10) {
+                pathHistory.pop();
+            }
+            try {
+                localStorage.setItem(HISTORY_KEY, JSON.stringify(pathHistory));
+            } catch (e) {
+                console.error("Error saving history to localStorage:", e);
+            }
+            updateHistoryDropdown();
+        }
+
+        function updateHistoryDropdown() {
+            const dropdown = document.getElementById("historyDropdown");
+            if (!dropdown) return;
+            dropdown.innerHTML = "";
+            
+            if (pathHistory.length === 0) {
+                const empty = document.createElement("div");
+                empty.className = "history-empty";
+                empty.textContent = "No history yet";
+                dropdown.appendChild(empty);
+                return;
+            }
+            
+            pathHistory.forEach(path => {
+                const item = document.createElement("div");
+                item.className = "history-item";
+                item.textContent = path;
+                item.onclick = () => {
+                    pathInput.value = path;
+                    dropdown.classList.remove("show");
+                    updateUIState();
+                    monitorCollection(path);
+                };
+                dropdown.appendChild(item);
+            });
+        }
+
+        // Initialize SharedState Client
+        function initClient() {
+            updateConnectionStatus("connecting");
+            
+            // Connect to server running locally (or fallback to host window location if needed)
+            const host = window.location.hostname || "localhost";
+            const urlParams = new URLSearchParams(window.location.search);
+            const wsPort = urlParams.get("port") || "9001";
+            const wsUrl = `ws://${host}:${wsPort}`;
+            
+            // Auto-populate path from URL query parameters: ?path=... or ?service=...&app=...&chnl=...
+            const pathParam = urlParams.get("path");
+            const srvParam = urlParams.get("service");
+            const appParam = urlParams.get("app");
+            const chnlParam = urlParams.get("chnl");
+
+            if (pathParam) {
+                pathInput.value = pathParam;
+                const parts = pathParam.split('/').filter(p => p);
+                if (parts.length >= 1) {
+                    const btn = document.getElementById('backToAppBtn');
+                    btn.href = `app.html?app=${encodeURIComponent(parts[0])}`;
+                    btn.style.display = 'inline-flex';
+                }
+            } else if (srvParam && appParam && chnlParam) {
+                pathInput.value = `/${appParam}/${srvParam}/${chnlParam}`;
+                const btn = document.getElementById('backToAppBtn');
+                btn.href = `app.html?app=${encodeURIComponent(appParam)}`;
+                btn.style.display = 'inline-flex';
+            }
+
+            try {
+                client = new SharedStateClient(wsUrl, { debug: true });
+                
+                client.connectedPromise().then(() => {
+                    updateConnectionStatus("connected");
+                    // Auto monitor path if form already has value
+                    if (pathInput.value) {
+                        monitorCollection(pathInput.value);
+                    }
+                });
+
+                // Detect disconnects (using underlying WebSocketIO overrides)
+                const originalOnDisconnect = client.on_disconnect;
+                client.on_disconnect = (event) => {
+                    if (originalOnDisconnect) originalOnDisconnect.call(client, event);
+                    updateConnectionStatus("disconnected");
+                };
+
+                const originalOnConnect = client.on_connect;
+                client.on_connect = () => {
+                    if (originalOnConnect) originalOnConnect.call(client);
+                    updateConnectionStatus("connected");
+                    // Re-subscribe to active path on reconnect
+                    if (collectionPathDisplay.textContent !== "No collection monitored") {
+                        monitorCollection(collectionPathDisplay.textContent, true);
+                    }
+                };
+
+            } catch (err) {
+                console.error("Failed to connect:", err);
+                updateConnectionStatus("disconnected");
+            }
+        }
+
+        // Connection UI Status
+        function updateConnectionStatus(status) {
+            connStateDot.className = "status-dot";
+            if (status === "connected") {
+                connStateDot.classList.add("status-connected");
+                connStateText.textContent = "Connected";
+            } else if (status === "connecting") {
+                connStateDot.classList.add("status-connecting");
+                connStateText.textContent = "Connecting";
+            } else {
+                connStateDot.classList.add("status-disconnected");
+                connStateText.textContent = "Disconnected";
+            }
+        }
+
+        // UI State dynamic updates
+        function updateUIState() {
+            const currentInputValue = pathInput.value.trim();
+            const normalizedInputPath = currentInputValue ? (currentInputValue.startsWith("/") ? currentInputValue : "/" + currentInputValue) : "";
+            
+            const monitoredPath = activeCollection ? collectionPathDisplay.textContent : "";
+            const isCurrentlyMonitored = monitoredPath && (normalizedInputPath === monitoredPath);
+            
+            const statusBadge = document.getElementById("activeStatusBadge");
+            const monitorBtn = document.getElementById("monitorBtn");
+            
+            if (activeCollection) {
+                if (isCurrentlyMonitored) {
+                    monitorBtn.textContent = "Stop";
+                    monitorBtn.className = "btn btn-danger";
+                    pathInput.classList.add("monitored-active");
+                    
+                    statusBadge.textContent = "Active";
+                    statusBadge.className = "status-badge active";
+                } else {
+                    monitorBtn.textContent = "Monitor";
+                    monitorBtn.className = "btn btn-primary";
+                    pathInput.classList.remove("monitored-active");
+                    
+                    statusBadge.textContent = "Modified";
+                    statusBadge.className = "status-badge modified";
+                }
+            } else {
+                monitorBtn.textContent = "Monitor";
+                monitorBtn.className = "btn btn-primary";
+                pathInput.classList.remove("monitored-active");
+                
+                statusBadge.textContent = "Inactive";
+                statusBadge.className = "status-badge inactive";
+            }
+        }
+
+        // Stop Monitoring
+        function stopMonitoring() {
+            if (activeCollection) {
+                const currentPath = collectionPathDisplay.textContent;
+                if (currentPath && currentPath !== "No collection monitored") {
+                    client.release(currentPath);
+                }
+                activeCollection = null;
+            }
+            try {
+                localStorage.removeItem(ACTIVE_PATH_KEY);
+            } catch (e) {
+                console.error(e);
+            }
+            itemsList = [];
+            selectedItemId = null;
+            collectionPathDisplay.textContent = "No collection monitored";
+            updateItems([]);
+            renderDetails();
+            updateUIState();
+        }
+
+        // Monitor Collection Path
+        function monitorCollection(path, isReconnect = false) {
+            if (!path.startsWith("/")) {
+                path = "/" + path;
+            }
+
+            if (!isReconnect && collectionPathDisplay.textContent === path) {
+                updateUIState();
+                return; // already monitoring
+            }
+
+            // Release previous collection subscription
+            if (activeCollection) {
+                const prevPath = collectionPathDisplay.textContent;
+                if (prevPath && prevPath !== "No collection monitored") {
+                    client.release(prevPath);
+                }
+            }
+
+            collectionPathDisplay.textContent = path;
+            currentPage = 1;
+            if (!isReconnect) {
+                selectedItemId = null;
+                renderDetails();
+            }
+
+            try {
+                activeCollection = client.acquire_collection(path);
+                saveHistory(path);
+                
+                try {
+                    localStorage.setItem(ACTIVE_PATH_KEY, path);
+                } catch (e) {
+                    console.error("Error saving active path:", e);
+                }
+                
+                // Read initial state
+                updateItems(activeCollection.get_items());
+
+                // Subscribe to changes
+                activeCollection.add_callback((diffs) => {
+                    updateItems(activeCollection.get_items());
+                });
+
+            } catch (err) {
+                console.error(`Error monitoring collection ${path}:`, err);
+            }
+            updateUIState();
+        }
+
+        // Update items lists
+        function updateItems(items) {
+            itemsList = [...items];
+            // Sort by interval low bound (ascending) if available, otherwise by ID
+            itemsList.sort((a, b) => {
+                const aHasItv = Array.isArray(a.itv) && a.itv.length >= 2;
+                const bHasItv = Array.isArray(b.itv) && b.itv.length >= 2;
+
+                if (!aHasItv && !bHasItv) {
+                    return a.id.localeCompare(b.id);
+                }
+                if (!aHasItv) return 1;
+                if (!bHasItv) return -1;
+
+                const aLow = a.itv[0];
+                const bLow = b.itv[0];
+
+                if (aLow === bLow) {
+                    return a.id.localeCompare(b.id);
+                }
+
+                // null represents negative infinity, sort it first
+                if (aLow === null || aLow === undefined) return -1;
+                if (bLow === null || bLow === undefined) return 1;
+
+                if (typeof aLow === 'number' && typeof bLow === 'number') {
+                    return aLow - bLow;
+                }
+                return String(aLow).localeCompare(String(bLow));
+            });
+            
+            // Adjust current page if list shrank
+            const maxPage = Math.max(1, Math.ceil(itemsList.length / itemsPerPage));
+            if (currentPage > maxPage) {
+                currentPage = maxPage;
+            }
+
+            itemsCountBadge.textContent = `${itemsList.length} item${itemsList.length === 1 ? '' : 's'}`;
+            
+            renderTable();
+        }
+
+        // Render Table Rows
+        function renderTable() {
+            tableBody.innerHTML = "";
+
+            if (!activeCollection) {
+                // Not monitoring anything
+                emptyState.style.display = "flex";
+                emptyState.innerHTML = `
+                    <div class="no-data-icon">📡</div>
+                    <p>Enter a collection path above and click <strong>Monitor</strong> to begin real-time sync.</p>
+                `;
+                itemsCountBadge.textContent = "Inactive";
+                itemsCountBadge.className = "badge badge-info";
+                prevPageBtn.disabled = true;
+                nextPageBtn.disabled = true;
+                paginationInfo.textContent = "Showing 0 - 0 of 0";
+                return;
+            }
+
+            if (itemsList.length === 0) {
+                // Monitoring, but empty
+                emptyState.style.display = "flex";
+                emptyState.innerHTML = `
+                    <div class="logo-dot" style="background-color: var(--accent-green); box-shadow: 0 0 12px var(--accent-green); animation: pulse 2s infinite; margin-bottom: 1.5rem;"></div>
+                    <p style="margin-top: 1rem;">Monitoring active on <strong style="font-family: var(--font-mono); color: var(--accent-green);">${collectionPathDisplay.textContent}</strong></p>
+                    <p style="color: var(--text-secondary); font-size: 0.9rem;">No items found in this collection.</p>
+                `;
+                itemsCountBadge.textContent = "0 items";
+                itemsCountBadge.className = "badge badge-info";
+                prevPageBtn.disabled = true;
+                nextPageBtn.disabled = true;
+                paginationInfo.textContent = "Showing 0 - 0 of 0";
+                return;
+            }
+
+            emptyState.style.display = "none";
+            itemsCountBadge.className = "badge";
+            itemsCountBadge.style.backgroundColor = "var(--accent-green)";
+            itemsCountBadge.style.color = "white";
+
+            // Slicing for pagination
+            const startIndex = (currentPage - 1) * itemsPerPage;
+            const endIndex = Math.min(startIndex + itemsPerPage, itemsList.length);
+            const pagedItems = itemsList.slice(startIndex, endIndex);
+
+            pagedItems.forEach((item) => {
+                const tr = document.createElement("tr");
+                tr.className = "row-item";
+                if (selectedItemId === item.id) {
+                    tr.classList.add("selected");
+                }
+
+                // Render fields
+                const tdId = document.createElement("td");
+                tdId.className = "td-id";
+                tdId.textContent = item.id;
+
+                const tdItv = document.createElement("td");
+                tdItv.className = "td-itv";
+                const itvRes = formatInterval(item.itv, true);
+                tdItv.textContent = itvRes.base;
+                if (itvRes.alt) {
+                    tdItv.title = `Date/Time: ${itvRes.alt}`;
+                }
+
+                const tdState = document.createElement("td");
+                tdState.className = "td-state";
+                
+                const stateStr = JSON.stringify(item.state);
+                if (stateStr.length > 80) {
+                    tdState.textContent = stateStr.substring(0, 80) + "...";
+                    tdState.classList.add("truncated");
+                    tdState.title = "Click to inspect full state payload";
+                } else {
+                    tdState.textContent = stateStr;
+                }
+
+                tr.appendChild(tdId);
+                tr.appendChild(tdItv);
+                tr.appendChild(tdState);
+
+                // Row click handler
+                tr.onclick = () => {
+                    selectRow(item.id);
+                };
+
+                tableBody.appendChild(tr);
+            });
+
+            // Update pagination UI
+            paginationInfo.textContent = `Showing ${startIndex + 1} - ${endIndex} of ${itemsList.length}`;
+            prevPageBtn.disabled = currentPage === 1;
+            nextPageBtn.disabled = endIndex >= itemsList.length;
+        }
+
+        // Select Row
+        function selectRow(id) {
+            selectedItemId = id;
+            
+            // Toggle visually in list
+            const rows = tableBody.querySelectorAll(".row-item");
+            const pagedItems = itemsList.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+            
+            rows.forEach((row, index) => {
+                if (pagedItems[index] && pagedItems[index].id === id) {
+                    row.classList.add("selected");
+                } else {
+                    row.classList.remove("selected");
+                }
+            });
+
+            renderDetails();
+        }
+
+        // Render Inspector Panel
+        function renderDetails() {
+            if (!selectedItemId) {
+                detailsPlaceholder.style.display = "flex";
+                detailsContent.style.display = "none";
+                return;
+            }
+
+            const item = itemsList.find(x => x.id === selectedItemId);
+            if (!item) {
+                // selected item was deleted or collection reset
+                selectedItemId = null;
+                detailsPlaceholder.style.display = "flex";
+                detailsContent.style.display = "none";
+                return;
+            }
+
+            detailsPlaceholder.style.display = "none";
+            detailsContent.style.display = "flex";
+
+            detailId.textContent = item.id;
+            const detailItvDate = document.getElementById("detailItvDate");
+            if (item.itv !== undefined) {
+                const itvRes = formatInterval(item.itv, false);
+                detailItv.textContent = itvRes.base;
+                if (itvRes.alt) {
+                    detailItvDate.textContent = itvRes.alt;
+                    detailItvDate.style.display = "block";
+                } else {
+                    detailItvDate.style.display = "none";
+                }
+            } else {
+                detailItv.textContent = "undefined";
+                detailItvDate.style.display = "none";
+            }
+            detailStateJson.textContent = JSON.stringify(item.state, null, 2);
+        }
+
+        // Handle connection path form submit
+        pathForm.onsubmit = (e) => {
+            e.preventDefault();
+            const currentInputValue = pathInput.value.trim();
+            if (!currentInputValue) return;
+            
+            const normalizedInputPath = currentInputValue.startsWith("/") ? currentInputValue : "/" + currentInputValue;
+            const monitoredPath = activeCollection ? collectionPathDisplay.textContent : "";
+            
+            if (activeCollection && normalizedInputPath === monitoredPath) {
+                stopMonitoring();
+            } else {
+                monitorCollection(currentInputValue);
+            }
+        };
+
+        // History dropdown interactions
+        const historyToggleBtn = document.getElementById("historyToggleBtn");
+        const historyDropdown = document.getElementById("historyDropdown");
+
+        historyToggleBtn.onclick = (e) => {
+            e.stopPropagation();
+            historyDropdown.classList.toggle("show");
+        };
+
+        pathInput.addEventListener("input", () => {
+            updateUIState();
+        });
+
+        // Close dropdown when clicking outside
+        document.addEventListener("click", (e) => {
+            if (!pathInput.contains(e.target) && 
+                !historyToggleBtn.contains(e.target) && 
+                !historyDropdown.contains(e.target)) {
+                historyDropdown.classList.remove("show");
+            }
+        });
+
+        // Pagination buttons handlers
+        prevPageBtn.onclick = () => {
+            if (currentPage > 1) {
+                currentPage--;
+                renderTable();
+            }
+        };
+
+        nextPageBtn.onclick = () => {
+            const maxPage = Math.ceil(itemsList.length / itemsPerPage);
+            if (currentPage < maxPage) {
+                currentPage++;
+                renderTable();
+            }
+        };
+
+        // Copy JSON payload button handler
+        copyBtn.onclick = () => {
+            const jsonText = detailStateJson.textContent;
+            navigator.clipboard.writeText(jsonText).then(() => {
+                const originalText = copyBtn.textContent;
+                copyBtn.textContent = "Copied!";
+                setTimeout(() => {
+                    copyBtn.textContent = originalText;
+                }, 1500);
+            }).catch(err => {
+                console.error("Failed to copy text:", err);
+            });
+        };
+
+        // Start connection
+        loadHistory();
+        renderTable();
+        initClient();
+    </script>
+</body>
+</html>
