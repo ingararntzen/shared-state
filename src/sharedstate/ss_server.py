@@ -396,7 +396,27 @@ class SharedStateServer:
             return
 
         if parts == ['services']:
-            await self._send_http_json(writer, 200, {"ok": True, "data": list(self._services.keys())})
+            res = []
+            for srv_name, srv in self._services.items():
+                meta = next((s for s in self._service_meta if isinstance(s, dict) and s.get("name") == srv_name), {}) if isinstance(self._service_meta, list) else {}
+                desc = meta.get("description", "")
+                apps_count = 0
+                resources_count = 0
+                if hasattr(srv, 'apps'):
+                    apps = await srv.apps()
+                    apps_count = len(apps)
+                    for app in apps:
+                        if hasattr(srv, 'channels'):
+                            channels = await srv.channels(app)
+                            resources_count += len(channels)
+                res.append({
+                    "name": srv_name,
+                    "path": f"/services/{srv_name}",
+                    "description": desc,
+                    "apps": apps_count,
+                    "resources": resources_count
+                })
+            await self._send_http_json(writer, 200, {"ok": True, "data": res})
             return
 
         if parts == ['subs']:
@@ -410,27 +430,45 @@ class SharedStateServer:
 
         # 3. Application-Centric Hierarchy: /apps/...
         if parts[0] == 'apps':
-            # GET /apps -> list unique application names across all services
+            # GET /apps -> list unique applications with resource counts
             if len(parts) == 1:
-                all_apps = set()
+                app_map = {}
                 for srv in self._services.values():
                     if hasattr(srv, 'apps'):
                         apps = await srv.apps()
-                        all_apps.update(apps)
-                await self._send_http_json(writer, 200, {"ok": True, "data": sorted(list(all_apps))})
+                        for app in apps:
+                            if app not in app_map:
+                                app_map[app] = 0
+                            if hasattr(srv, 'channels'):
+                                channels = await srv.channels(app)
+                                app_map[app] += len(channels)
+
+                res = []
+                for app_name in sorted(app_map.keys()):
+                    res.append({
+                        "name": app_name,
+                        "path": f"/apps/{app_name}",
+                        "resources": app_map[app_name]
+                    })
+                await self._send_http_json(writer, 200, {"ok": True, "data": res})
                 return
 
             app_name = parts[1]
 
-            # GET /apps/<app>/ -> list services containing data for <app>
+            # GET /apps/<app>/ -> detailed resource tree for <app>
             if len(parts) == 2:
-                app_services = []
+                app_tree = {}
                 for srv_name, srv in self._services.items():
                     if hasattr(srv, 'apps'):
                         apps = await srv.apps()
                         if app_name in apps:
-                            app_services.append(srv_name)
-                await self._send_http_json(writer, 200, {"ok": True, "data": app_services})
+                            app_tree[srv_name] = []
+                            if hasattr(srv, 'channels'):
+                                channels = await srv.channels(app_name)
+                                for chnl in channels:
+                                    items = await srv.get(app_name, chnl)
+                                    app_tree[srv_name].append({"name": chnl, "count": len(items)})
+                await self._send_http_json(writer, 200, {"ok": True, "data": app_tree})
                 return
 
             # GET /apps/<app>/<service>/ -> list channels under <app>/<service>

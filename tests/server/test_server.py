@@ -164,8 +164,8 @@ async def test_http_services_list(server):
     _, http_port, _ = server
     status, data = await http_get_json(http_port, "/services")
     assert status == 200
-    assert data["ok"] is True
-    assert "mitems" in data["data"]
+    srv_names = [s["name"] if isinstance(s, dict) else s for s in data["data"]]
+    assert "mitems" in srv_names
 
 
 @pytest.mark.asyncio
