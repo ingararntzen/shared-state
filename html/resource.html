@@ -542,6 +542,9 @@
                 client.on_disconnect = () => updateConnectionStatus("disconnected");
                 client.on_connect = () => updateConnectionStatus("connected");
 
+                window.addEventListener('beforeunload', () => { if (client) client.close(); });
+                window.addEventListener('pagehide', () => { if (client) client.close(); });
+
             } catch (err) {
                 console.error("Failed to connect:", err);
                 updateConnectionStatus("disconnected");

@@ -177,9 +177,10 @@ class SharedStateServer:
                 except Exception as e:
                     self.ws_logger.error(f"WebSocket Exception: {e}")
                     traceback.print_exc()
-        except websockets.exceptions.ConnectionClosed:
+        except Exception:
             pass
-        self.on_disconnect(ws)
+        finally:
+            self.on_disconnect(ws)
 
     def on_connect(self, ws):
         """Handle client connect."""

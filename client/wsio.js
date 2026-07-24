@@ -121,6 +121,13 @@ export class WebSocketIO {
         }
         return promise;
     }
+
+    close() {
+        this._retries = MAX_RETRIES + 1;
+        if (this._ws) {
+            this._ws.close();
+        }
+    }
 }
 
 
