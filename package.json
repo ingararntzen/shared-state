@@ -11,11 +11,8 @@
     "test": "vitest run",
     "test:js": "vitest run",
     "test:watch": "vitest",
-    "start": "vite",
     "build": "vite build",
-    "build:dist": "DIST=true vite build",
-    "lint": "eslint src tests",
-    "lint:fix": "eslint src tests --fix"
+    "build:dist": "DIST=true vite build"
   },
   "repository": {
     "type": "git",

@@ -1,54 +1,56 @@
-# JavaScript Client build & development
+# SharedState Development Guide
+
+
+## Environment Setup
 
 ```sh
-# install dependencies
+# Create venv for server
+poetry install
+# Install dependencies
 npm install
+```
 
-# build bundles to html/libs
+
+## Build JS Bundles
+
+Build JS bundles in `html/libs/`:
+
+```sh
+# Bundles (es and iife)
 npm run build
 
-# build including minimized bundles
+# Minified bundles (es and iife)
 npm run build:dist
-
-# start dev webserver (defaults to port 9001)
-npm start
-
 ```
 
-### Dev Server Port Configuration
+## Start the Server
 
-The Vite development web server defaults to port `9001`. You can configure the port using environment variables or CLI flags:
+Start the Python SharedState server with a configuration file:
 
 ```sh
-# Default start (runs on port 9001)
-npm start
+# Using poetry from project root folder
+poetry run sharedstate-server cfg/default.json
 
-# Custom port via environment variable PORT
-PORT=8001 npm start
-
-# Custom port via environment variable VITE_PORT
-VITE_PORT=8080 npm start
-
-# Custom port via CLI flag
-npm start -- --port 8080
+# Or, from within an activated venv 
+eval $(poetry env activate)
+sharedstate-server cfg/default.json
+deactivate
 ```
 
-### Explorer Application WebSocket Target Port
-
-The Explorer application (`html/index.html`) automatically connects to the Python SharedState server on port `9000` by default. You can override the target WebSocket port via the URL query parameter:
-
-- Default connection: `http://localhost:9001/` (connects to `ws://localhost:9000`)
-- Custom WebSocket port: `http://localhost:9001/?port=9002` (connects to `ws://localhost:9002`)
+- Once running, open your browser to **http://localhost:9000/** to view the administrative interface.
+- The client bindings uses **ws://localhost:9001/** as endpoint for websocket traffic.
 
 
-# Client Testing (Vitest)
+---
 
+## Running Tests
+
+### Client Tests (Vitest)
 ```sh
 npm test
 ```
 
-# Server Testing (Pytest)
-
+### Server Tests (Pytest)
 ```sh
 poetry run pytest
 ```
