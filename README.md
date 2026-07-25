@@ -19,10 +19,10 @@ connections.
 
 You can download JavaScript bundles directly from the following links:
 
-- [sharedstate.es.js](https://github.com/ingararntzen/shared-state/raw/main/libs/sharedstate.es.js)
-- [sharedstate.iife.js](https://github.com/ingararntzen/shared-state/raw/main/libs/sharedstate.iife.js)
-- [sharedstate.es.min.js](https://github.com/ingararntzen/shared-state/raw/main/libs/sharedstate.es.min.js)
-- [sharedstate.iife.min.js](https://github.com/ingararntzen/shared-state/raw/main/libs/sharedstate.iife.min.js)
+- [sharedstate.es.js](https://github.com/ingararntzen/shared-state/raw/main/dist/sharedstate.es.js)
+- [sharedstate.iife.js](https://github.com/ingararntzen/shared-state/raw/main/dist/sharedstate.iife.js)
+- [sharedstate.es.min.js](https://github.com/ingararntzen/shared-state/raw/main/dist/sharedstate.es.min.js)
+- [sharedstate.iife.min.js](https://github.com/ingararntzen/shared-state/raw/main/dist/sharedstate.iife.min.js)
 
 
 ### Script Includes
@@ -31,7 +31,7 @@ ES6 Module Import
 
 ```html
 <script type="module">
-    import {SharedStateClient} from "https://github.com/ingararntzen/shared-state/raw/main/libs/sharedstate.es.js";
+    import {SharedStateClient} from "https://github.com/ingararntzen/shared-state/raw/main/dist/sharedstate.es.js";
     const client = new SharedStateClient("ws://host:port");
 </script>
 ```
@@ -39,7 +39,7 @@ ES6 Module Import
 Import into global variable
 
 ```html
-<script src="https://github.com/ingararntzen/shared-state/raw/main/libs/sharedstate.iife.js"></script>
+<script src="https://github.com/ingararntzen/shared-state/raw/main/dist/sharedstate.iife.js"></script>
 <script>
 const client = new SHAREDSTATE.SharedStateClient("ws://host:port");
 </script>

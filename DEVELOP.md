@@ -13,7 +13,7 @@ npm install
 
 ## Build JS Bundles
 
-Build JS bundles in `html/libs/`:
+Build JS bundles in `dist/`:
 
 ```sh
 # Bundles (es and iife)
@@ -38,7 +38,7 @@ deactivate
 ```
 
 - Once running, open your browser to **http://localhost:9000/** to view the administrative interface.
-- The client bindings uses **ws://localhost:9001/** as endpoint for websocket traffic.
+- The client bindings use **ws://localhost:9000/** as endpoint for websocket traffic.
 
 
 ---

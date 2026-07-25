@@ -3,7 +3,12 @@
   "version": "1.0.0",
   "description": "SharedState",
   "type": "module",
-  "main": "index.js",
+  "main": "dist/sharedstate.iife.js",
+  "module": "dist/sharedstate.es.js",
+  "files": [
+    "dist",
+    "client"
+  ],
   "directories": {
     "test": "tests"
   },

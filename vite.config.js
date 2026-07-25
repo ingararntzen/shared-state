@@ -15,8 +15,8 @@ export default defineConfig(({ mode }) => {
             open: true
         },
         build: {
-            outDir: path.resolve(__dirname, "html/libs"),
-            emptyOutDir: false,
+            outDir: path.resolve(__dirname, "dist"),
+            emptyOutDir: true,
             minify: isDist,
             lib: {
                 entry: path.resolve(__dirname, "client/index.js"),

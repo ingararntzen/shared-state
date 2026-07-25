@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SharedState - Resource View</title>
+    <link rel="stylesheet" href="adm.css">
+
+</head>
+<body>
+
+    <!-- HEADER -->
+    <header>
+        <div class="header-container">
+            <a href="index.html" class="brand-section">
+                <div class="brand-logo">SS</div>
+                <div class="brand-title">SharedState</div>
+            </a>
+        </div>
+    </header>
+
+    <div class="container">
+
+        <!-- PAGE TITLE BANNER -->
+        <div class="page-title-banner">
+            <h1 class="page-title">Resource View</h1>
+        </div>
+
+        <!-- ADMIN TOP BANNER -->
+        <div class="admin-banner">
+            <div class="resource-info-group">
+                <span class="resource-path-sub" id="resourcePathHeader" style="font-family: monospace; font-size: 1.05rem; font-weight: 600; color: var(--accent-primary);">/app/service/resource</span>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 1rem;">
+                <div class="status-container">
+                    <div class="status-dot status-disconnected" id="connStateDot"></div>
+                    <span class="status-text" id="connStateText">Disconnected</span>
+                </div>
+                <button class="btn-clear-resource" id="btnClearResource">
+                    🗑️ Clear all Items
+                </button>
+            </div>
+        </div>
+
+        <!-- MAIN GRID: TABLE + INSPECTOR -->
+        <div class="main-grid">
+            <!-- ITEMS TABLE CARD -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">
+                        Items
+                        <span class="count-badge" id="itemsCountBadge">0</span>
+                    </div>
+                </div>
+
+                <div class="table-container">
+                    <table id="itemsTable">
+                        <thead>
+                            <tr>
+                                <th style="width: 36px; text-align: center;">Del</th>
+                                <th>Item ID</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBody">
+                            <!-- Filled in dynamically -->
+                        </tbody>
+                    </table>
+                    <div class="no-data" id="emptyState">
+                        <p>No items found in this collection.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- INSPECTOR CARD -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">Item Inspector</div>
+                </div>
+                <div class="inspector-body" id="inspectorBody">
+                    <div style="color: var(--text-muted); font-size: 0.85rem;">Select an item from the table to view details.</div>
+                </div>
+            </div>
+        </div>
+
+        </div>
+
+    </div>
+
+    <!-- SharedState JS SDK Bundle -->
+    <script src="/dist/sharedstate.iife.js"></script>
+    <script>
+        const SharedStateSDK = window.SHAREDSTATE || window.SharedState || {};
+        const SharedStateClient = SharedStateSDK.SharedStateClient;
+
+        let client = null;
+        let activeCollection = null;
+        let itemsList = [];
+        let selectedItemId = null;
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const pathParam = urlParams.get("path");
+        const srvParam = urlParams.get("service");
+        const appParam = urlParams.get("app");
+        const chnlParam = urlParams.get("chnl");
+
+        let currentResourcePath = "";
+        if (pathParam) {
+            currentResourcePath = pathParam.startsWith("/") ? pathParam : "/" + pathParam;
+        } else if (srvParam && appParam && chnlParam) {
+            currentResourcePath = `/${appParam}/${srvParam}/${chnlParam}`;
+        }
+
+        document.getElementById('resourcePathHeader').textContent = currentResourcePath || "None";
+
+        // Initialize SharedState Client
+        function initClient() {
+            updateConnectionStatus("connecting");
+            
+            const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+            const host = window.location.hostname || "localhost";
+            const port = urlParams.get("port") || window.location.port || "9000";
+            const wsUrl = `${protocol}//${host}:${port}`;
+
+            try {
+                client = new SharedStateClient(wsUrl, { debug: true });
+                
+                client.connectedPromise().then(() => {
+                    updateConnectionStatus("connected");
+                    if (currentResourcePath) {
+                        connectResource(currentResourcePath);
+                    }
+                });
+
+                client.on_disconnect = () => updateConnectionStatus("disconnected");
+                client.on_connect = () => updateConnectionStatus("connected");
+
+                window.addEventListener('beforeunload', () => { if (client) client.close(); });
+                window.addEventListener('pagehide', () => { if (client) client.close(); });
+
+            } catch (err) {
+                console.error("Failed to connect:", err);
+                updateConnectionStatus("disconnected");
+            }
+        }
+
+        function updateConnectionStatus(status) {
+            const dot = document.getElementById("connStateDot");
+            const text = document.getElementById("connStateText");
+            dot.className = "status-dot";
+            if (status === "connected") {
+                dot.classList.add("status-connected");
+                text.textContent = "Connected";
+            } else if (status === "connecting") {
+                dot.classList.add("status-connecting");
+                text.textContent = "Connecting";
+            } else {
+                dot.classList.add("status-disconnected");
+                text.textContent = "Disconnected";
+            }
+        }
+
+        function connectResource(path) {
+            try {
+                activeCollection = client.acquire_collection(path);
+                updateItems(activeCollection.get_items());
+
+                activeCollection.add_callback(() => {
+                    updateItems(activeCollection.get_items());
+                });
+            } catch (e) {
+                console.error("Error acquiring collection:", e);
+            }
+        }
+
+        function updateItems(items) {
+            itemsList = [...items];
+            document.getElementById("itemsCountBadge").textContent = `${itemsList.length}`;
+            renderTable();
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById("tableBody");
+            const emptyState = document.getElementById("emptyState");
+            tbody.innerHTML = "";
+
+            if (!currentResourcePath || itemsList.length === 0) {
+                emptyState.style.display = "block";
+                return;
+            }
+
+            emptyState.style.display = "none";
+
+            itemsList.forEach(item => {
+                const tr = document.createElement("tr");
+                tr.className = "clickable-row";
+                if (item.id === selectedItemId) {
+                    tr.classList.add("selected");
+                }
+
+                tr.innerHTML = `
+                    <td style="text-align: center;">
+                        <button class="btn-item-delete" title="Delete item" onclick="deleteSingleItem('${item.id}', event)">✕</button>
+                    </td>
+                    <td style="font-family: var(--font-mono); color: var(--accent-primary); font-weight: 500;">${item.id}</td>
+                `;
+
+                tr.onclick = () => {
+                    selectedItemId = item.id;
+                    renderTable();
+                    renderInspector(item);
+                };
+
+                tbody.appendChild(tr);
+            });
+        }
+
+        function renderInspector(item) {
+            const body = document.getElementById("inspectorBody");
+            if (!item) {
+                body.innerHTML = '<div style="color: var(--text-muted); font-size: 0.85rem;">Select an item from the table to view details.</div>';
+                return;
+            }
+            body.innerHTML = `<pre>${JSON.stringify(item, null, 2)}</pre>`;
+        }
+
+        function deleteSingleItem(itemId, event) {
+            event.stopPropagation();
+            if (activeCollection && itemId) {
+                activeCollection.update_items({ remove: [itemId] });
+            }
+        }
+
+        // Clear Resource Handler
+        document.getElementById("btnClearResource").addEventListener("click", () => {
+            if (!currentResourcePath || !activeCollection) {
+                alert("No active resource selected.");
+                return;
+            }
+            if (confirm(`Are you sure you want to clear resource '${currentResourcePath}'?`)) {
+                activeCollection.update_items({ reset: true });
+            }
+        });
+
+        initClient();
+    </script>
+</body>
+</html>

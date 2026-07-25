@@ -24,8 +24,7 @@ async def server(tmp_path):
 
     srv = SharedStateServer(
         host="127.0.0.1",
-        http_port=0,
-        ws_port=0,
+        port=0,
         http_log=http_log,
         ws_log=ws_log,
         services=services_config
@@ -33,15 +32,19 @@ async def server(tmp_path):
     for service in srv._services.values():
         await service.open()
 
-    srv._ws_server = await websockets.serve(srv._handle_ws_client, srv._host, srv._ws_port)
-    srv._http_server = await asyncio.start_server(srv._handle_http_client, srv._host, srv._http_port)
+    srv._ws_server = await websockets.serve(
+        srv._handle_ws_client,
+        srv._host,
+        srv._port,
+        process_request=srv._process_http_request
+    )
 
-    http_port = srv._http_server.sockets[0].getsockname()[1]
-    ws_port = srv._ws_server.sockets[0].getsockname()[1]
-    srv._http_port = http_port
-    srv._ws_port = ws_port
+    port = srv._ws_server.sockets[0].getsockname()[1]
+    srv._port = port
+    srv._http_port = port
+    srv._ws_port = port
 
-    yield srv, http_port, ws_port
+    yield srv, port, port
 
     await srv.shutdown()
 
@@ -162,7 +165,7 @@ async def test_ws_multicast_notify(server):
 @pytest.mark.asyncio
 async def test_http_services_list(server):
     _, http_port, _ = server
-    status, data = await http_get_json(http_port, "/services")
+    status, data = await http_get_json(http_port, "/api/services")
     assert status == 200
     srv_names = [s["name"] if isinstance(s, dict) else s for s in data["data"]]
     assert "mitems" in srv_names
@@ -177,20 +180,20 @@ async def test_http_rest_hierarchy(server):
     async with make_ws_client(ws_port) as ws:
         await send_ws_request(ws, MsgCmd.PUT, path, {"insert": [{"id": "h1", "data": "test"}]})
 
-    # 1. GET /services/mitems/ -> list app names
-    status, res = await http_get_json(http_port, "/services/mitems/")
+    # 1. GET /api/services/mitems/ -> list app names
+    status, res = await http_get_json(http_port, "/api/services/mitems/")
     assert status == 200
     assert res["ok"] is True
     assert "app" in res["data"]
 
-    # 2. GET /services/mitems/app/ -> list channel names
-    status, res = await http_get_json(http_port, "/services/mitems/app/")
+    # 2. GET /api/services/mitems/app/ -> list channel names
+    status, res = await http_get_json(http_port, "/api/services/mitems/app/")
     assert status == 200
     assert res["ok"] is True
     assert "chnl" in res["data"]
 
-    # 3. GET /services/mitems/app/chnl -> list items
-    status, res = await http_get_json(http_port, "/services/mitems/app/chnl")
+    # 3. GET /api/services/mitems/app/chnl -> list items
+    status, res = await http_get_json(http_port, "/api/services/mitems/app/chnl")
     assert status == 200
     assert res["ok"] is True
     assert len(res["data"]) == 1
@@ -213,14 +216,14 @@ async def test_http_subs_and_connections(server):
         await ws.recv()  # REPLY
         await ws.recv()  # NOTIFY
 
-        # Query HTTP /connections
-        status, conns_res = await http_get_json(http_port, "/connections")
+        # Query HTTP /api/connections
+        status, conns_res = await http_get_json(http_port, "/api/connections")
         assert status == 200
         assert conns_res["ok"] is True
         assert len(conns_res["data"]) == 1
 
-        # Query HTTP /subs
-        status, subs_res = await http_get_json(http_port, "/subs")
+        # Query HTTP /api/subs
+        status, subs_res = await http_get_json(http_port, "/api/subs")
         assert status == 200
         assert subs_res["ok"] is True
         assert len(subs_res["data"]) == 1
@@ -233,3 +236,8 @@ async def test_http_static_explorer_ui(server):
     status, content = await http_get_raw(http_port, "/")
     assert status == 200
     assert "<title>SharedState - Overview</title>" in content
+
+    # Test /static/ prefix asset serving
+    status, content_static = await http_get_raw(http_port, "/static/index.html")
+    assert status == 200
+    assert "<title>SharedState - Overview</title>" in content_static

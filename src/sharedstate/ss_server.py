@@ -1,6 +1,7 @@
 import asyncio
 import websockets
 import json
+import http
 import traceback
 import importlib
 import logging
@@ -122,20 +123,31 @@ class Clients:
 
 class SharedStateServer:
 
-    def __init__(self, http_port=9000, ws_port=9001, host="0.0.0.0", services=[],
-                 http_log="logs/http.log", ws_log="logs/ws.log", html_dir=None):
+    def __init__(self, port=9000, host="0.0.0.0", services=[],
+                 http_log="logs/http.log", ws_log="logs/ws.log", html_dir=None,
+                 http_port=None, ws_port=None):
         self._host = host
-        self._http_port = http_port
-        self._ws_port = ws_port
+        # Consolidate single port (support legacy http_port / ws_port kwargs if provided)
+        if http_port is not None and port == 9000:
+            self._port = http_port
+        elif ws_port is not None and port == 9000:
+            self._port = ws_port
+        else:
+            self._port = port
+
+        # Backwards compatibility properties for existing tests
+        self._http_port = self._port
+        self._ws_port = self._port
+
         self._http_log_path = http_log
         self._ws_log_path = ws_log
         
-        self._http_server = None
         self._ws_server = None
         self._stop_event = None
 
         # Root directory for serving static HTML/JS assets
         self._html_dir = Path(html_dir) if html_dir else Path(__file__).resolve().parent.parent.parent / "html"
+        self._dist_dir = self._html_dir.parent / "dist"
 
         # Setup loggers
         self.http_logger = setup_logger("sharedstate_http", self._http_log_path)
@@ -328,262 +340,207 @@ class SharedStateServer:
     # HTTP REST & STATIC ASSET SERVER
     ####################################################################
 
-    async def _handle_http_client(self, reader, writer):
-        try:
-            request_line = await reader.readline()
-            if not request_line:
-                writer.close()
-                await writer.wait_closed()
-                return
+    async def _process_http_request(self, path, headers):
+        """Process incoming HTTP requests before WebSocket handshake."""
+        upgrade_header = headers.get("Upgrade", "").lower() if hasattr(headers, "get") else ""
+        if upgrade_header == "websocket":
+            return None  # Pass to websockets for WS handshake
 
-            req_str = request_line.decode('utf-8', errors='ignore').strip()
-            parts = req_str.split(' ')
-            if len(parts) < 2:
-                writer.close()
-                await writer.wait_closed()
-                return
+        method = "GET"
+        parsed = urlparse(path)
+        clean_path = unquote(parsed.path)
 
-            method, raw_path = parts[0], parts[1]
-            
-            # Read headers until empty line
-            while True:
-                header_line = await reader.readline()
-                if not header_line or header_line == b'\r\n' or header_line == b'\n':
-                    break
+        self.http_logger.info(f"{method} {clean_path}")
 
-            peer_addr = writer.get_extra_info('peername')
-            client_ip = str(peer_addr[0]) if peer_addr else "unknown"
-            self.http_logger.info(f"{client_ip} - {method} {raw_path}")
+        status_code, content_type, body_bytes, extra_headers = await self._route_http_request(clean_path)
 
-            parsed = urlparse(raw_path)
-            clean_path = unquote(parsed.path)
+        resp_headers = [
+            ("Content-Type", content_type),
+            ("Content-Length", str(len(body_bytes))),
+            ("Access-Control-Allow-Origin", "*"),
+            ("Connection", "close")
+        ]
+        if extra_headers:
+            resp_headers.extend(extra_headers)
 
-            if method.upper() != "GET":
-                await self._send_http_json(writer, 405, {"ok": False, "error": "Method Not Allowed"})
-                return
+        return (http.HTTPStatus(status_code), resp_headers, body_bytes)
 
-            await self._route_http_get(writer, clean_path)
-        except Exception as e:
-            self.http_logger.error(f"HTTP Error: {e}")
-            try:
-                await self._send_http_json(writer, 500, {"ok": False, "error": str(e)})
-            except Exception:
-                pass
-
-    async def _route_http_get(self, writer, path_str):
+    async def _route_http_request(self, path_str):
         n_path = normalize(path_str)
         parts = [p for p in n_path.parts if p != '/']
 
-        # 1. Root / Explorer UI
-        if not parts or parts == ['index.html']:
-            index_file = self._html_dir / "index.html"
-            if index_file.exists():
-                await self._send_http_file(writer, 200, "text/html; charset=utf-8", index_file.read_bytes())
-            else:
-                await self._send_http_json(writer, 404, {"ok": False, "error": "index.html not found"})
-            return
+        # 1. API Route Namespace: /api/... ONLY
+        if parts and parts[0] == 'api':
+            api_parts = parts[1:]
 
-        # 2. Administrative Diagnostic Endpoints
-        if parts == ['config']:
-            cfg_data = {
-                "host": self._host,
-                "http_port": self._http_port,
-                "ws_port": self._ws_port,
-                "http_log": str(self._http_log_path),
-                "ws_log": str(self._ws_log_path),
-                "services": self._service_meta
-            }
-            await self._send_http_json(writer, 200, {"ok": True, "data": cfg_data})
-            return
+            if api_parts == ['config']:
+                cfg_data = {
+                    "host": self._host,
+                    "port": self._port,
+                    "http_port": self._port,
+                    "ws_port": self._port,
+                    "http_log": str(self._http_log_path),
+                    "ws_log": str(self._ws_log_path),
+                    "services": self._service_meta
+                }
+                return 200, "application/json; charset=utf-8", json.dumps({"ok": True, "data": cfg_data}).encode('utf-8'), []
 
-        if parts == ['services']:
-            res = []
-            for srv_name, srv in self._services.items():
-                meta = next((s for s in self._service_meta if isinstance(s, dict) and s.get("name") == srv_name), {}) if isinstance(self._service_meta, list) else {}
-                desc = meta.get("description", "")
-                apps_count = 0
-                resources_count = 0
-                if hasattr(srv, 'apps'):
-                    apps = await srv.apps()
-                    apps_count = len(apps)
-                    for app in apps:
-                        if hasattr(srv, 'channels'):
-                            channels = await srv.channels(app)
-                            resources_count += len(channels)
-                res.append({
-                    "name": srv_name,
-                    "path": f"/services/{srv_name}",
-                    "description": desc,
-                    "apps": apps_count,
-                    "resources": resources_count
-                })
-            await self._send_http_json(writer, 200, {"ok": True, "data": res})
-            return
-
-        if parts == ['subs']:
-            await self._send_http_json(writer, 200, {"ok": True, "data": self._clients.all_subs_summary()})
-            return
-
-        if parts == ['connections']:
-            conns = [str(ws.remote_address) for ws in self._clients.all_clients() if hasattr(ws, 'remote_address')]
-            await self._send_http_json(writer, 200, {"ok": True, "data": conns})
-            return
-
-        # 3. Application-Centric Hierarchy: /apps/...
-        if parts[0] == 'apps':
-            # GET /apps -> list unique applications with resource counts
-            if len(parts) == 1:
-                app_map = {}
-                for srv in self._services.values():
+            if api_parts == ['services']:
+                res = []
+                for srv_name, srv in self._services.items():
+                    meta = next((s for s in self._service_meta if isinstance(s, dict) and s.get("name") == srv_name), {}) if isinstance(self._service_meta, list) else {}
+                    desc = meta.get("description", "")
+                    apps_count = 0
+                    resources_count = 0
                     if hasattr(srv, 'apps'):
                         apps = await srv.apps()
+                        apps_count = len(apps)
                         for app in apps:
-                            if app not in app_map:
-                                app_map[app] = 0
                             if hasattr(srv, 'channels'):
                                 channels = await srv.channels(app)
-                                app_map[app] += len(channels)
-
-                res = []
-                for app_name in sorted(app_map.keys()):
+                                resources_count += len(channels)
                     res.append({
-                        "name": app_name,
-                        "path": f"/apps/{app_name}",
-                        "resources": app_map[app_name]
+                        "name": srv_name,
+                        "path": f"/api/services/{srv_name}",
+                        "description": desc,
+                        "apps": apps_count,
+                        "resources": resources_count
                     })
-                await self._send_http_json(writer, 200, {"ok": True, "data": res})
-                return
+                return 200, "application/json; charset=utf-8", json.dumps({"ok": True, "data": res}).encode('utf-8'), []
 
-            app_name = parts[1]
+            if api_parts == ['subs']:
+                return 200, "application/json; charset=utf-8", json.dumps({"ok": True, "data": self._clients.all_subs_summary()}).encode('utf-8'), []
 
-            # GET /apps/<app>/ -> detailed resource tree for <app>
-            if len(parts) == 2:
-                app_tree = {}
-                for srv_name, srv in self._services.items():
-                    if hasattr(srv, 'apps'):
-                        apps = await srv.apps()
-                        if app_name in apps:
-                            app_tree[srv_name] = []
-                            if hasattr(srv, 'channels'):
-                                channels = await srv.channels(app_name)
-                                for chnl in channels:
-                                    items = await srv.get(app_name, chnl)
-                                    app_tree[srv_name].append({"name": chnl, "count": len(items)})
-                await self._send_http_json(writer, 200, {"ok": True, "data": app_tree})
-                return
+            if api_parts == ['connections']:
+                conns = [str(ws.remote_address) for ws in self._clients.all_clients() if hasattr(ws, 'remote_address')]
+                return 200, "application/json; charset=utf-8", json.dumps({"ok": True, "data": conns}).encode('utf-8'), []
 
-            # GET /apps/<app>/<service>/ -> list channels under <app>/<service>
-            if len(parts) == 3:
-                srv_name = parts[2]
-                srvc = self._services.get(srv_name)
-                if not srvc:
-                    await self._send_http_json(writer, 404, {"ok": False, "error": f"no service '{srv_name}'"})
-                    return
-                if hasattr(srvc, 'channels'):
-                    channels = await srvc.channels(app_name)
-                    await self._send_http_json(writer, 200, {"ok": True, "data": channels})
-                else:
-                    await self._send_http_json(writer, 200, {"ok": True, "data": []})
-                return
+            # GET /api/apps/...
+            if api_parts and api_parts[0] == 'apps':
+                if len(api_parts) == 1:
+                    app_map = {}
+                    for srv in self._services.values():
+                        if hasattr(srv, 'apps'):
+                            apps = await srv.apps()
+                            for app in apps:
+                                if app not in app_map:
+                                    app_map[app] = 0
+                                if hasattr(srv, 'channels'):
+                                    channels = await srv.channels(app)
+                                    app_map[app] += len(channels)
 
-            # GET /apps/<app>/<service>/<chnl> -> list items in collection
-            if len(parts) == 4:
-                srv_name, chnl_name = parts[2], parts[3]
-                srvc = self._services.get(srv_name)
-                if not srvc:
-                    await self._send_http_json(writer, 404, {"ok": False, "error": f"no service '{srv_name}'"})
-                    return
-                items = await srvc.get(app_name, chnl_name)
-                await self._send_http_json(writer, 200, {"ok": True, "data": items})
-                return
+                    res = []
+                    for app_name in sorted(app_map.keys()):
+                        res.append({
+                            "name": app_name,
+                            "path": f"/api/apps/{app_name}",
+                            "resources": app_map[app_name]
+                        })
+                    return 200, "application/json; charset=utf-8", json.dumps({"ok": True, "data": res}).encode('utf-8'), []
 
-        # 4. Service Hierarchy Fallback: /services/<service>/...
-        if parts[0] == 'services':
-            service_name = parts[1] if len(parts) > 1 else None
-            srvc = self._services.get(service_name) if service_name else None
+                app_name = api_parts[1]
 
-            if service_name and not srvc:
-                await self._send_http_json(writer, 404, {"ok": False, "error": f"no service '{service_name}'"})
-                return
+                if len(api_parts) == 2:
+                    app_tree = {}
+                    for srv_name, srv in self._services.items():
+                        if hasattr(srv, 'apps'):
+                            apps = await srv.apps()
+                            if app_name in apps:
+                                app_tree[srv_name] = []
+                                if hasattr(srv, 'channels'):
+                                    channels = await srv.channels(app_name)
+                                    for chnl in channels:
+                                        items = await srv.get(app_name, chnl)
+                                        app_tree[srv_name].append({"name": chnl, "count": len(items)})
+                    return 200, "application/json; charset=utf-8", json.dumps({"ok": True, "data": app_tree}).encode('utf-8'), []
 
-            # GET /services/<service>/ -> list app names
-            if len(parts) == 2:
-                if hasattr(srvc, 'apps'):
-                    apps = await srvc.apps()
-                    await self._send_http_json(writer, 200, {"ok": True, "data": apps})
-                else:
-                    await self._send_http_json(writer, 200, {"ok": True, "data": []})
-                return
+                if len(api_parts) == 3:
+                    srv_name = api_parts[2]
+                    srvc = self._services.get(srv_name)
+                    if not srvc:
+                        return 404, "application/json", json.dumps({"ok": False, "error": f"no service '{srv_name}'"}).encode('utf-8'), []
+                    if hasattr(srvc, 'channels'):
+                        channels = await srvc.channels(app_name)
+                        return 200, "application/json; charset=utf-8", json.dumps({"ok": True, "data": channels}).encode('utf-8'), []
+                    return 200, "application/json; charset=utf-8", json.dumps({"ok": True, "data": []}).encode('utf-8'), []
 
-            # GET /services/<service>/<app>/ -> list channel/resource names
-            if len(parts) == 3:
-                app_name = parts[2]
-                if hasattr(srvc, 'channels'):
-                    channels = await srvc.channels(app_name)
-                    await self._send_http_json(writer, 200, {"ok": True, "data": channels})
-                else:
-                    await self._send_http_json(writer, 200, {"ok": True, "data": []})
-                return
+                if len(api_parts) == 4:
+                    srv_name, chnl_name = api_parts[2], api_parts[3]
+                    srvc = self._services.get(srv_name)
+                    if not srvc:
+                        return 404, "application/json", json.dumps({"ok": False, "error": f"no service '{srv_name}'"}).encode('utf-8'), []
+                    items = await srvc.get(app_name, chnl_name)
+                    return 200, "application/json; charset=utf-8", json.dumps({"ok": True, "data": items}).encode('utf-8'), []
 
-            # GET /services/<service>/<app>/<chnl> -> list items in collection
-            if len(parts) == 4:
-                app_name, chnl_name = parts[2], parts[3]
-                items = await srvc.get(app_name, chnl_name)
-                await self._send_http_json(writer, 200, {"ok": True, "data": items})
-                return
+            # GET /api/services/...
+            if api_parts and api_parts[0] == 'services':
+                service_name = api_parts[1] if len(api_parts) > 1 else None
+                srvc = self._services.get(service_name) if service_name else None
 
-        # 4. Static Asset Files (e.g. /libs/sharedstate.es.js)
-        rel_path = path_str.lstrip('/')
+                if service_name and not srvc:
+                    return 404, "application/json", json.dumps({"ok": False, "error": f"no service '{service_name}'"}).encode('utf-8'), []
+
+                if len(api_parts) == 2:
+                    if hasattr(srvc, 'apps'):
+                        apps = await srvc.apps()
+                        return 200, "application/json; charset=utf-8", json.dumps({"ok": True, "data": apps}).encode('utf-8'), []
+                    return 200, "application/json; charset=utf-8", json.dumps({"ok": True, "data": []}).encode('utf-8'), []
+
+                if len(api_parts) == 3:
+                    app_name = api_parts[2]
+                    if hasattr(srvc, 'channels'):
+                        channels = await srvc.channels(app_name)
+                        return 200, "application/json; charset=utf-8", json.dumps({"ok": True, "data": channels}).encode('utf-8'), []
+                    return 200, "application/json; charset=utf-8", json.dumps({"ok": True, "data": []}).encode('utf-8'), []
+
+                if len(api_parts) == 4:
+                    app_name, chnl_name = api_parts[2], api_parts[3]
+                    items = await srvc.get(app_name, chnl_name)
+                    return 200, "application/json; charset=utf-8", json.dumps({"ok": True, "data": items}).encode('utf-8'), []
+
+            return 404, "application/json", json.dumps({"ok": False, "error": "API route not found"}).encode('utf-8'), []
+
+        # 2. Root Redirect: / or /index.html -> HTTP 302 Redirect to /adm/index.html
+        if not parts or parts == ['index.html']:
+            return 302, "text/html; charset=utf-8", b"", [("Location", "/adm/index.html")]
+
+        # 3. Explicit /adm/* Admin UI Routing
+        if parts and parts[0] == 'adm':
+            adm_parts = parts[1:]
+            rel_path = "/".join(adm_parts) if adm_parts else "index.html"
+            adm_file = (self._html_dir / "adm" / rel_path).resolve()
+            if adm_file.exists() and adm_file.is_file() and str(adm_file).startswith(str((self._html_dir / "adm").resolve())):
+                content_type, _ = mimetypes.guess_type(str(adm_file))
+                content_type = content_type or "text/html; charset=utf-8"
+                return 200, content_type, adm_file.read_bytes(), []
+            return 404, "application/json", json.dumps({"ok": False, "error": "Admin page not found"}).encode('utf-8'), []
+
+        # 4. Built Client SDK Bundles (/dist/* or /libs/*)
+        if parts and parts[0] in ('dist', 'libs'):
+            rel_path = "/".join(parts[1:])
+            dist_file = (self._dist_dir / rel_path).resolve()
+            if dist_file.exists() and dist_file.is_file() and str(dist_file).startswith(str(self._dist_dir.resolve())):
+                content_type, _ = mimetypes.guess_type(str(dist_file))
+                content_type = content_type or "application/javascript; charset=utf-8"
+                return 200, content_type, dist_file.read_bytes(), []
+
+        # 5. Static Asset Files (check html/adm/ first, then html/)
+        static_parts = parts[1:] if parts and parts[0] == 'static' else parts
+        rel_path = "/".join(static_parts)
+
+        adm_file = (self._html_dir / "adm" / rel_path).resolve()
+        if adm_file.exists() and adm_file.is_file() and str(adm_file).startswith(str((self._html_dir / "adm").resolve())):
+            content_type, _ = mimetypes.guess_type(str(adm_file))
+            content_type = content_type or "text/html; charset=utf-8"
+            return 200, content_type, adm_file.read_bytes(), []
+
         static_file = (self._html_dir / rel_path).resolve()
         if static_file.exists() and static_file.is_file() and str(static_file).startswith(str(self._html_dir.resolve())):
             content_type, _ = mimetypes.guess_type(str(static_file))
             content_type = content_type or "application/octet-stream"
-            await self._send_http_file(writer, 200, content_type, static_file.read_bytes())
-            return
+            return 200, content_type, static_file.read_bytes(), []
 
-        await self._send_http_json(writer, 404, {"ok": False, "error": "Not Found"})
-
-    async def _send_http_json(self, writer, status_code, data_obj):
-        body_bytes = json.dumps(data_obj).encode('utf-8')
-        status_text = {200: "OK", 404: "Not Found", 405: "Method Not Allowed", 500: "Internal Server Error"}.get(status_code, "OK")
-        header = (
-            f"HTTP/1.1 {status_code} {status_text}\r\n"
-            f"Content-Type: application/json; charset=utf-8\r\n"
-            f"Content-Length: {len(body_bytes)}\r\n"
-            f"Access-Control-Allow-Origin: *\r\n"
-            f"Connection: close\r\n\r\n"
-        )
-        try:
-            writer.write(header.encode('utf-8') + body_bytes)
-            await writer.drain()
-        except (ConnectionResetError, BrokenPipeError, OSError):
-            pass
-        finally:
-            try:
-                writer.close()
-                await writer.wait_closed()
-            except Exception:
-                pass
-
-    async def _send_http_file(self, writer, status_code, content_type, body_bytes):
-        header = (
-            f"HTTP/1.1 {status_code} OK\r\n"
-            f"Content-Type: {content_type}\r\n"
-            f"Content-Length: {len(body_bytes)}\r\n"
-            f"Access-Control-Allow-Origin: *\r\n"
-            f"Connection: close\r\n\r\n"
-        )
-        try:
-            writer.write(header.encode('utf-8') + body_bytes)
-            await writer.drain()
-        except (ConnectionResetError, BrokenPipeError, OSError):
-            pass
-        finally:
-            try:
-                writer.close()
-                await writer.wait_closed()
-            except Exception:
-                pass
+        return 404, "application/json", json.dumps({"ok": False, "error": "Not Found"}).encode('utf-8'), []
 
     ####################################################################
     # RUN & LIFECYCLE
@@ -594,22 +551,22 @@ class SharedStateServer:
         for service in self._services.values():
             await service.open()
             
-        self._ws_server = await websockets.serve(self._handle_ws_client, self._host, self._ws_port)
-        self._http_server = await asyncio.start_server(self._handle_http_client, self._host, self._http_port)
+        self._ws_server = await websockets.serve(
+            self._handle_ws_client,
+            self._host,
+            self._port,
+            process_request=self._process_http_request
+        )
 
-        # Update bound ports in case port 0 was passed
         if self._ws_server.sockets:
-            self._ws_port = self._ws_server.sockets[0].getsockname()[1]
-        if self._http_server.sockets:
-            self._http_port = self._http_server.sockets[0].getsockname()[1]
+            self._port = self._ws_server.sockets[0].getsockname()[1]
+            self._http_port = self._port
+            self._ws_port = self._port
 
-        startup_http = f"SharedState: HTTP Admin Listen: http://{self._host}:{self._http_port}"
-        startup_ws = f"SharedState: WebSocket Listen:  ws://{self._host}:{self._ws_port}"
-        
-        print(startup_http)
-        print(startup_ws)
-        self.http_logger.info(startup_http)
-        self.ws_logger.info(startup_ws)
+        startup_msg = f"SharedState: Server listening at http://{self._host}:{self._port} (HTTP & WebSockets)"
+        print(startup_msg)
+        self.http_logger.info(startup_msg)
+        self.ws_logger.info(startup_msg)
 
         await self._stop_event.wait()
 
@@ -627,10 +584,6 @@ class SharedStateServer:
         if self._ws_server:
             self._ws_server.close()
             await self._ws_server.wait_closed()
-            
-        if self._http_server:
-            self._http_server.close()
-            await self._http_server.wait_closed()
 
     def stop(self):
         if self._stop_event:
@@ -654,16 +607,14 @@ async def main():
 
     srv_cfg = config.get("service", {})
     host = srv_cfg.get("host", "0.0.0.0")
-    http_port = int(srv_cfg.get("http_port", srv_cfg.get("port", 9000)))
-    ws_port = int(srv_cfg.get("ws_port", 9001))
+    port = int(srv_cfg.get("port", srv_cfg.get("http_port", srv_cfg.get("ws_port", 9000))))
     http_log = srv_cfg.get("http_log", "logs/http.log")
     ws_log = srv_cfg.get("ws_log", "logs/ws.log")
     services = config.get("services", [])
 
     server = SharedStateServer(
         host=host,
-        http_port=http_port,
-        ws_port=ws_port,
+        port=port,
         http_log=http_log,
         ws_log=ws_log,
         services=services

@@ -17,7 +17,7 @@ config = [
         "config": {"db_type": "sqlite", "db_name": ":memory:", "db_table": "items"}
     }
 ]
-server = SharedStateServer(host="127.0.0.1", http_port=0, ws_port=${PORT}, http_log=None, ws_log=None, services=config)
+server = SharedStateServer(host="127.0.0.1", port=${PORT}, http_log=None, ws_log=None, services=config)
 asyncio.run(server.serve_forever())
 `;
 

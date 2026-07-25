@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SharedState - Application View</title>
+    <link rel="stylesheet" href="adm.css">
+</head>
+<body>
+
+    <!-- HEADER -->
+    <header>
+        <div class="header-container">
+            <a href="index.html" class="brand-section">
+                <div class="brand-logo">SS</div>
+                <div class="brand-title">SharedState</div>
+            </a>
+        </div>
+    </header>
+
+    <div class="container">
+
+        <!-- PAGE TITLE BANNER -->
+        <div class="page-title-banner">
+            <h1 class="page-title">Application View: <span id="appNameSpan" style="color: var(--accent-primary);">Loading...</span></h1>
+        </div>
+
+        <!-- RESOURCES SECTION -->
+        <div class="section-block">
+            <div class="section-header">
+                <h2 class="section-title">
+                    Resources
+                    <span class="count-badge" id="resourcesCountBadge">0</span>
+                </h2>
+            </div>
+
+            <div class="list-container" id="resourcesList">
+                <div class="empty-state">Loading application resources...</div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const appName = urlParams.get('app') || '';
+
+        document.getElementById('appNameSpan').textContent = appName || 'None';
+        document.title = appName ? `SharedState - ${appName}` : 'SharedState - Application View';
+
+        async function fetchJSON(url) {
+            try {
+                const res = await fetch(url);
+                if (!res.ok) return null;
+                const data = await res.json();
+                return data.ok ? data.data : null;
+            } catch (e) {
+                console.error("Fetch error for", url, e);
+                return null;
+            }
+        }
+
+        async function loadAppResources() {
+            if (!appName) {
+                document.getElementById('resourcesList').innerHTML = '<div class="empty-state">No application specified in query string (?app=name).</div>';
+                return;
+            }
+
+            const appTree = await fetchJSON(`/api/apps/${encodeURIComponent(appName)}/`) || await fetchJSON(`/apps/${encodeURIComponent(appName)}/`) || {};
+            const listContainer = document.getElementById('resourcesList');
+
+            const serviceNames = typeof appTree === 'object' && !Array.isArray(appTree) ? Object.keys(appTree) : [];
+            if (serviceNames.length === 0) {
+                listContainer.innerHTML = `<div class="empty-state">No resources found for application '${appName}'.</div>`;
+                document.getElementById('resourcesCountBadge').textContent = 0;
+                return;
+            }
+
+            let totalResourceCount = 0;
+            let html = '';
+
+            const ovalCollectionIcon = `
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent-primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle;">
+                    <ellipse cx="12" cy="12" rx="9" ry="6" />
+                    <circle cx="8" cy="12" r="1.2" fill="var(--accent-primary)" />
+                    <circle cx="12" cy="12" r="1.2" fill="var(--accent-primary)" />
+                    <circle cx="16" cy="12" r="1.2" fill="var(--accent-primary)" />
+                </svg>
+            `;
+
+            for (const srv of serviceNames) {
+                const channels = appTree[srv] || [];
+                totalResourceCount += channels.length;
+
+                for (const chnlInfo of channels) {
+                    const chnl = typeof chnlInfo === 'object' ? chnlInfo.name : chnlInfo;
+                    const itemCount = typeof chnlInfo === 'object' ? chnlInfo.count : 0;
+                    const path = `/${appName}/${srv}/${chnl}`;
+                    const resourceUrl = `resource.html?service=${encodeURIComponent(srv)}&app=${encodeURIComponent(appName)}&chnl=${encodeURIComponent(chnl)}`;
+
+                    html += `
+                        <a href="${resourceUrl}" class="list-row clickable">
+                            <div class="col-icon">${ovalCollectionIcon}</div>
+                            <div class="col-name">${chnl}</div>
+                            <div class="col-ident">${path}</div>
+                            <div class="col-desc"></div>
+                            <div class="col-stats">
+                                <span>items: <span class="meta-val">${itemCount}</span></span>
+                            </div>
+                            <div class="col-arrow">→</div>
+                        </a>
+                    `;
+                }
+            }
+
+            document.getElementById('resourcesCountBadge').textContent = totalResourceCount;
+
+            if (totalResourceCount === 0) {
+                listContainer.innerHTML = `<div class="empty-state">No resources registered under application '${appName}'.</div>`;
+            } else {
+                listContainer.innerHTML = html;
+            }
+        }
+
+        loadAppResources();
+    </script>
+</body>
+</html>

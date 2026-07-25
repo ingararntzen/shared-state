@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SharedState - Overview</title>
+    <link rel="stylesheet" href="adm.css">
+</head>
+<body>
+
+    <!-- HEADER -->
+    <header>
+        <div class="header-container">
+            <a href="index.html" class="brand-section">
+                <div class="brand-logo">SS</div>
+                <div class="brand-title">SharedState</div>
+            </a>
+        </div>
+    </header>
+
+    <div class="container">
+
+        <!-- SECTION 1: SERVER ENDPOINTS -->
+        <div class="section-block">
+            <div class="section-header">
+                <h2 class="section-title">Server Endpoints</h2>
+            </div>
+            <div class="list-container">
+                <!-- HTTP SERVER -->
+                <div class="list-row">
+                    <div class="col-icon">
+                        <span class="protocol-tag tag-http">HTTP</span>
+                    </div>
+                    <div class="col-name">HTTP Server</div>
+                    <div class="col-ident" id="httpEndpointUrl">http://0.0.0.0:9000</div>
+                    <div class="col-desc"><span class="protocol-tag tag-log" style="font-size: 0.68rem; padding: 0.1rem 0.4rem; width: auto; margin-right: 0.35rem;">LOG</span><span class="meta-val" id="httpLogFile">logs/http.log</span></div>
+                    <div class="col-stats"></div>
+                    <div class="col-arrow"></div>
+                </div>
+
+                <!-- WS SERVER (CLICKABLE -> ws.html) -->
+                <a href="ws.html" class="list-row clickable">
+                    <div class="col-icon">
+                        <span class="protocol-tag tag-ws">WS</span>
+                    </div>
+                    <div class="col-name">WebSocket Server</div>
+                    <div class="col-ident" id="wsEndpointUrl">ws://0.0.0.0:9000</div>
+                    <div class="col-desc"><span class="protocol-tag tag-log" style="font-size: 0.68rem; padding: 0.1rem 0.4rem; width: auto; margin-right: 0.35rem;">LOG</span><span class="meta-val" id="wsLogFile">logs/ws.log</span></div>
+                    <div class="col-stats"></div>
+                    <div class="col-arrow">→</div>
+                </a>
+            </div>
+        </div>
+
+        <!-- SECTION 2: STORAGE SERVICES -->
+        <div class="section-block">
+            <div class="section-header">
+                <h2 class="section-title">Storage Services <span class="count-badge" id="servicesCountBadge">0</span></h2>
+            </div>
+            <div class="list-container" id="servicesList">
+                <div class="empty-state">Loading registered storage services...</div>
+            </div>
+        </div>
+
+        <!-- SECTION 3: APPLICATIONS -->
+        <div class="section-block">
+            <div class="section-header">
+                <h2 class="section-title">Applications <span class="count-badge" id="appsCountBadge">0</span></h2>
+            </div>
+            <div class="list-container" id="appsList">
+                <div class="empty-state">Loading applications...</div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        async function fetchJSON(url) {
+            try {
+                const res = await fetch(url);
+                if (!res.ok) return null;
+                const data = await res.json();
+                return data.ok ? data.data : null;
+            } catch (e) {
+                console.error("Fetch error for", url, e);
+                return null;
+            }
+        }
+
+        async function loadServerConfig() {
+            const config = await fetchJSON('/api/config');
+            if (config) {
+                const host = config.host || "0.0.0.0";
+                const port = config.port || config.http_port || 9000;
+                document.getElementById('httpEndpointUrl').textContent = `http://${host}:${port}`;
+                document.getElementById('wsEndpointUrl').textContent = `ws://${host}:${port}`;
+                document.getElementById('httpLogFile').textContent = config.http_log || "logs/http.log";
+                document.getElementById('wsLogFile').textContent = config.ws_log || "logs/ws.log";
+            }
+        }
+
+        async function loadStorageServicesList() {
+            const services = await fetchJSON('/api/services') || [];
+            document.getElementById('servicesCountBadge').textContent = services.length;
+
+            const listContainer = document.getElementById('servicesList');
+            if (services.length === 0) {
+                listContainer.innerHTML = '<div class="empty-state">No storage services registered.</div>';
+                return;
+            }
+
+            let html = '';
+            services.forEach(s => {
+                const srvName = typeof s === 'object' ? s.name : s;
+                const srvPath = typeof s === 'object' ? s.path : `/services/${srvName}`;
+                const desc = typeof s === 'object' ? s.description : '';
+                const appCount = typeof s === 'object' ? s.apps : 0;
+                const resCount = typeof s === 'object' ? s.resources : 0;
+
+                html += `
+                    <div class="list-row">
+                        <div class="col-icon">⚙️</div>
+                        <div class="col-name" style="color: var(--accent-primary);">${srvName}</div>
+                        <div class="col-ident">${srvPath}</div>
+                        <div class="col-desc">${desc}</div>
+                        <div class="col-stats">
+                            <span>apps: <span class="meta-val">${appCount}</span></span>
+                            <span>resources: <span class="meta-val">${resCount}</span></span>
+                        </div>
+                        <div class="col-arrow"></div>
+                    </div>
+                `;
+            });
+            listContainer.innerHTML = html;
+        }
+
+        async function loadApplicationsList() {
+            const apps = await fetchJSON('/api/apps') || [];
+            document.getElementById('appsCountBadge').textContent = apps.length;
+
+            const listContainer = document.getElementById('appsList');
+            if (apps.length === 0) {
+                listContainer.innerHTML = '<div class="empty-state">No active applications found.</div>';
+                return;
+            }
+
+            let html = '';
+            apps.forEach(appObj => {
+                const appName = typeof appObj === 'object' ? appObj.name : appObj;
+                const totalResources = typeof appObj === 'object' ? appObj.resources : 0;
+
+                html += `
+                    <a href="app.html?app=${encodeURIComponent(appName)}" class="list-row clickable">
+                        <div class="col-icon">📦</div>
+                        <div class="col-name">${appName}</div>
+                        <div class="col-ident">/apps/${appName}</div>
+                        <div class="col-desc"></div>
+                        <div class="col-stats">
+                            <span>resources: <span class="meta-val">${totalResources}</span></span>
+                        </div>
+                        <div class="col-arrow">→</div>
+                    </a>
+                `;
+            });
+
+            listContainer.innerHTML = html;
+        }
+
+        async function initPage() {
+            await Promise.all([
+                loadServerConfig(),
+                loadStorageServicesList(),
+                loadApplicationsList()
+            ]);
+        }
+
+        // Initial Load
+        initPage();
+    </script>
+</body>
+</html>

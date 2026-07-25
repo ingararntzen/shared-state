@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SharedState - WebSocket Status</title>
+    <link rel="stylesheet" href="adm.css">
+</head>
+<body>
+
+    <!-- HEADER -->
+    <header>
+        <div class="header-container">
+            <a href="index.html" class="brand-section">
+                <div class="brand-logo">SS</div>
+                <div class="brand-title">SharedState</div>
+            </a>
+        </div>
+    </header>
+
+    <div class="container">
+
+        <!-- PAGE TITLE BANNER -->
+        <div class="page-title-banner">
+            <h1 class="page-title">WebSocket Server View</h1>
+        </div>
+
+        <!-- WS ENDPOINT BANNER -->
+        <div class="ws-banner-card">
+            <div class="ws-banner-info">
+                <div class="ws-endpoint-url" id="wsEndpointUrl">ws://0.0.0.0:9000</div>
+                <div style="display: flex; align-items: center; gap: 0.5rem; padding: 0.25rem 0.65rem; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 20px;">
+                    <div class="status-dot status-connected"></div>
+                    <span style="font-size: 0.78rem; font-weight: 600; color: var(--accent-success);">Connected</span>
+                </div>
+            </div>
+            <div class="ws-meta-pills">
+                <div class="meta-pill" style="display: flex; align-items: center; gap: 0.4rem;">
+                    <span class="protocol-tag tag-log" style="font-size: 0.68rem; padding: 0.1rem 0.4rem; width: auto;">LOG</span>
+                    <span class="pill-val" id="wsLogFile">logs/ws.log</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- CONNECTED CLIENTS SECTION -->
+        <div class="section-block" style="margin-top: 1.75rem;">
+            <div class="section-header">
+                <h2 class="section-title">
+                    Connected Clients
+                    <span class="count-badge" id="wsClientsCount">0</span>
+                </h2>
+            </div>
+
+            <div class="list-container" id="clientsList">
+                <div class="empty-state">Loading active connections...</div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        async function fetchJSON(url) {
+            try {
+                const res = await fetch(url);
+                if (!res.ok) return null;
+                const data = await res.json();
+                return data.ok ? data.data : null;
+            } catch (e) {
+                console.error("Fetch error for", url, e);
+                return null;
+            }
+        }
+
+        async function loadConfigOnce() {
+            const config = await fetchJSON('/api/config') || await fetchJSON('/config');
+            if (config) {
+                const host = config.host || "0.0.0.0";
+                const port = config.port || config.ws_port || 9000;
+                document.getElementById('wsEndpointUrl').textContent = `ws://${host}:${port}`;
+                document.getElementById('wsLogFile').textContent = config.ws_log || "logs/ws.log";
+            }
+        }
+
+        async function loadWSConnections() {
+            const connections = await fetchJSON('/api/connections') || await fetchJSON('/connections') || [];
+
+            document.getElementById('wsClientsCount').textContent = connections.length;
+
+            const listContainer = document.getElementById('clientsList');
+            if (connections.length === 0) {
+                listContainer.innerHTML = '<div class="empty-state">No active WebSocket client connections at this moment.</div>';
+                return;
+            }
+
+            let html = '';
+            connections.forEach(clientAddr => {
+                html += `
+                    <a href="subs.html?client=${encodeURIComponent(clientAddr)}" class="list-row clickable">
+                        <div class="col-name" style="grid-column: 1 / 5; font-family: monospace; font-size: 0.95rem; color: var(--accent-primary);">${clientAddr}</div>
+                        <div class="col-stats">
+                            <span>View Subscriptions</span>
+                        </div>
+                        <div class="col-arrow">→</div>
+                    </a>
+                `;
+            });
+
+            listContainer.innerHTML = html;
+        }
+
+        loadConfigOnce();
+        loadWSConnections();
+        setInterval(loadWSConnections, 3000);
+    </script>
+</body>
+</html>
