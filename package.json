@@ -17,7 +17,10 @@
     "test:js": "vitest run",
     "test:watch": "vitest",
     "build": "vite build",
-    "build:dist": "DIST=true vite build"
+    "build:dist": "DIST=true vite build",
+    "docs:dev": "vitepress dev docs",
+    "docs:build": "vitepress build docs",
+    "docs:preview": "vitepress preview docs"
   },
   "repository": {
     "type": "git",
@@ -36,6 +39,7 @@
   "homepage": "https://github.com/ingararntzen/shared-state#readme",
   "devDependencies": {
     "vite": "^8.1.5",
+    "vitepress": "^1.6.3",
     "vitest": "^4.1.10"
   }
 }
