@@ -1,95 +1,117 @@
 # SharedState Architecture
 
-The **SharedState Architecture** combines a **Primary-Backup replication model** with a **"Dumb Server, Smart Client"** design. It enables real-time collaborative applications to maintain low-latency local reads, clean backend storage, and optimistic concurrency control across network resources.
+The SharedState framework implements state sharing within a client-server architecture, as shown in [Figure 1](#fig-1). 
 
-In industry literature, this pattern aligns with **Server-Authoritative State Replication** and **Optimistic Concurrency Control (OCC) with Client-Side Rebasing**.
-
-For the developer mental model, see [The SharedState Paradigm](/overview/paradigm.md).
-
----
-
-## 1. Primary-Backup Model with Client Replicas
-
-SharedState adopts a Primary-Backup topology where the central server acts as the **Primary** and clients host local **Replicas**:
-
-```
-[ Client A Replica ] (Reads instantly local)
-        │
-        ├── Updates (Network Delay) ──► [ Primary Server ] (Single Source of Truth)
-        │                                      │
-[ Client B Replica ] ◄── Notifications ─────────┘
-```
-
-* **Queries**: Resolve **immediately (0ms latency)** against the client's local state replica in memory.
-* **Updates**: Dispatched across the network to the Primary server.
-* **Replication**: Client replicas are *only* mutated when official state change notifications are received from the Primary server (or via explicit local rollback/rebase).
+<figure id="fig-1" style="text-align: center; margin: 2rem 0;">
+  <img src="/images/SharedStateService.png" alt="SharedState Architecture Diagram" style="max-width: 100%; height: auto; margin: 0 auto; display: block;" />
+  <figcaption style="font-size: 0.9em; opacity: 0.8; margin-top: 0.5rem;">
+    <strong>Figure 1:</strong> State sharing with SharedState Service: (i) Client 1 (top-left) issues an update request (red arrow) to an Item Collection hosted by the SharedState Service (bottom). (ii) SharedState Service broadcasts update notifications (green arrow) to all subscribing clients (top). (iii) Upon notification receipt, each client updates its local replica. (iv) Client queries local replica (not illustrated).
+  </figcaption>
+</figure>
 
 ---
 
-## 2. The "Dumb Server" Approach & Higher-Level Abstractions
+## Primary-Backup with Client-Side Replicas
 
-A central architectural decision in SharedState is keeping the server **generic and domain-agnostic**.
+The SharedState Architecture can be described as a primary-backup architecture where the server is the **primary** and each client hosts its own private **replica**.
 
-The server does not know what application entities represent. It only manages collections of `(key, item)` pairs. This "dumb server" approach moves data structure logic to **"smart" client libraries**, enabling higher-level abstractions to be built on top of the simple key-value collection:
+Client queries target the local replica, ensuring synchronous state access with zero delay.
 
-| Abstraction | Client-Side Representation over `(key, item)` |
-| :--- | :--- |
-| **List** | Sequentially indexed and ordered elements (using fractional keys or order-statistic trees). |
-| **Tree** | Hierarchical parent-child relationships (storing node references and parent keys). |
-| **Track** | Non-overlapping timeline intervals (for media playback, scheduling, or event tracks). |
-
-Because the server treats items as generic payloads, introducing a new higher-level data structure requires **zero changes to backend server code**.
+Update requests from clients target the SharedState service and only take effect locally after notification is received from the server. As such, the update latency is at least one network round-trip time. Updates are asynchronous and may be streamed to the server (see [Reactive Programming Model](/overview/paradigm.md#4-reactive-programming)). To improve responsiveness, update latency may be avoided locally by speculatively applying updates to the local replica before dispatching requests to the server (see [Local Speculative Updates](#local-speculative-updates)).
 
 ---
 
-## 3. Resource & Item Management
+## Per-Resource State Sharing
 
-* The server hosts named, independent **Resources**.
-* Each resource is represented as an **Item Collection** of `(id, state)` items.
-* Items within a collection can be added, removed, or replaced.
-* Multiple operations across items in a collection can be packaged into a single **atomic batch update**.
+The SharedState framework allows clients to observe state changes in individual resources (blue circles in Figure 1). This is achieved by letting clients subscribe and unsubscribe to state notifications for named resources. This effectively means that state sharing is implemented on a per-resource basis, as opposed to per-service or per data model.
 
 ---
 
-## 4. Consistency Model & Total Ordering
+## Network Connection
 
-SharedState provides **Server-Authoritative Total Ordering** to ensure clean data integrity:
+Clients communicate with the server over a WebSocket connection. Clients may exchange messages with the server as long as the connection is open.
 
-* **Global Server Sequence**: The Primary server serializes all incoming update requests sequentially.
-* **Resource Versioning**: The server maintains a monotonically increasing version number (or revision clock) per resource.
-* **Single-Server Batch Atomicity**: Update batch operations (`{ remove, insert, reset }`) on a single server guarantee that intermediate states are never visible to other subscribed clients. All changes in a batch are broadcast in a single notification payload.
-* **Transaction Scope**: Currently, SharedState provides single-server batch transaction atomicity. It does not implement multi-server distributed transactions, keeping the server implementation lightweight, fast, and scalable.
+If the connection is lost, the SharedState client will automatically attempt to reconnect every 10 seconds. If the connection cannot be re-established after 3 consecutive attempts, the connection remains closed, and the client must actively be reloaded to re-establish the connection.  
 
----
-
-## 5. Version-Annotated Updates & Concurrency Control
-
-To prevent race conditions when multiple clients modify the same resource simultaneously, SharedState uses **Optimistic Concurrency Control (OCC)**:
-
-1. **Annotated Request**: When a client dispatches an update request, it attaches the target resource version number read from its current local state replica.
-2. **Server Verification**: Upon receiving the request, the server compares the request version against its current live version:
-   * **Version Matches**: The server applies the changes, increments the resource version, commits the update, and broadcasts notifications to all subscribers.
-   * **Version Outdated**: The server rejects the request because another client's update was committed in the interim.
-3. **Client Rebase / Retry**: If denied, the client updates its local state with the newest server snapshot and can re-apply or rebase its changes.
+If the connection is successfully re-established after a reconnect attempt, the client will automatically resubscribe. This allows clients to seamlessly resume the session, even if the server connection is interrupted for a shorter period. The SharedState service manages client subscriptions in-memory as long as the connection is open, but does not persist them or keep them between client sessions.  
 
 ---
 
-## 6. Strong Eventual Consistency (Server as Single Source of Truth)
+## Network Communication
 
-Because the Primary server is the single source of truth and enforces total sequence ordering:
+When the connection is open, clients may exchange messages with the SharedState server to:
 
-* Replicas converge deterministically to the exact server state (**Strong Eventual Consistency**).
-* Unlike multi-master P2P systems, there is no need for server tombstones, complex distributed vector clocks, or lock-free CRDT merge graphs at the database layer.
+1. **Subscribe** to state changes in resources they are interested in.
+2. **Unsubscribe** from notifications for resources they no longer need to observe.
+3. **Dispatch update requests** to modify the state of resources.
+4. **Receive initial state** for subscribed resources upon connection.
+5. **Receive change notifications** for resources they are subscribed to.
+
+Clients multiplex all messages over a single WebSocket connection.
 
 ---
 
-## 7. Default vs. Speculative Local Updates
+## Consistency
 
-### Default Behavior (Confirmed Updates)
-By default, client-side edits do not mutate the confirmed local state immediately. Instead, the client calculates a state diff, dispatches it to the server, and waits for official server notification before updating the UI proxy.
+- The SharedState architecture ensures that the server remains the single source of truth for resource state. 
+- The server ensures ordering of update requests per resource by assigning a monotonically increasing revision number to each update. 
+- Clients receive the initial state upon subscription and are guaranteed to receive every subsequent state update in order.
 
-### Optional Speculative Local Updates (Future Extension)
-The architecture supports **speculative local state updates**:
-* A **speculative shadow collection** overlays pending edits over the confirmed server state for zero-latency local UI feedback.
-* If the server accepts the update, the speculative edit is merged into the confirmed state.
-* If the server rejects the update (due to a version mismatch), the speculative layer is rolled back cleanly without corrupting the confirmed server replica.
+This ensures **eventual consistency** for client replicas as long as the connection remains open. Client replicas will not be updated at exactly the same instant, but will always be updated in the same order, reaching the same stable state if no more updates are dispatched.
+
+---
+
+## Dumb Server Approach
+
+A central architectural decision for the SharedState framework is to keep the server **generic and domain-agnostic**.
+
+The SharedState framework is therefore limited to simple operations concerning collections of stateful entities, while remaining agnostic to the internal structure of those entities. Update requests are therefore limited to generic **insert**, **replace**, and **delete** operations.
+
+This matches the focus on sharing fine-grained application resources, such as `string`, `number`, `object`, and `array`. 
+
+More high-level data structures with specialized operations, such as `list`, `set`, `map`, `tree`, or `track`, must be facilitated on the client side, implemented on top of the basic primitives offered by the SharedState service.
+
+In short, the **dumb server** approach has several benefits:
+
+- Addresses state sharing at a low level of granularity.
+- Provides a generic solution to state sharing which may be reused across application domains.
+- Provides a highly scalable solution with minimal server complexity.
+
+---
+
+## Relative Updates
+
+By **relative updates**, we refer to operations based on the current state, such as *increment* or *append*. 
+
+Relative updates are **not** supported by the server, as they would limit efficiency by potentially forcing both a read operation and application-specific logic ahead of processing an update. 
+
+Relative updates can instead be achieved from the client side, based on the current state of the local replica. This, however, may open up surprising effects if multiple clients attempt relative updates concurrently. To avoid this scenario, the server may drop update requests that are not based on the current state version, thus ensuring that only one relative update is applied at a time. This concurrency control feature is currently **not implemented**.
+
+---
+
+## Batch Updates
+
+The SharedState server supports **batch updates**. This means that a set of **remove**, **insert**, and/or **replace** operations may be processed together, ensuring that clients cannot see intermediate states. 
+
+Currently, batch updates are limited to items within a single collection, and are not supported across multiple resources.
+
+---
+
+## Local Speculative Updates
+
+Speculative updates allow clients to optimistically apply updates locally before the server has processed them. This eliminates update latency for the client issuing the update request, allowing SharedState resources to be used directly in interactive scenarios where smooth and responsive updates are crucial.  
+
+However, local updates are speculative and may require a **rollback** if the connection is lost, if the server rejects the update request, or if it conflicts with updates from other clients.
+
+This functionality is **not** currently provided. However, the planned approach is to realize this functionality as an optional feature so that it can be applied only for those resources where it is needed. 
+
+---
+
+## Transactions
+
+Transactions would allow clients to perform a set of operations across multiple resources, or even across multiple servers. Transaction support would ensure:
+
+- That intermediate states are not visible to any client, and
+- That all operations are either processed successfully, or not processed at all. 
+
+Currently, SharedState does **not** provide any multi-resource transaction support.
