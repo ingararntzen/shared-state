@@ -15,9 +15,13 @@ The SharedState framework implements state sharing within a client-server archit
 
 The SharedState Architecture can be described as a primary-backup architecture where the server is the **primary** and each client hosts its own private **replica**.
 
-- **Client queries** target the local replica, ensuring synchronous state access with zero delay.
+::: tip Implementation Status
+Primary-Backup replication with client-side proxy state synchronization is **fully supported**.
+:::
 
-- **Update requests** from clients target the SharedState service and only take effect locally after notification is received from the server. As such, the update latency is at least one network round-trip time. Updates are asynchronous and may be streamed to the server (see [Reactive Programming Model](/overview/paradigm.md#4-reactive-programming)). To improve responsiveness, update latency may be avoided locally by speculatively applying updates to the local replica before dispatching requests to the server (see [Local Speculative Updates](#local-speculative-updates)).
+Client queries target the local replica, ensuring synchronous state access with zero delay.
+
+Update requests from clients target the SharedState service and only take effect locally after notification is received from the server. As such, the update latency is at least one network round-trip time. Updates are asynchronous and may be streamed to the server (see [Reactive Programming Model](/overview/paradigm.md#approach)). To improve responsiveness, update latency may be avoided locally by speculatively applying updates to the local replica before dispatching requests to the server (see [Local Speculative Updates](#local-speculative-updates)).
 
 ---
 
@@ -31,12 +35,9 @@ The SharedState framework allows clients to observe state changes in individual 
 
 Clients communicate with the server over a WebSocket connection. Clients may exchange messages with the server as long as the connection is open.
 
-If the connection is lost, the SharedState client will automatically attempt to reconnect. If the connection is successfully re-established after a reconnect attempt, the client will automatically resubscribe. This allows clients to seamlessly resume the session, even if the server connection is interrupted for a shorter period. The SharedState service manages client subscriptions in-memory as long as the connection is open, but does not persist them or keep them between client sessions.  
+If the connection is lost, the SharedState client will automatically attempt to reconnect every 10 seconds. If the connection cannot be re-established after 3 consecutive attempts, the connection remains closed, and the client must actively be reloaded to re-establish the connection.  
 
-::: tip Automated Reconnect
-The SharedState client attempts to reconnect every 10 seconds. If the connection cannot be re-established after 3 consecutive attempts, the connection remains closed, and the client must actively be reloaded to re-establish the connection.  
-:::
-
+If the connection is successfully re-established after a reconnect attempt, the client will automatically resubscribe. This allows clients to seamlessly resume the session, even if the server connection is interrupted for a shorter period. The SharedState service manages client subscriptions in-memory as long as the connection is open, but does not persist them or keep them between client sessions.  
 
 ---
 
@@ -64,29 +65,15 @@ This ensures **eventual consistency** for client replicas as long as the connect
 
 ---
 
-## Dumb Server Approach
-
-A central architectural decision for the SharedState framework is to keep the server **generic and domain-agnostic**.
-
-The SharedState framework is therefore limited to simple operations concerning collections of stateful entities, while remaining agnostic to the internal structure of those entities. Update requests are therefore limited to generic **insert**, **replace**, and **delete** operations.
-
-This matches the focus on sharing fine-grained application resources, such as `string`, `number`, `object`, and `array`. 
-
-More high-level data structures with specialized operations, such as `list`, `set`, `map`, `tree`, or `track`, must be facilitated on the client side, implemented on top of the basic primitives offered by the SharedState service.
-
-In short, the **dumb server** approach has several benefits:
-
-- Addresses state sharing at a low level of granularity.
-- Provides a generic solution to state sharing which may be reused across application domains.
-- Provides a highly scalable solution with minimal server complexity.
-
----
-
 ## Relative Updates
 
 By **relative updates**, we refer to operations based on the current state, such as *increment* or *append*. 
 
-Relative updates are **not** supported by the server, as they would limit efficiency by potentially forcing both a read operation and application-specific logic ahead of processing an update. See [Dumb Server Approach](#dumb-server-approach).
+::: warning Implementation Status
+Server-side version validation for relative updates is **not currently implemented**. Relative updates are calculated directly on client replicas.
+:::
+
+Relative updates are **not** supported by the server, as they would limit efficiency by potentially forcing both a read operation and application-specific logic ahead of processing an update (see [Dumb Server Approach](/overview/paradigm.md#approach)).
 
 Relative updates can instead be achieved from the client side, based on the current state of the local replica. This, however, may open up surprising effects if multiple clients attempt relative updates concurrently. To avoid this scenario, the server may drop update requests that are not based on the current state version, thus ensuring that only one relative update is applied at a time.
 
@@ -96,23 +83,23 @@ Relative updates can instead be achieved from the client side, based on the curr
 
 The SharedState server supports **batch updates**. This means that a set of **remove**, **insert**, and/or **replace** operations may be processed together, ensuring that clients cannot see intermediate states. 
 
-::: tip Note
-Batch updates are currently only supported for items within a single resource collection, **not** across multiple resources. Batch updates across resources should be considered in the context of [Transactions](#transactions) instead.
+::: tip Implementation Status
+Batch updates are **supported for items within a single resource collection**, but are **not supported across multiple resources**.
 :::
 
 ---
 
 ## Local Speculative Updates
 
-Speculative updates allow clients to optimistically apply updates locally before the server has processed them. This eliminates update latency for the client issuing the update request, allowing SharedState resources to be used directly in interactive scenarios where smooth, responsive updates are crucial.  
-
-Importantly, local updates are **speculative** and may require a **rollback** if the connection is lost, if the server rejects the update request, or if the update request conflicts with updates from other clients.
-
+Speculative updates allow clients to optimistically apply updates locally before the server has processed them. This eliminates update latency for the client issuing the update request, allowing SharedState resources to be used directly in interactive scenarios where smooth and responsive updates are crucial.  
 
 ::: warning Implementation Status
-Local speculative updates with automatic rollback are currently **not supported**. The planned approach is to realize this functionality as an optional feature so that it can be applied on-demand for specific resources.
+Local speculative updates with automatic rollback are **not currently implemented**. Updates take effect locally upon receiving server notification.
 :::
 
+However, local updates are speculative and may require a **rollback** if the connection is lost, if the server rejects the update request, or if it conflicts with updates from other clients.
+
+The planned approach is to realize this functionality as an optional feature so that it can be applied only for those resources where it is needed. 
 
 ---
 
@@ -124,15 +111,18 @@ Transactions would allow clients to perform a set of operations across multiple 
 - That all operations are either processed successfully, or not processed at all. 
 
 ::: warning Implementation Status
-Multi-resource and multi-server transactions are currently **not supported**.
+Multi-resource and multi-server transactions are **not currently supported**.
 :::
 
 ---
 
 ## Partial Resource Observation
 
-The basic SharedState architecture specifies that client-side replication is performed on a per-resource basis. In circumstances where resources represent large datasets, this may be inefficient, particularly if clients only need to observe a small subset of the resource. This can be addressed through various forms of **filtering**.
+The basic SharedState architecture specifies that client-side replication is performed on a per-resource basis. In circumstances where resources represent large datasets, this may be inefficient, particularly if clients only need to observe a small part of the resource. This can be addressed through various forms of filtering.
 
+::: warning Implementation Status
+Server-side partial observation and filtering are **not currently supported**. Subscriptions replicate the full item collection to client proxies.
+:::
 
 ### Filtering Approaches
 
@@ -145,7 +135,7 @@ The basic SharedState architecture specifies that client-side replication is per
 - **Client-side filtering** is easy to implement, yet does not provide the benefit of reduced network traffic.
 - **Server-side filtering** provides reduced network traffic, yet may increase complexity on the server side and reduce efficiency and scalability.
 
-### Filtering Initial State vs. Change Notifications
+### Filtering Initial State and Change Notifications
 
 Partial observation requires that filtering applies both to the initial state of a resource and to subsequent change notifications. 
 
@@ -153,12 +143,7 @@ In a scenario with a large dataset and relatively small updates, filtering may b
 
 ### Server-Side Filtering Complexity
 
-Server-side filtering requires that the server perform additional processing on behalf of individual clients or groups of clients. Filters must be defined as serializable expressions by the client and associated with specific resource subscriptions.
+Server-side filtering requires that the server perform additional processing on behalf of individual clients or groups of clients. Filters must be defined as serializable expressions by the client and associated with the appropriate resource subscriptions.
 
 - Server-side filtering costs depend on the filtering approach: **Content-Based Filtering** is generally more expensive than **Topic-Based Filtering** or **Range-Query Filtering**.
 - Server-side filtering costs may be significantly reduced if the server does not have to evaluate all elements of a dataset, but can instead rely on indexing support for identifying the relevant subset. This approach is most relevant for **Topic-Based Filtering** and **Range-Query Filtering**. For example, if the server is set up with indexing support for the `ts` property of time-dependent resources, range queries may be satisfied through a simple index lookup.
-
-
-::: warning Implementation Status
-Partial observation is currently **not supported**.
-:::
