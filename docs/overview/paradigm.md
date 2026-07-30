@@ -23,4 +23,9 @@ SharedState achieves this through five core design choices:
 
 - **Uniform Resource Abstractions**: SharedState provides a uniform abstraction for application resources, whether hosted locally or online. This creates the flexibility to develop application logic that is reusable across different sharing scopes. Moreover, by using common representations for stateful resources, complexity with state sharing may be provided for a wide range of resource types, from single variables to complex data structures.
 
-- **Application-Defined Representation**: SharedState is only concerned with state sharing and remains agnostic to the internal representation of state. This allows applications to freely define the internal representation of stateful resources without relying on standardization efforts or server-side schema definitions.
+- **Application-Defined Representation**: SharedState is only concerned with state sharing and remains agnostic to the internal representation of state. This allows applications to freely define the internal representation of stateful resources without relying on standardization efforts or server-side schema definitions. Resources are created simply by posting state to a resource identifier (i.e., a path). In this sense, SharedState is similar to an application-level **key-value store**. 
+
+
+
+
+

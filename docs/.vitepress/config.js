@@ -4,7 +4,7 @@ export default defineConfig({
   title: 'SharedState',
   description: 'Python server and JavaScript client for real-time data sharing.',
   base: '/shared-state/',
-  
+
   themeConfig: {
     logo: '/logo.svg',
     nav: [],
@@ -20,13 +20,12 @@ export default defineConfig({
       {
         text: 'Design',
         items: [
-          { text: '1. Resources', link: '/design/resources' },
-          { text: '2. Resource Semantics', link: '/design/resource-semantics' },
-          { text: '3. Pluggable Services', link: '/design/services' },
-          { text: '4. Atomic Change Deltas', link: '/design/deltas' },
-          { text: '5. Client Subscriptions', link: '/design/subscriptions' },
-          { text: '6. WebSocket Protocol', link: '/design/websocket-protocol' },
-          { text: '7. Proxy Collections & Objects', link: '/design/proxy-models' },
+          { text: 'Resources', link: '/design/resources' },
+          { text: 'Stores', link: '/design/stores' },
+          { text: 'Updates', link: '/design/update' },
+          { text: 'Client Subscriptions', link: '/design/subscriptions' },
+          { text: 'WebSocket Communication', link: '/design/websocket' },
+          { text: 'Client Proxies', link: '/design/proxies' },
           { text: '8. Resource Lifecycle', link: '/design/lifecycle' },
           { text: '9. Unified Single-Port', link: '/design/single-port' },
           { text: '10. Server Clock & Time Sync', link: '/design/server-clock' },
