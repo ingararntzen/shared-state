@@ -10,7 +10,7 @@
 
 
 > - The SharedState service hosts **resources** on behalf of applications.
-> - **Resources** are [ItemCollections] identified by [paths].
+> - **Resources** are [ItemCollections] identified by [Paths].
 
 
 
@@ -53,16 +53,6 @@ ItemCollection: ({id_1, state_1}, {id_2, state_2}, ..., {id_n, state_n})
 
 ---
 
-## Application Entities
-
-[ItemCollection] may serve as a common basis for representation of different application entities.
-
-* Single-valued variables, such as `string`, `number`, or `object` can be represented by a single [Item] within an [ItemCollection].
-* Mutable collections, such as `Set` or `Map` can be directly represented by a single [ItemCollection].
-* More advanced data structured, such as `List`, `Tree`, or `Track` may be implemented on top of [ItemCollections].
-
-
----
 
 ## Path
 <a id="path"></a>
