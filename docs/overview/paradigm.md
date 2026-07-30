@@ -5,25 +5,28 @@
 
 ## Introduction
 
-Traditional web development is typically split between two concerns: developers express interface functionality synchronously through the manipulation of in-memory variables, and then switch to an asynchronous model for managing online-hosted resources.
+Traditional web development is typically split between two concerns: developers express interface functionality synchronously through the programmatic manipulation of in-memory variables, and then switch to an asynchronous execution model for managing online-hosted resources.
 
 ## Objective
 
-The objective of SharedState is **not to remove this distinction**, but to make it easy to **share application state at a lower granularity** such as individual variables or objects.
+The objective of SharedState is **not to remove this distinction**, but to facilitate **online shareing of application state -- at the granularity of individual variables, objects, and collections**.
 
 ## Approach
 
-SharedState achieves this through five core design choices:
+The SharedState paragidm is characterized by the following design objectives:
 
-- **Level of Granularity**: Implementing state sharing at the level of individual variables and collections, as opposed to larger data models. This creates significant flexibility in application design, as sharing scopes and access restrictions may be set on a per-resource basis instead of per-service.
+- **Level of Granularity**: State sharing is implemented at the level of individual application resources, such as `variables`, `objects`, and `collections`, as opposed to larger, predefined data models. This creates flexibility in application design, as it allows sharing scopes and access restrictions to be defined on a per-resource basis.
 
-- **Client-Side State Replication**: SharedState resources are hosted as online resources, but replicated on clients and made available locally as proxy objects. Querying shared state is a local, synchronous operation, whereas updating state is an asynchronous operation with a non-negligible network delay.
+- **Client-Side State Replication**: SharedState resources are hosted as online resources, but **mirrored** locally on clients, where they are made available as `proxies` to server-hosted resources. Querying shared state targets the the local `proxy`, implying that **queries** are synchronous operations with zero latency. State changes are processed at the server, implying that **updates** are asynchronous operations with a non-negligible network delay.
 
-- **Reactive Programming**: SharedState encourages a reactive programming model, moving away from traditional request-reply interaction patterns to a model where application code reacts to changes in shared state and dispatches updates to the shared state service.
+- **Online-first model**: SharedState provides a uniform abstraction for application resources, whether hosted locally or online. However, rather than hiding the distibuted nature of resources, SharedState instead adopts an **online-first** model where all resources are considered online, and where the local resources are different only in the sense that they have smaller update latency.   
 
-- **Uniform Resource Abstractions**: SharedState provides a uniform abstraction for application resources, whether hosted locally or online. This creates the flexibility to develop application logic that is reusable across different sharing scopes. Moreover, by using common representations for stateful resources, complexity with state sharing may be provided for a wide range of resource types, from single variables to complex data structures.
+- **Reactive Programming**: SharedState encourages a reactive programming pattern, thus moving away from traditional request-reply interaction patterns to a model where application code reacts to changes in shared state.
 
-- **Application-Defined Representation**: SharedState is only concerned with state sharing and remains agnostic to the internal representation of state. This allows applications to freely define the internal representation of stateful resources without relying on standardization efforts or server-side schema definitions. Resources are created simply by posting state to a resource identifier (i.e., a path). In this sense, SharedState is similar to an application-level **key-value store**. 
+- **Dumb server Appraoch**: SharedState is designed to be generic and domain-agnostic. It addresses state sharing through generic **insert**, **replace**, **delete** primitives targeting a common resource representation, allowing more specialzed application entities to be realized on top of this basic abstraction, such as `list`, `set`, `map`, `tree`.
+
+- **Application-Defined Representation**: SharedState is only concerned with state sharing and remains agnostic to the internal representation of resources intended for sharing. This allows applications to freely define the internal representation of resources without necassarily relying fixed server-side schema definitions or server-side support for specialized state mutation logic
+
 
 
 
