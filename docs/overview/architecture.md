@@ -76,7 +76,7 @@ Relative updates can instead be achieved from the client side, based on the curr
 
 The SharedState server supports **batch updates**. This means that a set of **remove**, **insert**, and/or **replace** operations may be processed together, ensuring that clients cannot see intermediate states. 
 
-::: tip Note
+::: tip Status
 Batch updates are currently only supported for items within a single resource collection, **not** across multiple resources. Batch updates across resources should be considered in the context of [Transactions](#transactions) instead.
 :::
 
@@ -89,7 +89,7 @@ Speculative updates allow clients to optimistically apply updates locally before
 Importantly, local updates are **speculative** and may require a **rollback** if the connection is lost, if the server rejects the update request, or if the update request conflicts with updates from other clients.
 
 
-::: warning Implementation Status
+::: tip Status
 Local speculative updates with automatic rollback are currently **not supported**. The planned approach is to realize this functionality as an optional feature so that it can be applied on-demand for specific resources.
 :::
 
@@ -103,7 +103,7 @@ Transactions would allow clients to perform a set of operations across multiple 
 - That intermediate states are not visible to any client, and
 - That all operations are either processed successfully, or not processed at all. 
 
-::: warning Implementation Status
+::: tip Status
 Multi-resource and multi-server transactions are currently **not supported**.
 :::
 
@@ -139,6 +139,6 @@ Server-side filtering requires that the server perform additional processing on 
 - Server-side filtering costs may be significantly reduced if the server does not have to evaluate all elements of a dataset, but can instead rely on indexing support for identifying the relevant subset. This approach is most relevant for **Topic-Based Filtering** and **Range-Query Filtering**. For example, if the server is set up with indexing support for the `ts` property of time-dependent resources, range queries may be satisfied through a simple index lookup.
 
 
-::: warning Implementation Status
+::: tip Status
 Partial observation is currently **not supported**.
 :::
