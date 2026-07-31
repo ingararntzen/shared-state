@@ -1,12 +1,15 @@
+[Item]: /design/resources.md#item
+[Items]: /design/resources.md#item
+[ItemCollection]: /design/resources.md#itemcollection
+[ItemCollections]: /design/resources.md#itemcollection
+[Path]: /design/resources.md#path
+[Paths]: /design/resources.md#path
+[ItemStore]: /design/stores
+[ItemStores]: /design/stores
+
 # SharedState Framework Design
 
-> The SharedState system connects client-side proxies to server-hosted storage services over a single network connection.
-
----
-
-## Architectural System Overview
-
-The diagram below illustrates the end-to-end component structure of the SharedState framework:
+> The SharedState framework facilitates practical, online sharing of application entities such as variables and collections.
 
 <figure id="fig-framework-design" style="text-align: center; margin: 2rem 0;">
   <img src="/images/FrameworkDesign.png" alt="SharedState Framework Design Diagram" style="max-width: 100%; height: auto; margin: 0 auto; display: block;" />
@@ -17,25 +20,51 @@ The diagram below illustrates the end-to-end component structure of the SharedSt
 
 ---
 
-## Concept Map & System Components
+## SharedState Client
 
-### 1. `SharedStateClient`
-The client-side entry point that establishes the WebSocket connection, manages request-reply multiplexing, and hosts local proxy objects ([Proxies](/design/proxies.md)).
+The SharedState Client connects to the SharedState Server in order to **observe** and **modify** shared application resources. Figure 1 organizes client-side concepts in two vertical layers:
 
-### 2. Client Subscriptions
-A local registry maintained by `SharedStateClient` mapping resource paths to active proxy instances (`ProxyCollection` or `ProxyObject`), routing server notification payloads directly to local proxies ([Subscriptions](/design/subscriptions.md)).
+- **public** (top layer): concepts central to the public interface of the client. 
+- **internal** (bottom layer): concepts central to its implementation.
 
-### 3. Client Proxies (`ProxyCollection` & `ProxyObject`)
-Local in-memory replicas of online server resources. Proxies provide synchronous zero-latency local queries and handle state updates asynchronously over the network ([Proxies](/design/proxies.md)).
+### Internal
 
-### 4. Server Interfaces (`WebSocketServer` & `HttpServer`)
-The server exposes a unified single-port listener (default port `9000`). Incoming WebSocket connections handle real-time commands (`GET`, `PUT`, `NOTIFY`), while HTTP handles REST admin endpoints and static asset serving ([Messages](/design/websocket.md)).
+- **Proxy ItemCollections** (left box): Proxy ItemCollections are local, in-memory [ItemCollections] mirroring [ItemCollections] hosted by the server. Each [ItemCollection] is identified by a unique resource [Path].
 
-### 5. In-Memory Server Subscriptions
-A lightweight server registry tracking active client connections (`ws`) and their subscribed resource paths, enabling targeted multicast notifications whenever a resource updates ([Subscriptions](/design/subscriptions.md)).
+- **Client Subs** (right box): Client subscriptions list all resource [Paths] currently observed by the client. If [partial resource observation](/overview/architecture.md#partial-resource-observation) is supported, client subscriptions may additionally include *filters* or *range restrictions* specific to each resource.
 
-### 6. Storage Services Rack
-A modular backend service manager routing resource operations to pluggable storage implementations based on the `service-name` component of the path (`items`, `sqlite`, `mysql`) ([Stores](/design/stores.md)).
+### Public
 
-### 7. Resources & Item Collections
-The fundamental server-hosted data unit. Every resource is an `ItemCollection` of `(id, state)` items identified by a 3-part path (`/app-name/service-name/resource-name`) ([Resources](/design/resources.md)).
+- **Proxy Objects** (left box): Proxy objects represent high-level application objects like single-valued variables (e.g., `Integer`, `Boolean`, `Float`, `String`, `Array`, `Object`) or multi-valued data structures (e.g., `Set`, `List`, `Map`, `Tree`). These concepts are implemented on top of [ItemCollections]. Single-valued variables are all backed by the same [ItemCollection], whereas multi-valued data structures each correspond to a separate [ItemCollection].
+
+- **Connection** (center box): The connection object represents the status of the underlying WebSocket connection. Applications may use this to implement appropriate actions as the connection goes offline or online.
+
+- **Clock** (right box): Clock represents a live approximation of the system time of the SharedState Server, and may be used as a shared, synchronized wall clock across all clients of an application.
+
+---
+
+## SharedState Server
+
+The SharedState Server allows connected clients to **observe** and **modify** shared resources. Figure 1 organizes server-side concepts in two vertical layers:
+
+- **public** (top layer): concepts central to the public interface of the server. 
+- **internal** (bottom layer): concepts central to its implementation.
+
+### Internal
+
+- **ItemCollection Stores** (left disks): Resource [Paths] identify [ItemCollections] within [ItemStores]. By default, the server provides two [ItemStore] implementations: one persistent store (MySQL) and one in-memory store (SQLite). The SharedState Server may be configured to use custom implementations.
+
+- **Clients & Subs** (right box): The SharedState Server maintains an in-memory registry of connected clients and their subscriptions.
+
+### Public
+
+- **WS Server** (right box): The WebSocket server implements core functionality of the SharedState Server, which can be divided into three parts:
+  1. **Client Management**: Handling client connections, disconnections, and client requests to subscribe or unsubscribe from resources.
+  2. **State Management**: Handling client requests for state initialization, state modification, and change notification. This is performed in accordance with active subscription states and involves both read and write operations on [ItemStores].
+  3. **Clock Estimation**: Handling client requests for sampling the server clock.
+
+- **HTTP Server** (left box): The HTTP server performs the following functions:
+  1. **`/`**: Serve static web assets.
+  2. **`/ws`**: Redirect WebSocket traffic to the `WS Server`.
+  3. **`/api`**: Serve a REST API for status reporting (JSON).
+  4. **`/adm`**: Serve an administrative web interface for viewing (and clearing) Item Collections.

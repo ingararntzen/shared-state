@@ -1,0 +1,19 @@
+/* Custom styling for Markdown Blockquotes ( > quote text ) */
+
+.vp-doc blockquote {
+  background-color: var(--vp-c-warning-soft);
+  border-left: 4px solid var(--vp-c-warning-1);
+  color: var(--vp-c-text-1);
+  font-size: 1.02rem;
+  font-weight: 500;
+  border-radius: 6px;
+  padding: 0.85rem 1.15rem;
+  margin: 1.25rem 0;
+  transition: border-color 0.25s, background-color 0.25s;
+}
+
+.vp-doc blockquote p {
+  margin: 0;
+  color: var(--vp-c-text-1) !important; /* Full text opacity, crisp readability */
+  line-height: 1.6;
+}
