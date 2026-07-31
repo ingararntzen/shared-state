@@ -11,18 +11,18 @@ export default defineConfig({
 
     sidebar: [
       {
-        text: 'Overview',
+        text: 'Concept',
         items: [
-          { text: 'SharedState Paradigm', link: '/overview/paradigm' },
-          { text: 'SharedState Architecture', link: '/overview/architecture' }
+          { text: 'Paradigm', link: '/overview/paradigm' },
+          { text: 'Architecture', link: '/overview/architecture' }
         ]
       },
       {
         text: 'Design',
         items: [
-          { text: 'Framework', link: '/design/framework' },
+          { text: 'Overview', link: '/design/framework' },
           { text: 'Resources', link: '/design/resources' },
-          { text: 'Updates', link: '/design/update' },
+          { text: 'Changes', link: '/design/changes' },
           { text: 'Subscriptions', link: '/design/subscriptions' },
           { text: 'Proxies', link: '/design/proxies' },
           { text: 'Stores', link: '/design/stores' },

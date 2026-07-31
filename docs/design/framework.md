@@ -7,7 +7,7 @@
 [ItemStore]: /design/stores
 [ItemStores]: /design/stores
 
-# SharedState Framework Design
+# Design Overview
 
 > The SharedState framework facilitates practical, online sharing of application entities such as variables and collections.
 

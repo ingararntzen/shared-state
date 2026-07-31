@@ -9,12 +9,12 @@
 ---
 
 
-## Client-side Clock
+## Client-side Server Clock
 
-The server clock is available as a property on the [SharedState Client].
+The server clock is available as a property on the [SharedState Client], highlighting that clocks can also be regarded as shared state.
 
 ```javascript
-// local timestamp, server timestamp, clock skew and network rtt
+// local timestamp, server timestamp, and current estimates for clock skew and network rtt.
 const local_time = ss_client.local_clock.now();
 const server_time = ss_client.server_clock.now();
 const skew = ss_client.server_clock.skew;

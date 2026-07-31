@@ -1,4 +1,4 @@
-# The SharedState Paradigm
+# SharedState Paradigm
 
 > - SharedState supports online state sharing at the level of individual application variables and resources.
 

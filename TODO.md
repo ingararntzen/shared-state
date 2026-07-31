@@ -1,3 +1,2 @@
 - check out sub() - it appears to wait until ack from server before actually updating the local sub state, which I think is wrong.
 - confusion with objectproxy
-- make both local and server clock available on ss_client.

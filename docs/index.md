@@ -7,11 +7,11 @@ hero:
   tagline: "Local proxies for online-hosted variables and collections. Python server & JavaScript client."
   actions:
     - theme: brand
-      text: Overview
+      text: Concept
       link: /overview/paradigm
     - theme: alt
       text: Design
-      link: /design/resources
+      link: /design/framework
     - theme: alt
       text: Client API Reference
       link: /client-api/
