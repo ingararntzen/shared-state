@@ -67,3 +67,20 @@ Every server-side resource is uniquely referenced by a 3-part [Path}. The Shared
 * **`service-name`**: The name of the storage service managing the resource.
 * **`resource-name`**: The name of the resource.
 
+
+---
+
+## Namespace Subdivision
+
+While the 3-part [Path] structure is fixed, applications can define an application specific namespace by introducing delimiters into the `resource-name` component of the [Path].
+
+```
+/myapp/items/room1-chat
+/myapp/items/room1_whiteboard
+```
+
+### Delimiter Guidelines & Character Support
+* **Forward slashes (`/`) are reserved** for the 3-part path hierarchy (`/app-name/service-name/resource-name`) and cannot be used as delimiters within `resource-name`.
+* **Underscores (`_`) or hyphens (`-`) are recommended** as this avoids collisions with characters used by CSS class selectors (`.`), DOM element IDs (`#`), or pseudo-classes (`:`), making resource names safe to use directly in HTML attributes or CSS queries.
+
+

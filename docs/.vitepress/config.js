@@ -20,17 +20,14 @@ export default defineConfig({
       {
         text: 'Design',
         items: [
+          { text: 'Framework', link: '/design/framework' },
           { text: 'Resources', link: '/design/resources' },
           { text: 'Updates', link: '/design/update' },
           { text: 'Subscriptions', link: '/design/subscriptions' },
-          { text: 'Client Proxies', link: '/design/proxies' },
-          { text: 'Network Communication', link: '/design/websocket' },
-          { text: 'Server Stores', link: '/design/stores' },
-          { text: 'Server Clock', link: '/design/server-clock' },
-
-          { text: '8. Resource Lifecycle', link: '/design/lifecycle' },
-          { text: '9. Unified Single-Port', link: '/design/single-port' },
-          { text: '11. Hierarchical Namespace', link: '/design/namespace' }
+          { text: 'Proxies', link: '/design/proxies' },
+          { text: 'Stores', link: '/design/stores' },
+          { text: 'Clock', link: '/design/clock' },
+          { text: 'Messages', link: '/design/websocket' },
         ]
       },
       {
