@@ -19,8 +19,6 @@ The [SharedState Client] manages subscriptions to server resources identified by
 ### 1. Internal Data Structure
 
 The client maintains an in-memory `Map` associating resource [Paths] to `option` objects. 
-- Each entry in this `Map` represents a subscription to the [Path]. 
-- The `options` object is currently not in use, but is reserved for future support for **filters** or **range queries** (see [partial resource observation](/overview/architecture.md#partial-resource-observation)).
 
 ```javascript
 Map(2) {
@@ -28,6 +26,13 @@ Map(2) {
   "/myapp/items/config"     => {}
 }
 ```
+
+::: tip Future Extension 
+The `options` object is currently not in use, but is reserved for future support for **filters** or **range queries** (see [partial resource observation](/overview/architecture.md#partial-resource-observation)).
+:::
+
+
+
 
 ### 2. Subscription Logic
 
@@ -56,7 +61,7 @@ The [SharedState Server] maintains subscription state in a `Dictionary`, where a
 ### 1. Internal Data Structure
 
 ```python
-{
+Dict({
     <WebSocket client_1>: {
         "/myapp/items/room1-chat": {},
         "/myapp/items/config": {}
@@ -64,7 +69,7 @@ The [SharedState Server] maintains subscription state in a `Dictionary`, where a
     <WebSocket client_2>: {
         "/myapp/items/room1-chat": {}
     }
-}
+})
 ```
 
 ### 2. Subscription Logic
