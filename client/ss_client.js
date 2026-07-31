@@ -5,13 +5,13 @@ import { ProxyObject } from "./ss_object.js";
 import { ServerClock } from "./ss_clock.js";
 
 const MsgType = Object.freeze({
-    MESSAGE : "MESSAGE",
+    MESSAGE: "MESSAGE",
     REQUEST: "REQUEST",
     REPLY: "REPLY"
- });
- 
+});
+
 const MsgCmd = Object.freeze({
-    GET : "GET",
+    GET: "GET",
     PUT: "PUT",
     NOTIFY: "NOTIFY"
 });
@@ -19,7 +19,7 @@ const MsgCmd = Object.freeze({
 
 export class SharedStateClient extends WebSocketIO {
 
-    constructor (url, options) {
+    constructor(url, options) {
         super(url, options);
 
         // requests
@@ -51,7 +51,7 @@ export class SharedStateClient extends WebSocketIO {
         // refresh local suscriptions
         if (this._subs_map.size > 0) {
             const items = [...this._subs_map.entries()];
-            this.update("/subs", {insert:items, reset:true});
+            this.update("/subs", { insert: items, reset: true });
         }
         // server clock
         if (this._server_clock != undefined) {
@@ -66,8 +66,8 @@ export class SharedStateClient extends WebSocketIO {
         }
     }
     on_error(error) {
-        const {debug=false} = this._options;
-        if (debug) {console.log(`Communication Error: ${error}`);}
+        const { debug = false } = this._options;
+        if (debug) { console.log(`Communication Error: ${error}`); }
     }
 
     /*********************************************************************
@@ -81,8 +81,8 @@ export class SharedStateClient extends WebSocketIO {
             if (this._pending.has(reqid)) {
                 let resolver = this._pending.get(reqid);
                 this._pending.delete(reqid);
-                const {ok, data} = msg;
-                resolver({ok, data});
+                const { ok, data } = msg;
+                resolver({ ok, data });
             }
         } else if (msg.type == MsgType.MESSAGE) {
             if (msg.cmd == MsgCmd.NOTIFY) {
@@ -107,25 +107,25 @@ export class SharedStateClient extends WebSocketIO {
         const reqid = this._reqid++;
         const msg = {
             type: MsgType.REQUEST,
-            cmd, 
-            path, 
+            cmd,
+            path,
             arg,
             tunnel: reqid
         };
         this.send(JSON.stringify(msg));
         let [promise, resolver] = resolvablePromise();
         this._pending.set(reqid, resolver);
-        return promise.then(({ok, data}) => {
+        return promise.then(({ ok, data }) => {
             // special handling for replies to PUT /subs
             if (cmd == MsgCmd.PUT && path == "/subs" && ok) {
                 // update local subscription state
                 this._subs_map = new Map(data)
             }
-            return {ok, path, data};
+            return { ok, path, data };
         });
     }
 
-    _sub (path) {
+    _sub(path) {
         if (this.connected) {
             // copy current state of subs
             const subs_map = new Map([...this._subs_map]);
@@ -133,23 +133,23 @@ export class SharedStateClient extends WebSocketIO {
             subs_map.set(path, {});
             // reset subs on server
             const items = [...subs_map.entries()];
-            return this.update("/subs", {insert:items, reset:true});
+            return this.update("/subs", { insert: items, reset: true });
         } else {
             // update local subs - subscribe on reconnect
             this._subs_map.set(path, {});
-            return Promise.resolve({ok: true, path, data:undefined})
+            return Promise.resolve({ ok: true, path, data: undefined })
         }
 
     }
 
-    _unsub (path) {
+    _unsub(path) {
         // copy current state of subs
         const subs_map = new Map([...this._subs_map]);
         // remove path
         subs_map.delete(path)
         // reset subs on server
         const items = [...subs_map.entries()];
-        return this.update("/subs", {insert:items, reset:true});
+        return this.update("/subs", { insert: items, reset: true });
     }
 
     /*********************************************************************
@@ -171,7 +171,7 @@ export class SharedStateClient extends WebSocketIO {
     get(path) {
         return this._request(MsgCmd.GET, path);
     }
-    
+
     // update request for path
     update(path, changes) {
         return this._request(MsgCmd.PUT, path, changes);
@@ -181,7 +181,7 @@ export class SharedStateClient extends WebSocketIO {
      * acquire proxy collection for path
      * - automatically subscribes to path if needed
      */
-    acquire_collection (path, options) {
+    acquire_collection(path, options) {
         path = path.startsWith("/") ? path : "/" + path;
         // subscribe if subscription does not exists
         if (!this._subs_map.has(path)) {
@@ -199,7 +199,7 @@ export class SharedStateClient extends WebSocketIO {
      * acquire object for (path, name)
      * - automatically acquire proxy collection
      */
-    acquire_object (path, name, options) {
+    acquire_object(path, name, options) {
         path = path.startsWith("/") ? path : "/" + path;
         const ds = this.acquire_collection(path);
         // create proxy object if not exists
@@ -230,7 +230,7 @@ export class SharedStateClient extends WebSocketIO {
         if (obj_map != undefined) {
             for (const v of obj_map.values()) {
                 v._ssclient_terminate();
-            }    
+            }
         }
         this._coll_map.delete(path);
         this._obj_map.delete(path);

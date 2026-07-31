@@ -1,36 +1,91 @@
-# Client Subscriptions & Single-Connection Multiplexing
+[Path]: (design/resources)
+[Paths]: (design/resources)
+[SharedState Client]: (design/framework.md/#sharedstate-client)
+[SharedState Server]: (design/framework.md/#sharedstate-server)
 
-## Context & Overview
-Clients maintain subscriptions to resource paths on the server. Subscriptions are registered by writing to a reserved path (`/subs`).
 
----
 
-## Single-Connection Multiplexing
+# Subscriptions
 
-Because an application state is composed of many independent fine-grained resources, a single client application may subscribe to multiple resource paths simultaneously.
-
-Rather than opening separate network connections per resource:
-* **One WebSocket Connection**: All client subscriptions, queries, and updates travel over a single multiplexed WebSocket connection.
-* **Efficient Traffic Routing**: The server routes broadcast notifications only to clients actively subscribed to that specific resource path.
+> - Client subscriptions are maintained locally and synchronized with the server over a single WebSocket connection.
+> - The server broadcasts change notification to subscribing clients.
 
 ---
 
-## Symmetric Subscription Model
+## Client-Side Subscriptions
 
-In SharedState, subscriptions are **client-side state replicated to the server's in-memory store**. This is the exact inverse of data resources (which are server-side state replicated to client proxies):
+The [SharedState Client] manages subscriptions to server resources identified by [Paths].
 
-* **Client Ownership**: Clients maintain their active subscription manifest locally (`_subs_map`).
-* **Server Replication**: The client mirrors its subscription list to the server's in-memory `/subs` resource.
+### 1. Internal Data Structure
+
+The client maintains an in-memory `Map` associating resource [Paths] to `option` objects. 
+- Each entry in this `Map` represents a subscription to the [Path]. 
+- The `options` object is currently not in use, but is reserved for future support for **filters** or **range queries** (see [partial resource observation](/overview/architecture.md#partial-resource-observation)).
+
+```javascript
+Map(2) {
+  "/myapp/items/room1-chat" => {},
+  "/myapp/items/config"     => {}
+}
+```
+
+### 2. Subscription Logic
+
+The client provides primitives for subscribing or unsubscribing to individual [Paths]:
+
+```javascript
+sub(path, options = {})
+unsub(path)
+```
+
+* **`sub(path, options)`**: Adds or updates an entry for `path` in the local subscription `Map`, then sends a subscription reset request (`PUT /subs`) to the server with the updated local state.
+* **`unsub(path)`**: Removes the `path` entry from the local subscription `Map`, then sends a subscription reset request (`PUT /subs`) to the server with the updated local state.
+
+::: tip Automatic resubscription 
+Client subscriptions are automatically reset on the server whenever the network connection is established or re-established.
+:::
+
 
 ---
 
-## Reconnection & Recovery Protocol
+## Server-Side Subscriptions
 
-When network dropouts occur or the server restarts:
+The [SharedState Server] maintains subscription state in a `Dictionary`, where active WebSocket client handles map to a `Dictionary` of client specific subscriptions. 
+ 
 
-1. The client reconnects automatically via `on_connect()`.
-2. The client re-sends its local subscription map to `/subs` with `reset: true`.
-3. The server receives the subscription payload and executes a `unicast_reset`, fetching and sending fresh snapshots for all subscribed paths.
-4. The client proxy resets its internal map and notifies observers.
+### 1. Internal Data Structure
 
-This mechanism ensures seamless recovery after server restarts or network disruptions without requiring server-side session persistence or event log replay.
+```python
+{
+    <WebSocket client_1>: {
+        "/myapp/items/room1-chat": {},
+        "/myapp/items/config": {}
+    },
+    <WebSocket client_2>: {
+        "/myapp/items/room1-chat": {}
+    }
+}
+```
+
+### 2. Subscription Logic
+
+The server logic accesses and updates client subscriptions via the `Clients` class.
+
+```python
+class Clients:
+    def register(self, ws_client):
+        """Register new client connection."""
+
+    def unregister(self, ws_client):
+        """Unregister client connection and clear its subscriptions."""
+
+    def get_subs(self, ws_client):
+        """Get active subscriptions for given client."""
+
+    def put_subs(self, ws_client, subs):
+        """Set/replace active subscriptions for client."""
+
+    def clients(self, path):
+        """Get all active client WebSocket clients subscribed to path."""
+```
+

@@ -137,7 +137,7 @@ Server-side filtering requires that the server perform additional processing on 
 
 - Server-side filtering costs depend on the filtering approach: **Content-Based Filtering** is generally more expensive than **Topic-Based Filtering** or **Range-Query Filtering**.
 - Server-side filtering costs may be significantly reduced if the server does not have to evaluate all elements of a dataset, but can instead rely on indexing support for identifying the relevant subset. This approach is most relevant for **Topic-Based Filtering** and **Range-Query Filtering**. For example, if the server is set up with indexing support for the `ts` property of time-dependent resources, range queries may be satisfied through a simple index lookup.
-
+- In the context of resource update, server-side filtering requires the the prior state of the resource is available for filter evalutation. This is required to defect items that used to be accepted by the filter, but are no longer accepted after the update. (This may alternatively be handled on the client side.)
 
 ::: tip Status
 Partial observation is currently **not supported**.

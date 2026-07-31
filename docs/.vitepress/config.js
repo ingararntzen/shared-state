@@ -27,7 +27,7 @@ export default defineConfig({
           { text: 'Proxies', link: '/design/proxies' },
           { text: 'Stores', link: '/design/stores' },
           { text: 'Clock', link: '/design/clock' },
-          { text: 'Messages', link: '/design/websocket' },
+          { text: 'Messages', link: '/design/messages' },
         ]
       },
       {

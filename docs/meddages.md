@@ -40,3 +40,27 @@ Client A                   Server                   Client B
    │◄── REPLY (ok: true) ────┤   (MESSAGE)             │
    │    (tunnel: 1)          │                         │
 ```
+
+
+
+
+### 3. Subscription Reset Request (`PUT /subs`)
+
+Whenever subscriptions change—or when a client reconnects—the client posts its complete active subscription set to `/subs` as a single batch update:
+
+```json
+{
+  "type": "REQUEST",
+  "cmd": "PUT",
+  "path": "/subs",
+  "arg": {
+    "insert": [
+      ["/myapp/items/room1-chat", {}],
+      ["/myapp/items/config", {}]
+    ],
+    "reset": true
+  },
+  "tunnel": 0
+}
+```
+
