@@ -14,8 +14,14 @@
 The server clock is available as a property on the [SharedState Client].
 
 ```javascript
-const now = ss_client.clock.now();
+// local timestamp, server timestamp, clock skew and network rtt
+const local_time = ss_client.local_clock.now();
+const server_time = ss_client.server_clock.now();
+const skew = ss_client.server_clock.skew;
+const rtt = ss_client.server_clock.rtt;
 ```
+---
+
 
 ## Clock sampling
 
@@ -33,7 +39,10 @@ ss_client.get("/clock").then(({ok, ts1}) => {
         samples.push([ts0, ts1, ts2]);    
     }
 });
+
 ```
+
+---
 
 ## Clock estimation
 

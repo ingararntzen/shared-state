@@ -12,7 +12,7 @@ describe("ServerClock Unit Tests", () => {
         const mockClient = createMockClient();
         const clock = new ServerClock(mockClient);
 
-        expect(clock.trans).toBe(1000.0);
+        expect(clock.rtt).toBe(2000.0);
         expect(clock.skew).toBe(0.0);
         expect(typeof clock.now()).toBe("number");
     });
@@ -27,7 +27,7 @@ describe("ServerClock Unit Tests", () => {
         // estimated server time at midpoint (10.1) = 10.5 -> skew = 10.5 - 10.1 = 0.4
         clock._add_sample(10.0, 10.5, 10.2);
 
-        expect(clock.trans).toBeCloseTo(0.1);
+        expect(clock.rtt).toBeCloseTo(0.2);
         expect(clock.skew).toBeCloseTo(0.4);
     });
 

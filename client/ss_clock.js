@@ -1,13 +1,13 @@
 // webpage clock - performance now - seconds
 const local = {
-    now: function() {
-        return performance.now()/1000.0;
+    now: function () {
+        return performance.now() / 1000.0;
     }
 }
 // system clock - epoch - seconds
 const epoch = {
-    now: function() {
-        return new Date()/1000.0;
+    now: function () {
+        return new Date() / 1000.0;
     }
 }
 
@@ -18,7 +18,7 @@ const epoch = {
  * time adjustments.
  */
 
-const CLOCK = function () {
+export const CLOCK = function () {
     const t0_local = local.now();
     const t0_epoch = epoch.now();
     return {
@@ -63,10 +63,10 @@ export class ServerClock {
 
     _onping() {
         const ts0 = CLOCK.now();
-        this._ssclient.get("/clock").then(({ok, data}) => {
+        this._ssclient.get("/clock").then(({ ok, data }) => {
             if (ok) {
                 const ts1 = CLOCK.now();
-                this._add_sample(ts0, data, ts1);    
+                this._add_sample(ts0, data, ts1);
             }
         });
     }
@@ -94,8 +94,10 @@ export class ServerClock {
         this._trans = trans;
     }
 
-    get skew() {return this._skew;}
-    get trans() {return this._trans;}
+    // estimated skew
+    get skew() { return this._skew; }
+    // rtt: round trip time
+    get rtt() { return this._trans * 2.0; }
 
     now() {
         // server clock is local clock + estimated skew
@@ -120,14 +122,14 @@ const MEDIUM_DELAY = 500; // ms
 const LARGE_DELAY = 10000; // ms
 
 const DELAY_SEQUENCE = [
-    ...new Array(3).fill(SMALL_DELAY), 
+    ...new Array(3).fill(SMALL_DELAY),
     ...new Array(7).fill(MEDIUM_DELAY),
     ...[LARGE_DELAY]
 ];
 
 class Pinger {
 
-    constructor (callback) {
+    constructor(callback) {
         this._count = 0;
         this._tid = undefined;
         this._callback = callback;
@@ -146,7 +148,7 @@ class Pinger {
         clearTimeout(this._tid);
         this.ping();
     }
-    ping () {
+    ping() {
         let next_delay = this._delays[0];
         if (this._delays.length > 1) {
             this._delays.shift();

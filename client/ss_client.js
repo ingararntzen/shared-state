@@ -156,8 +156,11 @@ export class SharedStateClient extends WebSocketIO {
         API
     *********************************************************************/
 
-    // accsessor for server clock
-    get clock() {
+    // accessor for local time
+    get local_clock() { return CLOCK; }
+
+    // accessor for server clock
+    get server_clock() {
         if (this._server_clock == undefined) {
             this._server_clock = new ServerClock(this);
             if (this.connected) {
