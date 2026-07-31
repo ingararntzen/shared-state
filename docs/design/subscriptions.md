@@ -12,7 +12,7 @@
 
 ---
 
-## Client-Side Subscriptions
+## Client-side Subscriptions
 
 The [SharedState Client] manages subscriptions to server resources identified by [Paths].
 
@@ -53,7 +53,7 @@ Client subscriptions are automatically reset on the server whenever the network 
 
 ---
 
-## Server-Side Subscriptions
+## Server-side Subscriptions
 
 The [SharedState Server] maintains subscription state in a `Dictionary`, where active WebSocket client handles map to a `Dictionary` of client specific subscriptions. 
  

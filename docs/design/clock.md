@@ -1,27 +1,47 @@
-# Server Clock & Time Synchronization
+[SharedState Client]: (design/framework.md/#sharedstate-client)
+[SharedState Server]: (design/framework.md/#sharedstate-server)
 
-> - SharedState includes a built-in network clock synchronization protocol (`/clock`).
-> - Enables time-consistent media playback and synchronized event execution across clients.
+# Clock
 
-For clock API usage, see [ServerClock API](/client-api/server-clock.md).
+> - [SharedState Client] provides a local clock synchronized with the system clock of the [SharedState Server].
 
----
-
-## The Clock Drift Problem
-
-In real-time collaborative applications (e.g. shared video/audio playback, collaborative canvas editing, or timestamped logging), client device clocks often drift or sync coarsely. Relying on local client timestamps leads to inconsistent playback and event ordering errors.
 
 ---
 
-## ServerClock Solution
 
-SharedState provides an integrated server clock protocol:
+## Client-side Clock
 
-* **Protocol Endpoint**: `GET /clock` returns the current UTC timestamp on the server.
-* **`ServerClock` Helper**: Measures round-trip time (RTT) and calculates offset between local system time and server UTC time.
+The server clock is available as a property on the [SharedState Client].
 
----
+```javascript
+const now = ss_client.clock.now();
+```
 
-## Time-Consistent Playback
+## Clock sampling
 
-Applications can stamp item states with server-synchronized timestamps. Upon receiving updates, clients schedule rendering according to server clock time rather than packet arrival time, guaranteeing jitter-free, synchronized execution across all connected devices.
+All timestamps are measured in seconds since epoch (UTC).
+
+```javascript
+// ts0: local time when request sent
+// ts1: server time when request processed
+// ts2: local time when reply received
+const ts0 = CLOCK.now();
+const samples = [];
+ss_client.get("/clock").then(({ok, ts1}) => {
+    if (ok) {
+        const ts2 = CLOCK.now();
+        samples.push([ts0, ts1, ts2]);    
+    }
+});
+```
+
+## Clock estimation
+
+- Sampling of the server clock is performed using the websocket connection.
+- Sampling is fast paced initially after connection has been established, then slows down, ultimately stabilising at 1 sample per 10 seconds.
+- Clock skew estimation is based on a sliding window of samples (FIFO) (30 samples).
+- Clock skew estimation is based on smallest RTT within the sample window and assumes symmetric request/reply communication delay.
+- Time measurements on both Client and Server are in **seconds** since **Epoch (UTC)**.
+- The Client clock is monotonically increasing, based on `performance.now()`, but will occationally exhibit very small discontinuities (likely not easily observable) whenever the clock skew estimate changes. 
+- If the Server Clock experiences discontinuities (e.g. from NTP clock adjustment), this may not be detected immediately by the Client, as clock skew estimate is based on smallest RTT within the sample window.
+
