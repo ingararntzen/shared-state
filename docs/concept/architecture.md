@@ -17,7 +17,7 @@ The SharedState Architecture can be described as a primary-backup architecture w
 
 - **Client queries** target the local replica, ensuring synchronous state access with zero delay.
 
-- **Update requests** from clients target the SharedState service and only take effect locally after notification is received from the server. As such, the update latency is at least one network round-trip time. Updates are asynchronous and may be streamed to the server (see [Reactive Programming Model](/overview/paradigm.md#4-reactive-programming)). To improve responsiveness, update latency may be avoided locally by speculatively applying updates to the local replica before dispatching requests to the server (see [Local Speculative Updates](#local-speculative-updates)).
+- **Update requests** from clients target the SharedState service and only take effect locally after notification is received from the server. As such, the update latency is at least one network round-trip time. Updates are asynchronous and may be streamed to the server (see [Reactive Programming Model](/concept/paradigm#4-reactive-programming)). To improve responsiveness, update latency may be avoided locally by speculatively applying updates to the local replica before dispatching requests to the server (see [Local Speculative Updates](#local-speculative-updates)).
 
 ---
 
@@ -66,7 +66,7 @@ This ensures **eventual consistency** for client replicas as long as the connect
 
 ## Relative Updates
 
-Relative updates are **not** supported by the server, as they would limit efficiency by potentially forcing both a read operation and application-specific logic ahead of processing an update (see [Dumb Server Approach](/overview/paradigm.md#approach)).
+Relative updates are **not** supported by the server, as they would limit efficiency by potentially forcing both a read operation and application-specific logic ahead of processing an update (see [Dumb Server Approach](/concept/paradigm#5-dumb-server-approach)).
 
 Relative updates can instead be achieved from the client side, based on the current state of the local replica. This, however, may open up surprising effects if multiple clients attempt relative updates concurrently. To avoid this scenario, the server may drop update requests that are not based on the current state version, thus ensuring that only one relative update is applied at a time.
 

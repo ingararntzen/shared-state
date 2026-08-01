@@ -3,7 +3,7 @@
 > - SharedState decouples WebSocket networking and client synchronization from backend storage engines.
 > - Backend storage modules implement a clean service interface.
 
-For architectural overview, see [SharedState Architecture](/overview/architecture.md).
+For architectural overview, see [SharedState Architecture](/concept/architecture).
 
 ---
 

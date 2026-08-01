@@ -1,5 +1,5 @@
-[SharedState Client]: (design/framework.md/#sharedstate-client)
-[SharedState Server]: (design/framework.md/#sharedstate-server)
+[SharedState Client]: /design/framework#sharedstate-client
+[SharedState Server]: /design/framework#sharedstate-server
 
 # Connection
 

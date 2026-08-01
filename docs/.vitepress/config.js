@@ -14,15 +14,15 @@ export default defineConfig({
         text: 'Concept',
         items: [
           { text: 'Paradigm', link: '/concept/paradigm' },
-          { text: 'Architecture', link: '/concept/architecture' }
+          { text: 'Architecture', link: '/concept/architecture' },
+          { text: 'Replication Strategy', link: '/concept/replication' }
         ]
       },
       {
         text: 'Design',
         items: [
-          { text: 'Overview', link: '/design/framework' },
+          { text: 'Design Overview', link: '/design/framework' },
           { text: 'Resources', link: '/design/resources' },
-          { text: 'Changes', link: '/design/changes' },
           { text: 'Subscriptions', link: '/design/subscriptions' },
           { text: 'Proxies', link: '/design/proxies' },
           { text: 'Stores', link: '/design/stores' },

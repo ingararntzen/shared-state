@@ -1,7 +1,7 @@
-[Path]: (design/resources)
-[Paths]: (design/resources)
-[SharedState Client]: (design/framework.md/#sharedstate-client)
-[SharedState Server]: (design/framework.md/#sharedstate-server)
+[Path]: /design/resources#path
+[Paths]: /design/resources#path
+[SharedState Client]: /design/framework#sharedstate-client
+[SharedState Server]: /design/framework#sharedstate-server
 
 
 
@@ -28,7 +28,7 @@ Map(2) {
 ```
 
 ::: tip Future Extension 
-The `options` object is currently not in use, but is reserved for future support for **filters** or **range queries** (see [partial resource observation](/overview/architecture.md#partial-resource-observation)).
+The `options` object is currently not in use, but is reserved for future support for **filters** or **range queries** (see [partial resource observation](/concept/architecture#partial-resource-observation)).
 :::
 
 

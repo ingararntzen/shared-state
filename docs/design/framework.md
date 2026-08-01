@@ -31,7 +31,7 @@ The SharedState Client connects to the SharedState Server in order to **observe*
 
 - **Proxy ItemCollections** (left box): Proxy ItemCollections are local, in-memory [ItemCollections] mirroring [ItemCollections] hosted by the server. Each [ItemCollection] is identified by a unique resource [Path].
 
-- **Client Subs** (right box): Client subscriptions list all resource [Paths] currently observed by the client. If [partial resource observation](/overview/architecture.md#partial-resource-observation) is supported, client subscriptions may additionally include *filters* or *range restrictions* specific to each resource.
+- **Client Subs** (right box): Client subscriptions list all resource [Paths] currently observed by the client. If [partial resource observation](/concept/architecture#partial-resource-observation) is supported, client subscriptions may additionally include *filters* or *range restrictions* specific to each resource.
 
 ### Public
 
