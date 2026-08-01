@@ -8,7 +8,7 @@ hero:
   actions:
     - theme: brand
       text: Concept
-      link: /overview/paradigm
+      link: /concept/paradigm
     - theme: alt
       text: Design
       link: /design/framework

@@ -1,49 +1,65 @@
 
-# Communicating State Changes
+# Replication Strategy
+
+Online state replication depends on the communication of **state changes** across the network. The SharedState framework exchanges **state changes** in the following three scenarios.
+
+  1. **initialization**: the server dispatches **state changes** to the client as part of state initialization. This occurs whenever the clients subscribes to a new resource, or changes the nature of a subscription (e.g. range restrictions).
+  2. **update**: the client dispatches desired **state changes** to the server as part of an update request.
+  3. **notify**: the server broadcasts **state changes** as notifications to all subscribing clients. This occurs whenever a resource has been updated.
+
+## Passive vs. active replication
+
+In the literature there is a distinction between **passive** and **active** replication.
+
+- **passive replication**: The client sends the **new state** to the primary, which in turn forwards copies of this state to all replicas.
+- **active replication**: The client sends a **deterministic command** to the primary, which in turn forwards the same command to all replicas. The **new state** results from applying the command to the **current state**.
+
+SharedState is an instance of **passive** replication. This is in line with the overall design goals of the framework, focusing on a domain agnostic and broadly applicable mechanism for state sharing (see [Dumb Server](/overview/paradigm#dumb-server)). This particularly ensures that application-specific commands can be supported on the clients side, without requiring support from the underlying replication strategy.
+
+## Full-state vs. delta-based replication
+
+Replication systems may further be classified as **full-state** or **delta-based**.
+
+- **full-state**: The client sends the **full state** to the primary, which in turn forwards copies to all replicas.
+- **delta-based**: The client sends a **state delta** to the primary, which in turn forwards the same **state delta** to replicas. The **new state** is constructed by applying the **state delta** to the **current state**.
+
+SharedState uses **delta-based** replication in order to reduce bandwith usage. This is particularly important when large resources are subjected to small changes.
 
 
-- SharedState server
-  1. receive update requests from clients
-  2. process update requests towards ItemCollections
-  3. broadcast state changes to subscribing clients.
-  
-  
-- state sharing as replication of item collections
-- to save bandwith it is necessary to communicate changes over the network
-- particularly important when collections are large, with small changes 
+## Unit of replication
+
+> SharedState uses **collections** of **immutable items** as the unit of replication.
+
+Importantly, this implies:
+
+- that **state deltas** for **collections** can be expressed as a sequence of **membership changes** for the collection: i.e., **items** being **deleted** or **inserted**;
+- that such a sequence of **membership changes** can be implemented as a single, atomic operation; and
+- that individual **items** may be **replaced** in a single operation, by **deleting** the **current item** and **inserting** the **new item** in its place. In effect, this allows for **mutation** of **immutable items**.
 
 
+## State Changes
 
-## Changes
-
-Changes to ItemCollections need to be communicated: 
-- from client to server as part of an update request, and 
-- from the server to the client as part of a state notification.
-
-Changes involve items being **inserted**, **replaced**, or **deleted** from the collection.
-
-Multiple changes concerning a single collection can be transferred and processed as a single batch.
-
-
-We define changes as follows:
+In line with the above replication strategy, SharedState defines **state changes** as an object with three optional fields:
 
 ```javascript
 {remove:[], insert:[], reset:false}
 ```
 
-Parameters:
+**Parameters:**
 * `remove`: list of `id`'s (default: []). Items to be removed from the collection. 
 * `insert`: list of [Items] (default: []). Items to be inserted into the collection. 
 * `reset`: boolean (default: false). Reset collection. 
 
-Rules:
+**Rules:**
 - `remove` is performed ahead of `insert`.
 - `insert` implies `replace` if Item with same `id` is already in the collection.
-- `reset` implies that `remove` is ignored, and taht all Items in the collection are removed ahead of `insert`.
+- `reset` implies that `remove` is ignored, and that all items in the collection are removed ahead of `insert`.
 
+::: tip Reset flag
+The reset flag allows collections to be cleared without specifying the `id`'s of all its Items.
+:::
 
-This design ensures that many types of changes can be communicated with little overhead.
-The reset flag allow collections to be cleared without specifying the `id`'s of all Items
+This design ensures combines high expressivenes with efficient representation of state changes, resulting in low network overhead.
 
 
 | UPDATE ARGUMENT                           | EFFECT                 |
@@ -54,29 +70,8 @@ The reset flag allow collections to be cleared without specifying the `id`'s of 
 | {remove:[...], insert:[...], reset:false} | REMOVE + INSERT ITEMS  |
 | {reset:true}                              | RESET                  |
 | {insert:[...], reset:true}                | RESET + INSERT ITEMS   |
-|-------------------------------------------|------------------------|
 
 
-
-## Update Requests
-
-Update method on ItemCollection uses the `changes` argument 
-
-```javascript
-item_collection.update_items({remove:[], insert:[], reset:false})
-```
-
-## Change Notifications
-
-- one message per collection, with batch of changes
-
-
-
-## State Initialization
-
-- start message
-- sequence of n change messages
-- end message
 
 
 
