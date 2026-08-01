@@ -3,31 +3,97 @@
 
 # Connection
 
-> The [SharedState Client] maintains a single **WebSocket** connection to the [SharedState Server] over which it communicates all messages.
+> The SharedState client wraps a WebSocket connection to provide a high-level connection abstraction, encapsulating network complexity and automated re-connection.
 
 ---
 
+## Logical Connection Architecture
 
-## Connection Object
+Rather than exposing raw browser WebSockets directly, the [SharedState Client] features a dedicated `connection` instance (an instance of `WebSocketIO`) as a public property:
 
-- `on_connect()`
-- `on_disconnect()`
-- `on_error()`
-- `connect()`
-- `disconnect()`
-- `is_connected()`
+```javascript
+import { SharedStateClient } from "sharedstate-client";
+import { ConnectionState } from "sharedstate-client/wsio";
 
-## Bi-directional Communication
+const client = new SharedStateClient("ws://localhost:9000");
 
-- send()
-- request()
-- update()
-- on_message()
-- on_reply()
+// Inspect formal connection state
+if (client.connection.state === ConnectionState.CONNECTED) {
+    console.log("Client is online");
+}
 
+// Await connection readiness
+await client.connection.connectedPromise();
+```
 
-# Disconnected
+This composition decouples network transport resilience from higher-level SharedState protocol concerns (such as request-reply multiplexing or resource change deltas).
 
-- re-subscrie on connect()
-- re-send pending messages
-- fail requests with timeout
+---
+
+## Connection States (`ConnectionState`)
+
+The `connection` object maintains an explicit, mutually exclusive `state` property modeling a formal state machine:
+
+```javascript
+// ConnectionState enum constants (client/wsio.js)
+ConnectionState.DISCONNECTED // "disconnected"
+ConnectionState.CONNECTING   // "connecting"
+ConnectionState.CONNECTED    // "connected"
+ConnectionState.TERMINATED   // "terminated"
+
+// Inspect state
+console.log(client.connection.state); // "connected"
+```
+
+### State Machine Lifecycle
+
+```
+[ DISCONNECTED ] ──( connect() )──► [ CONNECTING ] ──( on_open )──► [ CONNECTED ]
+       ▲                                 │                               │
+       │                                 │ (error / failure)             │ (close() / max retries)
+       └──────── (Retry Backoff) ────────┴───────────────────────────────▼
+                                                                  [ TERMINATED ]
+```
+
+| State | Value | Description |
+| :--- | :--- | :--- |
+| **`DISCONNECTED`** | `"disconnected"` | Socket is closed; retry backoff timer may be pending. |
+| **`CONNECTING`** | `"connecting"` | Handshake / socket connection in progress. |
+| **`CONNECTED`** | `"connected"` | Active WebSocket session established. |
+| **`TERMINATED`** | `"terminated"` | Max retry limit reached or `close()` explicitly called. No further reconnect attempts will occur. |
+
+---
+
+## Connection Properties & Methods
+
+### Properties
+
+```javascript
+client.connection.state    // ConnectionState ("disconnected" | "connecting" | "connected" | "terminated")
+client.connection.url      // string: target WebSocket URL
+client.connection.options  // object: configuration options (e.g. debug mode, retries)
+```
+
+### Transport Methods
+
+```javascript
+// Transmit raw payload (dropped safely if not connected)
+client.connection.send(data);
+
+// Returns a Promise that resolves when connection state becomes CONNECTED
+await client.connection.connectedPromise();
+
+// Explicitly close connection and transition to TERMINATED state
+client.connection.close();
+```
+
+### Event Callback Hooks
+
+The [SharedState Client] binds internal handlers to these `connection` callbacks:
+
+```javascript
+client.connection.on_connect    = () => { /* Handle connection / re-connection */ };
+client.connection.on_disconnect = (event) => { /* Handle disconnection */ };
+client.connection.on_error      = (error) => { /* Handle transport error */ };
+client.connection.on_message    = (data) => { /* Process incoming raw payload */ };
+```

@@ -39,7 +39,7 @@ afterAll(() => {
 describe("Client-Server Integration Tests (Obsoletes test.html)", () => {
     test("connects and queries GET / (Services) and GET /clock (Clock)", async () => {
         const client = new SharedStateClient(SERVER_URL);
-        await client.connectedPromise();
+        await client.connection.connectedPromise();
 
         // GET / (services)
         const servicesRes = await client.get("/");
@@ -57,7 +57,7 @@ describe("Client-Server Integration Tests (Obsoletes test.html)", () => {
 
     test("acquire_collection, update_items (insert, remove, reset), and querying", async () => {
         const client = new SharedStateClient(SERVER_URL);
-        await client.connectedPromise();
+        await client.connection.connectedPromise();
 
         const coll = client.acquire_collection("/app/mitems/chnl");
 
@@ -100,7 +100,7 @@ describe("Client-Server Integration Tests (Obsoletes test.html)", () => {
 
     test("ProxyObject set_items and get_items", async () => {
         const client = new SharedStateClient(SERVER_URL);
-        await client.connectedPromise();
+        await client.connection.connectedPromise();
 
         const obj = client.acquire_object("/app/mitems/chnl", "my_object");
 
@@ -124,7 +124,7 @@ describe("Client-Server Integration Tests (Obsoletes test.html)", () => {
         const clientA = new SharedStateClient(SERVER_URL);
         const clientB = new SharedStateClient(SERVER_URL);
 
-        await Promise.all([clientA.connectedPromise(), clientB.connectedPromise()]);
+        await Promise.all([clientA.connection.connectedPromise(), clientB.connection.connectedPromise()]);
 
         const path = "/app/mitems/sync_chnl";
         const collA = clientA.acquire_collection(path);
