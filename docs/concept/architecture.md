@@ -34,7 +34,7 @@ Clients communicate with the server over a WebSocket connection. Clients may exc
 If the connection is lost, the SharedState client will automatically attempt to reconnect. If the connection is successfully re-established after a reconnect attempt, the client will automatically resubscribe. This allows clients to seamlessly resume the session, even if the server connection is interrupted for a shorter period. The SharedState service manages client subscriptions in-memory as long as the connection is open, but does not persist them or keep them between client sessions.  
 
 ::: tip Automated Reconnect
-The SharedState client attempts to reconnect every 10 seconds. If the connection cannot be re-established after 3 consecutive attempts, the connection remains closed, and the client must actively be reloaded to re-establish the connection.  
+The SharedState client automatically attempts to reconnect after a network failure, but gives up and terminates after **3 consecutive failed attempts**. Reconnect attempts are delayed by 1, 2, and 3 seconds respectively. After the connection has been terminated, the client must be re-initialized (e.g., reload page) in order to resume operation.
 :::
 
 
