@@ -1,32 +1,47 @@
 [Item]: #item
 [Items]: #item
-[ItemCollection]: #itemcollection
-[ItemCollections]: #itemcollection
 [Path]: #path
 [Paths]: #path
-
-# Resources
-<a id="resource"></a>
-
-
-> - The SharedState service hosts **resources** on behalf of applications.
-> - **Resources** are [ItemCollections] identified by [Paths].
-
+[ItemCollection]: #itemcollection
+[ItemCollections]: #itemcollection
+[ItemStore]: /design/store
+[ItemStores]: /design/store
+[SharedState Client]: /design/framework#sharedstate-client
+[SharedState Server]: /design/framework#sharedstate-server
 
 
-Resources may represent a variety of application entities, including `string`, `number`, `boolean`, `object`, or `array`, or more advanced data structures such as `Set`, `Map`, `List`, `Tree`, or `Track`. 
+# Resource Representation
 
-The SharedState service provides persistent **storage** for resources, and allow clients to **update** and **observe** resources in real time.  
-
-Importantly, the SharedState service is agnostic to the internal representation of resources, viewing them all as [ItemCollections]. Client applications can freely define resource names and representations as needed, and implement higher level abstractions on top of this basic server-side representation. 
+> - The [SharedState Server] hosts [ItemCollections] identified by [Paths].
+> - The [SharedState Client] mirrors server-side [ItemCollections] locally. 
 
 
 ---
 
-## Item
+## Application Resources
+
+The SharedState framework facilitates sharing of low-level application resources, such as `string`, `number`, `boolean`, `object`, or `array`, or more advanced data structures such as `Set`, `Map`, `List`, or `Tree`. Importantly, the SharedState framework does not provide specific solutions for each of these types, but rather provides a generic state sharing mechanism as a common basis for all these resource types (see [Replication Strategy](/concept/replication)).
+
+---
+
+## Unit of State Sharing
+
+The SharedState framework facilitates sharing of [ItemCollections].
+
+- The [SharedState Server] hosts [ItemCollections] identified by [Paths].
+- The [SharedState Client] mirrors server-side [ItemCollections] and make them available at the client-side as local proxy objects. 
+
+
+---
+
+
+## Definitions
+
+
+### Item
 <a id="item"></a>
 
-An [Item] is a thin wrapper around some element of application state:
+- An [Item] is a thin wrapper around some element of application state:
 
 ```
 Item : {id, state}
@@ -37,27 +52,25 @@ Item : {id, state}
 
 The SharedState service is agnostic to the internal representation of `state`. The 'id' property ust be provided by the application. If the `state` element originates from a data model that already includes a unique identifier such as `_id``, `key`, or `uuid`, it may be convenient to reuse this indentifier as `item.id`.
 
----
 
-## ItemCollection
+### ItemCollection
 <a id="itemcollection"></a>
 
-An [ItemCollection] is a collection of [Items] where the `id` of each [Item] is unique within the collection.
+- An [ItemCollection] is a collection of [Items] where the `id` of each [Item] is unique within the collection.
+
 
 ```
 ItemCollection: ({id_1, state_1}, {id_2, state_2}, ..., {id_n, state_n})
 ```
 
-
-[ItemCollection] allows individual [Items] to be **added**, **removed**, or **replaced**. Batch updates allow multiple such operations to be performed as one.
-
----
+- The [ItemCollection] allows individual [Items] to be **added**, **removed**, or **replaced**. Batch updates allow multiple such operations to be performed as one.
 
 
-## Path
+
+### Path
 <a id="path"></a>
 
-Every server-side resource is uniquely referenced by a 3-part [Path}. The SharedState service does not provide explicit operations for manipulating the namespece. Instead, the namespace is implicitly defined by the existence of resources associated with paths, similar to a local dictionary.
+A server-side [ItemCollection] is uniquesly identified by a 3-part [Path].
 
 ```
 /app-name/service-name/resource-name
@@ -67,11 +80,6 @@ Every server-side resource is uniquely referenced by a 3-part [Path}. The Shared
 * **`service-name`**: The name of the storage service managing the resource.
 * **`resource-name`**: The name of the resource.
 
-
----
-
-## Namespace Subdivision
-
 While the 3-part [Path] structure is fixed, applications can define an application specific namespace by introducing delimiters into the `resource-name` component of the [Path].
 
 ```
@@ -79,8 +87,23 @@ While the 3-part [Path] structure is fixed, applications can define an applicati
 /myapp/items/room1_whiteboard
 ```
 
-### Delimiter Guidelines & Character Support
 * **Forward slashes (`/`) are reserved** for the 3-part path hierarchy (`/app-name/service-name/resource-name`) and cannot be used as delimiters within `resource-name`.
 * **Underscores (`_`) or hyphens (`-`) are recommended** as this avoids collisions with characters used by CSS class selectors (`.`), DOM element IDs (`#`), or pseudo-classes (`:`), making resource names safe to use directly in HTML attributes or CSS queries.
 
+
+---
+
+## Server-side ItemCollections
+
+Server-side [ItemCollections] are hosted by [ItemStores].
+
+---
+
+## Client-side ItemCollections
+
+- Client-side [ItemCollections] are **JavaScript** objects that **mirror** the state of a server-side [ItemCollections].
+- Application code may **query** the state of client-side [ItemCollection] and **react** to changes.
+- Client-side [ItemCollections] also serve as **local proxies**, forwarding **update** reqquest to server-side [ItemCollections]
+
+---
 
