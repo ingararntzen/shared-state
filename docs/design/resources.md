@@ -4,67 +4,59 @@
 [Paths]: #path
 [ItemCollection]: #itemcollection
 [ItemCollections]: #itemcollection
-[ItemStore]: /design/store
-[ItemStores]: /design/store
+[ItemStore]: /design/stores
+[ItemStores]: /design/stores
 [SharedState Client]: /design/framework#sharedstate-client
 [SharedState Server]: /design/framework#sharedstate-server
 
 
-# Resource Representation
+# Item Collections
 
 > - The [SharedState Server] hosts [ItemCollections] identified by [Paths].
 > - The [SharedState Client] mirrors server-side [ItemCollections] locally. 
 
+---
 
+The SharedState framework facilitates the sharing of application resources, such as `strings`, `numbers`, `booleans`, `objects`, `arrays`, or more advanced data structures like `Set`, `Map`, `List`, or `Tree`.
 
-The SharedState framework facilitates sharing of low-level application resources, such as `string`, `number`, `boolean`, `object`, or `array`, or more advanced data structures such as `Set`, `Map`, `List`, or `Tree`. Importantly, the SharedState framework does not provide specific solutions for each of these types, but rather provides a generic state sharing mechanism as a common basis for all these resource types (see [Replication Strategy](/concept/replication)).
-
-
-The SharedState framework facilitates sharing of [ItemCollections].
+Importantly, the framework does not provide custom primitives for each of these data types. Instead, it provides a generic state sharing mechanism, **[ItemCollection]**, as a common basis for all these types (see [Replication Strategy](/concept/replication)).
 
 - The [SharedState Server] hosts [ItemCollections] identified by [Paths].
-- The [SharedState Client] mirrors server-side [ItemCollections] and make them available at the client-side as local proxy objects. 
-
+- The [SharedState Client] mirrors server-side [ItemCollections] and makes them available on the client side as local proxy objects.
 
 ---
 
-
 ## Definitions
-
 
 ### Item
 <a id="item"></a>
 
-- An [Item] is a thin wrapper around some element of application state:
+An [Item] is a thin wrapper around an element of application state:
 
 ```
 Item : {id, state}
 ```
 
 - The `id` property (string) uniquely identifies an item within an [ItemCollection]. 
-- The `state` property must be a JSON serializeable object.
+- The `state` property must be a JSON-serializable object.
 
-The SharedState service is agnostic to the internal representation of `state`. The 'id' property ust be provided by the application. If the `state` element originates from a data model that already includes a unique identifier such as `_id``, `key`, or `uuid`, it may be convenient to reuse this indentifier as `item.id`.
-
+The SharedState service is agnostic to the internal representation of `state`. The `id` property must be provided by the application. If the `state` element originates from a data model that already includes a unique identifier such as `_id`, `key`, or `uuid`, it may be convenient to reuse this identifier as `item.id`.
 
 ### ItemCollection
 <a id="itemcollection"></a>
 
-- An [ItemCollection] is a collection of [Items] where the `id` of each [Item] is unique within the collection.
-
+An [ItemCollection] is a collection of [Items] where the `id` of each [Item] is unique within the collection:
 
 ```
 ItemCollection: ({id_1, state_1}, {id_2, state_2}, ..., {id_n, state_n})
 ```
 
-- The [ItemCollection] allows individual [Items] to be **added**, **removed**, or **replaced**. Batch updates allow multiple such operations to be performed as one.
-
-
+The [ItemCollection] allows individual [Items] to be **added**, **removed**, or **replaced** (see [Client API](/client-api)). Batch updates allow multiple such operations to be performed as one.
 
 ### Path
 <a id="path"></a>
 
-A server-side [ItemCollection] is uniquesly identified by a 3-part [Path].
+A server-side [ItemCollection] is uniquely identified by a 3-part [Path]:
 
 ```
 /app-name/service-name/resource-name
@@ -74,7 +66,7 @@ A server-side [ItemCollection] is uniquesly identified by a 3-part [Path].
 * **`service-name`**: The name of the storage service managing the resource.
 * **`resource-name`**: The name of the resource.
 
-While the 3-part [Path] structure is fixed, applications can define an application specific namespace by introducing delimiters into the `resource-name` component of the [Path].
+While the 3-part [Path] structure is fixed, applications can define an application-specific namespace by introducing delimiters into the `resource-name` component of the [Path]:
 
 ```
 /myapp/items/room1-chat
@@ -82,22 +74,18 @@ While the 3-part [Path] structure is fixed, applications can define an applicati
 ```
 
 * **Forward slashes (`/`) are reserved** for the 3-part path hierarchy (`/app-name/service-name/resource-name`) and cannot be used as delimiters within `resource-name`.
-* **Underscores (`_`) or hyphens (`-`) are recommended** as this avoids collisions with characters used by CSS class selectors (`.`), DOM element IDs (`#`), or pseudo-classes (`:`), making resource names safe to use directly in HTML attributes or CSS queries.
-
-
----
-
-## Server-side ItemCollections
-
-Server-side [ItemCollections] are hosted by [ItemStores].
+* **Underscores (`_`) or hyphens (`-`) are recommended** as delimiters to avoid collisions with characters used by CSS class selectors (`.`), DOM element IDs (`#`), or pseudo-classes (`:`), making resource names safe to use directly in HTML attributes or CSS queries.
 
 ---
 
-## Client-side ItemCollections
+## Server-Side ItemCollections
 
-- Client-side [ItemCollections] are **JavaScript** objects that **mirror** the state of a server-side [ItemCollections].
-- Application code may **query** the state of client-side [ItemCollection] and **react** to changes.
-- Client-side [ItemCollections] also serve as **local proxies**, forwarding **update** reqquest to server-side [ItemCollections]
+Server-side [ItemCollections] are stored and managed by [ItemStores].
 
 ---
 
+## Client-Side ItemCollections
+
+- Client-side [ItemCollections] are JavaScript objects that **mirror** the state of server-side [ItemCollections].
+- Application code may **query** the state of a client-side [ItemCollection] and **react** to state changes.
+- Client-side [ItemCollections] also serve as **local proxies**, forwarding **update requests** to server-side [ItemCollections].

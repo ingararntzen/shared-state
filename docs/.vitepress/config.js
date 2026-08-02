@@ -22,7 +22,7 @@ export default defineConfig({
         text: 'Design',
         items: [
           { text: 'Design Overview', link: '/design/framework' },
-          { text: 'Resources', link: '/design/resources' },
+          { text: 'Item Collections', link: '/design/resources' },
           { text: 'Subscriptions', link: '/design/subscriptions' },
           { text: 'Proxies', link: '/design/proxies' },
           { text: 'Stores', link: '/design/stores' },
