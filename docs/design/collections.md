@@ -51,7 +51,7 @@ An [ItemCollection] is a collection of [Items] where the `id` of each [Item] is 
 ItemCollection: ({id_1, state_1}, {id_2, state_2}, ..., {id_n, state_n})
 ```
 
-The [ItemCollection] allows individual [Items] to be **added**, **removed**, or **replaced** (see [Client API](/client-api)). Batch updates allow multiple such operations to be performed as one.
+The [ItemCollection] allows individual [Items] to be **added**, **removed**, or **replaced** (see [Client API](/client-api/)). Batch updates allow multiple such operations to be performed as one.
 
 ### Path
 <a id="path"></a>

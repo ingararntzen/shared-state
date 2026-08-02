@@ -1,5 +1,5 @@
-[Path]: /design/resources#path
-[Paths]: /design/resources#path
+[Path]: /design/collections#path
+[Paths]: /design/collections#path
 [SharedState Client]: /design/framework#sharedstate-client
 [SharedState Server]: /design/framework#sharedstate-server
 

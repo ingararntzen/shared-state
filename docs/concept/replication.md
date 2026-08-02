@@ -1,7 +1,7 @@
-[Item]: /design/resources.md#item
-[Items]: /design/resources.md#item
-[ItemCollection]: /design/resources.md#itemcollection
-[ItemCollections]: /design/resources.md#itemcollection
+[Item]: /design/collections#item
+[Items]: /design/collections#item
+[ItemCollection]: /design/collections#itemcollection
+[ItemCollections]: /design/collections#itemcollection
 
 # Replication Strategy
 

@@ -1,9 +1,9 @@
-[Item]: /design/resources.md#item
-[Items]: /design/resources.md#item
-[ItemCollection]: /design/resources.md#itemcollection
-[ItemCollections]: /design/resources.md#itemcollection
-[Path]: /design/resources.md#path
-[Paths]: /design/resources.md#path
+[Item]: /design/collections#item
+[Items]: /design/collections#item
+[ItemCollection]: /design/collections#itemcollection
+[ItemCollections]: /design/collections#itemcollection
+[Path]: /design/collections#path
+[Paths]: /design/collections#path
 [ItemStore]: /design/stores
 [ItemStores]: /design/stores
 

@@ -22,13 +22,13 @@ export default defineConfig({
         text: 'Design',
         items: [
           { text: 'Design Overview', link: '/design/framework' },
-          { text: 'Item Collections', link: '/design/resources' },
+          { text: 'Item Collections', link: '/design/collections' },
+          { text: 'Proxy Objects', link: '/design/proxyobjects' },
           { text: 'Subscriptions', link: '/design/subscriptions' },
-          { text: 'Proxies', link: '/design/proxies' },
-          { text: 'Stores', link: '/design/stores' },
-          { text: 'Clock', link: '/design/clock' },
           { text: 'Connection', link: '/design/connection' },
+          { text: 'Clock', link: '/design/clock' },
           { text: 'Messages', link: '/design/messages' },
+          { text: 'Stores', link: '/design/stores' },
         ]
       },
       {
