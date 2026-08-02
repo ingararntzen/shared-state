@@ -16,15 +16,9 @@
 > - The [SharedState Client] mirrors server-side [ItemCollections] locally. 
 
 
----
-
-## Application Resources
 
 The SharedState framework facilitates sharing of low-level application resources, such as `string`, `number`, `boolean`, `object`, or `array`, or more advanced data structures such as `Set`, `Map`, `List`, or `Tree`. Importantly, the SharedState framework does not provide specific solutions for each of these types, but rather provides a generic state sharing mechanism as a common basis for all these resource types (see [Replication Strategy](/concept/replication)).
 
----
-
-## Unit of State Sharing
 
 The SharedState framework facilitates sharing of [ItemCollections].
 
