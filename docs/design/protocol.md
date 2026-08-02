@@ -1,17 +1,15 @@
-# WebSocket Protocol
+# Communication Protocol
 
 > - SharedState uses a clean JSON message envelope over a single WebSocket connection.
 > - The protocol supports request-reply tunneling and push-based change notifications.
 
-For client library details, see [Client API](/client-api/).
 
 ---
 
-## Message Envelope Structure
+## Message Envelope
 
 All WebSocket frames are serialized JSON objects containing three core fields: `type`, `cmd`, and payload attributes.
 
-### Message Types
 
 1. **`REQUEST`**: Sent by client to request an action on a resource path.
 2. **`REPLY`**: Sent by server in response to a specific `REQUEST`, matched via a `tunnel` ID field.
@@ -29,7 +27,36 @@ All WebSocket frames are serialized JSON objects containing three core fields: `
 
 ---
 
-## Example Flow: Update & Broadcast
+## Client-side Communication
+
+- **send/onreceive**
+- **request/reply -> promise** and server side support.
+
+
+- get("GET")
+- update("PUT")
+
+- subs()
+- unsub()
+
+
+---
+
+## Server-side Communication
+
+- service requests
+- change notifications notifications
+- initial state (begin/end?)
+
+
+
+---
+
+## Example Session: 
+
+
+### Subscribe # Initial State
+
 
 ```
 Client A                   Server                   Client B
@@ -42,9 +69,24 @@ Client A                   Server                   Client B
 ```
 
 
+### Update & Broadcast
+
+```
+Client A                   Server                   Client B
+   │                         │                         │
+   ├── PUT /myapp/items ────►│                         │
+   │   (REQUEST, tunnel: 1)  ├── Commit Batch          │
+   │                         ├── NOTIFY /myapp/items ─►│
+   │◄── REPLY (ok: true) ────┤   (MESSAGE)             │
+   │    (tunnel: 1)          │                         │
+```
+
+---
+
+## Example Messages
 
 
-### 3. Subscription Reset Request (`PUT /subs`)
+### 1. Reset Subscriptions (`PUT /subs`)
 
 Whenever subscriptions change—or when a client reconnects—the client posts its complete active subscription set to `/subs` as a single batch update:
 
@@ -64,3 +106,30 @@ Whenever subscriptions change—or when a client reconnects—the client posts i
 }
 ```
 
+### 2. ping
+
+- request and reply
+
+
+### 3. update
+
+- request, notification, reply
+
+```json
+{
+  "type": "REQUEST",
+  "cmd": "PUT",
+  "path": "/myapp/items",
+  "arg": {
+    "insert": [
+      ["/myapp/items/room1-chat", {}],
+      ["/myapp/items/config", {}]
+    ],
+    "reset": true
+  },
+  "tunnel": 0
+}
+```
+
+
+---

@@ -27,8 +27,8 @@ export default defineConfig({
           { text: 'Subscriptions', link: '/design/subscriptions' },
           { text: 'Connection', link: '/design/connection' },
           { text: 'Clock', link: '/design/clock' },
-          { text: 'Messages', link: '/design/messages' },
-          { text: 'Stores', link: '/design/stores' },
+          { text: 'Protocol', link: '/design/protocol' },
+          { text: 'Item Store', link: '/design/stores' },
         ]
       },
       {

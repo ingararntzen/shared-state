@@ -1,13 +1,16 @@
-# Pluggable Services
+# Item Store
 
-> - SharedState decouples WebSocket networking and client synchronization from backend storage engines.
-> - Backend storage modules implement a clean service interface.
+- SharedState Server decouple server logic from backend ItemStores
+- Extensible with new types of ItemStores
+- Describe possible indexing support, Timestamps, Intervals, Geographical Coordinates
+- Interface intended for internal store objects, not as bridge to external services.
+- Asynchronous implementation.
+- Explain API - and which operations are needed at different stages of server operations.
 
-For architectural overview, see [SharedState Architecture](/concept/architecture).
 
 ---
 
-## Service Module Interface
+## ItemStore Interface
 
 Every backend storage service in SharedState implements a pluggable module interface exposing two core asynchronous methods:
 
