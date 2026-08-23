@@ -83,9 +83,9 @@ This design combines high expressiveness with efficient representation of state 
 
 | State Changes | Effect |
 | :--- | :--- |
-| `{ delete: [], insert: [], reset: false }` | **No Changes** |
-| `{ delete: [], insert: [...], reset: false }` | **Insert or Replace Items** |
-| `{ delete: [...], insert: [], reset: false }` | **Delete Items** |
-| `{ delete: [...], insert: [...], reset: false }` | **Delete Items + Insert or Replace Items** |
+| `{ remove: [], insert: [], reset: false }` | **No Changes** |
+| `{ remove: [], insert: [...], reset: false }` | **Insert or Replace Items** |
+| `{ remove: [...], insert: [], reset: false }` | **Delete Items** |
+| `{ remove: [...], insert: [...], reset: false }` | **Delete Items + Insert or Replace Items** |
 | `{ reset: true }` | **Clear all Items** |
 | `{ insert: [...], reset: true }` | **Clear all Items + Insert Items** |

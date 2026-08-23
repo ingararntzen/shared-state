@@ -39,39 +39,33 @@ export class ProxyCollection {
         }
 
         const {remove=[], insert=[], reset=false} = changes;
-        const diff_map = new Map();
+        const eff_remove = [];
+        const eff_insert = [];
 
-        // remove items - create diff
         if (reset) {
-            for (const item of this._map.values()) {
-                diff_map.set(
-                    item.id, 
-                    {id: item.id, new:undefined, old:item}
-                );
-            }
+            eff_remove.push(...this._map.keys());
             this._map = new Map();
         } else {
             for (const _id of remove) {
-                const old = this._map.get(_id);
-                if (old != undefined) {
+                if (this._map.has(_id)) {
                     this._map.delete(_id);
-                    diff_map.set(_id, {id:_id, new:undefined, old});
+                    eff_remove.push(_id);
                 }
             }
         }
 
-        // insert items - update diff
         for (const item of insert) {
-            const _id = item.id;
-            // old from diff_map or _map
-            const diff = diff_map.get(_id);
-            const old = (diff != undefined) ? diff.old : this._map.get(_id);
-            // set state
-            this._map.set(_id, item);
-            // update diff map
-            diff_map.set(_id, {id:_id, new:item, old});
+            this._map.set(item.id, item);
+            eff_insert.push(item);
         }
-        this._notify_callbacks([...diff_map.values()]);
+
+        const effective_changes = {
+            remove: eff_remove,
+            insert: eff_insert,
+            reset: reset
+        };
+
+        this._notify_callbacks(effective_changes);
     }
 
     _notify_callbacks (eArg) {

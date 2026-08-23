@@ -2,6 +2,7 @@
 [Items]: #item
 [Path]: #path
 [Paths]: #path
+[Changes]: #changes
 [ItemCollection]: #itemcollection
 [ItemCollections]: #itemcollection
 [ItemStore]: /design/stores
@@ -33,12 +34,15 @@ Importantly, the framework does not provide custom primitives for each of these 
 
 An [Item] is a thin wrapper around an element of application state:
 
-```
-Item : {id, state}
+```json
+{
+  "id": "item-id",
+  "state": { /* JSON serializable object */ }
+}
 ```
 
 - The `id` property (string) uniquely identifies an item within an [ItemCollection]. 
-- The `state` property must be a JSON-serializable object.
+- The `state` property must be a JSON-serializable object or value.
 
 The SharedState service is agnostic to the internal representation of `state`. The `id` property must be provided by the application. If the `state` element originates from a data model that already includes a unique identifier such as `_id`, `key`, or `uuid`, it may be convenient to reuse this identifier as `item.id`.
 
@@ -51,7 +55,26 @@ An [ItemCollection] is a collection of [Items] where the `id` of each [Item] is 
 ItemCollection: ({id_1, state_1}, {id_2, state_2}, ..., {id_n, state_n})
 ```
 
-The [ItemCollection] allows individual [Items] to be **added**, **removed**, or **replaced** (see [Client API](/client-api/)). Batch updates allow multiple such operations to be performed as one.
+The [ItemCollection] allows individual [Items] to be added, removed, or replaced. Batch updates allow multiple such operations to be performed atomically in a single operation.
+
+### Changes
+<a id="changes"></a>
+
+State mutations on an [ItemCollection] are expressed using a [Changes] object:
+
+```javascript
+const changes = { remove, insert, reset };
+```
+
+* **`remove`**: An array containing the IDs of items to remove from the collection (`string[]`).
+* **`insert`**: An array containing new or updated items to insert or replace within the collection (`Item[]`).
+* **`reset`**: A boolean flag (default `false`). If `true`, deletes all existing items before performing insertions.
+
+> **Note**:
+> * Removals are always executed before inserts.
+> * Updating with `{ insert: items, reset: true }` is functionally equivalent to replacing the entire collection state.
+
+The design rationale for [Changes] is described as part of [Replication Strategy](/concept/replication#representation-of-state-change)
 
 ### Path
 <a id="path"></a>
@@ -59,11 +82,11 @@ The [ItemCollection] allows individual [Items] to be **added**, **removed**, or 
 A server-side [ItemCollection] is uniquely identified by a 3-part [Path]:
 
 ```
-/app-name/service-name/resource-name
+/app-name/store-name/resource-name
 ```
 
 * **`app-name`**: The name of the application.
-* **`service-name`**: The name of the storage service managing the resource.
+* **`store-name`**: The name of the storage engine or store managing the resource.
 * **`resource-name`**: The name of the resource.
 
 While the 3-part [Path] structure is fixed, applications can define an application-specific namespace by introducing delimiters into the `resource-name` component of the [Path]:
@@ -73,7 +96,7 @@ While the 3-part [Path] structure is fixed, applications can define an applicati
 /myapp/items/room1_whiteboard
 ```
 
-* **Forward slashes (`/`) are reserved** for the 3-part path hierarchy (`/app-name/service-name/resource-name`) and cannot be used as delimiters within `resource-name`.
+* **Forward slashes (`/`) are reserved** for the 3-part path hierarchy (`/app-name/store-name/resource-name`) and cannot be used as delimiters within `resource-name`.
 * **Underscores (`_`) or hyphens (`-`) are recommended** as delimiters to avoid collisions with characters used by CSS class selectors (`.`), DOM element IDs (`#`), or pseudo-classes (`:`), making resource names safe to use directly in HTML attributes or CSS queries.
 
 ---
@@ -87,5 +110,5 @@ Server-side [ItemCollections] are stored and managed by [ItemStores].
 ## Client-Side ItemCollections
 
 - Client-side [ItemCollections] are JavaScript objects that **mirror** the state of server-side [ItemCollections].
-- Application code may **query** the state of a client-side [ItemCollection] and **react** to state changes.
+- Application code may **query** the state of a client-side [ItemCollection] and **react** to state changes via callbacks.
 - Client-side [ItemCollections] also serve as **local proxies**, forwarding **update requests** to server-side [ItemCollections].

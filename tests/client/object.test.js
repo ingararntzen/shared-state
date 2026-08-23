@@ -56,8 +56,8 @@ describe("ProxyObject Unit Tests", () => {
         expect(obj.get_item("sub1")).toEqual({ id: "sub1", val: 100 });
         expect(callback).toHaveBeenCalledWith({
             id: "my_obj",
-            new: { id: "my_obj", state: subItems },
-            old: undefined
+            item: { id: "my_obj", state: subItems },
+            removed: false
         });
 
         // Simulate update for unrelated item id

@@ -34,9 +34,11 @@ describe("ProxyCollection Unit Tests", () => {
         expect(coll.size).toBe(1);
         expect(coll.has_item("item1")).toBe(true);
         expect(coll.get_item("item1")).toEqual({ id: "item1", state: "foo" });
-        expect(callback).toHaveBeenLastCalledWith([
-            { id: "item1", new: { id: "item1", state: "foo" }, old: undefined }
-        ]);
+        expect(callback).toHaveBeenLastCalledWith({
+            remove: [],
+            insert: [{ id: "item1", state: "foo" }],
+            reset: false
+        });
 
         // 2. Replace item1
         coll._ssclient_update({
@@ -47,9 +49,11 @@ describe("ProxyCollection Unit Tests", () => {
 
         expect(coll.size).toBe(1);
         expect(coll.get_item("item1")).toEqual({ id: "item1", state: "bar" });
-        expect(callback).toHaveBeenLastCalledWith([
-            { id: "item1", new: { id: "item1", state: "bar" }, old: { id: "item1", state: "foo" } }
-        ]);
+        expect(callback).toHaveBeenLastCalledWith({
+            remove: [],
+            insert: [{ id: "item1", state: "bar" }],
+            reset: false
+        });
 
         // 3. Delete item1
         coll._ssclient_update({
@@ -60,9 +64,11 @@ describe("ProxyCollection Unit Tests", () => {
 
         expect(coll.size).toBe(0);
         expect(coll.has_item("item1")).toBe(false);
-        expect(callback).toHaveBeenLastCalledWith([
-            { id: "item1", new: undefined, old: { id: "item1", state: "bar" } }
-        ]);
+        expect(callback).toHaveBeenLastCalledWith({
+            remove: ["item1"],
+            insert: [],
+            reset: false
+        });
     });
 
     test("handles reset update", () => {

@@ -238,34 +238,16 @@ class SharedStateServer:
                 await self._process_multicast_notify(*args)
         self._tasks = []
 
-    async def _process_unicast_reset(self, ws, paths):
-        for path in paths:
-            changes = {"remove": [], "insert": [], "reset": True}
-            if self._clients.is_subscribed_to_path(ws, path):
-                ok, result = await self.handle_GET(ws, path)
-                if ok:
-                    changes["insert"] = result
-            msg = {
-                "type": MsgType.MESSAGE,
-                "cmd": MsgCmd.NOTIFY,
-                "path": path,
-                "data": changes
-            }
-            await self._send(ws, json.dumps(msg))
-
-    async def _process_multicast_notify(self, path, changes, diffs, oldstate_included):
-        insert = []
-        remove = []
-        for diff in diffs:
-            if diff["new"] is None:
-                remove.append(diff["id"])
-            else:
-                insert.append(diff["new"])
-        changes = {
-            "remove": remove,
-            "insert": insert,
-            "reset": changes.get("reset", False)
+    async def _process_unicast_reset(self, ws, path, changes):
+        msg = {
+            "type": MsgType.MESSAGE,
+            "cmd": MsgCmd.NOTIFY,
+            "path": path,
+            "data": changes
         }
+        await self._send(ws, json.dumps(msg))
+
+    async def _process_multicast_notify(self, path, changes):
         msg = {
             "type": MsgType.MESSAGE,
             "cmd": MsgCmd.NOTIFY,
@@ -292,7 +274,7 @@ class SharedStateServer:
         if n_path == PurePosixPath("/clock"):
             return True, datetime.now(timezone.utc).timestamp()
 
-        # /app/store/chnl
+        # /app/store/resource
         parts = n_path.parts[1:]
         if len(parts) >= 3:
             app, store_name, resource = parts[0], parts[1], parts[2]
@@ -311,20 +293,24 @@ class SharedStateServer:
         if n_path == PurePosixPath("/subs"):
             subs = changes.get("insert", [])
             self._clients.put_subs(ws, subs)
-            reset_paths = [p for p, sub in subs]
-            self._tasks.append(("unicast_reset", ws, reset_paths))
+            for sub_path, sub_opts in subs:
+                if self._clients.is_subscribed_to_path(ws, sub_path):
+                    ok, result = await self.handle_GET(ws, sub_path)
+                    if ok:
+                        reset_changes = {"remove": [], "insert": result, "reset": True}
+                        self._tasks.append(("unicast_reset", ws, sub_path, reset_changes))
             return True, self._clients.get_subs(ws)
 
         parts = n_path.parts[1:]
         if len(parts) >= 3:
-            app, store_name, chnl = parts[0], parts[1], parts[2]
+            app, store_name, resource = parts[0], parts[1], parts[2]
             store = self._stores.get(store_name, None)
             if store is None:
                 return False, "no store"
-            diffs = await store.update(app, chnl, changes)
-            oldstate_included = getattr(store, "oldstate_included", False)
-            self._tasks.append(("multicast_notify", path_str, changes, diffs, oldstate_included))
-            return True, len(diffs)
+            eff_changes = await store.update(app, resource, changes)
+            self._tasks.append(("multicast_notify", path_str, eff_changes))
+            total_items = len(eff_changes.get("insert", [])) + len(eff_changes.get("remove", []))
+            return True, total_items
         return False, "invalid path"
 
     ####################################################################

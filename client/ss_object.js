@@ -29,14 +29,19 @@ export class ProxyObject {
         this._handle = this._coll.add_callback(this._onchange.bind(this));
     }
 
-    _onchange(diffs) {
+    _onchange(changes) {
         if (this._terminated) {
             throw new Error("proxy object terminated")
         }
-        for (const diff of diffs) {
-            if (diff.id == this._id) {
-                this.notify_callbacks(diff);
-            }
+        const { remove=[], insert=[], reset=false } = changes;
+        const item = insert.find(i => i.id === this._id);
+        const removed = reset || remove.includes(this._id);
+        if (item || removed) {
+            this.notify_callbacks({
+                id: this._id,
+                item: item,
+                removed: removed && !item
+            });
         }
     }
 

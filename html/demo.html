@@ -1,67 +1,287 @@
 <!DOCTYPE html>
-
-<meta charset="utf-8" />
-
-<title>SharedState Viewer</title>
-
+<html lang="en">
 <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SharedState Collection Demo</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        .id {color:red;}
-        .itv {color: green;}
-        .state {color: blue;}
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: rgba(30, 41, 59, 0.7);
+            --card-border: rgba(255, 255, 255, 0.1);
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --accent-primary: #6366f1;
+            --accent-hover: #4f46e5;
+            --accent-danger: #ef4444;
+            --badge-bg: rgba(99, 102, 241, 0.15);
+            --badge-color: #818cf8;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 2rem 1rem;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 650px;
+            background: var(--card-bg);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 2rem;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--card-border);
+        }
+
+        h2 {
+            font-size: 1.35rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #a5b4fc 0%, #6366f1 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .badge {
+            background: var(--badge-bg);
+            color: var(--badge-color);
+            font-size: 0.85rem;
+            font-weight: 600;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            border: 1px solid rgba(99, 102, 241, 0.3);
+        }
+
+        .controls {
+            display: flex;
+            gap: 0.75rem;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        button {
+            font-family: inherit;
+            font-size: 0.9rem;
+            font-weight: 600;
+            padding: 0.6rem 1.2rem;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary {
+            background-color: var(--accent-primary);
+            color: #fff;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--accent-hover);
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background-color: rgba(255, 255, 255, 0.08);
+            color: var(--text-main);
+            border: 1px solid var(--card-border);
+        }
+
+        .btn-secondary:hover {
+            background-color: rgba(255, 255, 255, 0.15);
+            transform: translateY(-1px);
+        }
+
+        .btn-danger {
+            background-color: rgba(239, 68, 68, 0.15);
+            color: #fca5a5;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+
+        .btn-danger:hover {
+            background-color: var(--accent-danger);
+            color: #fff;
+            transform: translateY(-1px);
+        }
+
+        .item-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .item-card {
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid var(--card-border);
+            border-radius: 10px;
+            padding: 0.85rem 1.1rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: all 0.2s ease;
+        }
+
+        .item-card:hover {
+            border-color: rgba(99, 102, 241, 0.4);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .item-info {
+            display: flex;
+            flex-direction: column;
+            gap: 0.2rem;
+        }
+
+        .item-id {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #818cf8;
+            font-family: monospace;
+        }
+
+        .item-state {
+            font-size: 0.95rem;
+            color: var(--text-main);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem 1rem;
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            background: rgba(15, 23, 42, 0.4);
+            border: 1px dashed var(--card-border);
+            border-radius: 12px;
+        }
+
+        .btn-sm-danger {
+            padding: 0.35rem 0.65rem;
+            font-size: 0.78rem;
+            border-radius: 6px;
+        }
     </style>
-
-    <script type="module">
-        import {
-            SharedStateClient,
-            CollectionViewer
-        } from "./libs/sharedstate.es.js";
-
-
-        function getRandomInt(max) {
-          return Math.floor(Math.random() * max);
-        }
-
-        const client = new SharedStateClient("ws://0.0.0.0:9000");
-
-        // Collection
-        const coll = client.acquire_collection("/app/items/chnl")
-
-        // Collection Viewer
-        const elem = document.querySelector("#viewer");
-        const viewer = new CollectionViewer(coll, elem, {delete:true});
-
-        document.querySelector("#addBtn").onclick = () => {
-            const idx = getRandomInt(100);
-            const items = [{id: `id_${idx}`, state: `state_${idx}`}];
-            coll.update_items({insert:items});
-        }
-
-        document.querySelector("#changeBtn").onclick = () => {
-            // pick random item
-            const idx = getRandomInt(coll.size);
-            const new_idx = getRandomInt(100);
-            const new_item = {id:`id_${idx}`, state: `state_${new_idx}`};
-            coll.update_items({insert:[new_item]});
-        }
-
-        document.querySelector("#resetBtn").onclick = () => {
-            coll.update_items({reset:true});
-        }
-
-    </script>
 </head>
 <body>
 
-    <h3> SharedState Collection Viewer</h3>
-    <p>
-        <button id="addBtn">Add</button>
-        <button id="changeBtn">Change</button>
-        <button id="resetBtn">Reset</button>
-    </p>
+    <div class="container">
+        <div class="header">
+            <h2>SharedState Collection Demo</h2>
+            <div class="badge" id="countBadge">0 Items</div>
+        </div>
 
-    <h3>Viewer</h3>
-    <div id="viewer"></div>
+        <div class="controls">
+            <button id="addBtn" class="btn-primary">+ Add Item</button>
+            <button id="changeBtn" class="btn-secondary">⚡ Mutate Random</button>
+            <button id="resetBtn" class="btn-danger">🗑 Reset Collection</button>
+        </div>
 
+        <div id="viewer" class="item-list">
+            <div class="empty-state">Loading collection items...</div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { SharedStateClient } from "/dist/sharedstate.es.js";
+
+        function getRandomInt(max) {
+            return Math.floor(Math.random() * max);
+        }
+
+        const wsUrl = `ws://${location.hostname || "127.0.0.1"}:${location.port || 9000}`;
+        const client = new SharedStateClient(wsUrl);
+
+        // Acquire Collection
+        const coll = client.acquire_collection("/app/mitems/chnl");
+
+        const viewerEl = document.querySelector("#viewer");
+        const countBadgeEl = document.querySelector("#countBadge");
+
+        function render() {
+            const items = coll.get_items();
+            countBadgeEl.textContent = `${items.length} ${items.length === 1 ? 'Item' : 'Items'}`;
+
+            if (items.length === 0) {
+                viewerEl.innerHTML = `<div class="empty-state">Collection is empty. Click "+ Add Item" to populate.</div>`;
+                return;
+            }
+
+            viewerEl.innerHTML = "";
+            items.forEach((item) => {
+                const card = document.createElement("div");
+                card.className = "item-card";
+
+                const info = document.createElement("div");
+                info.className = "item-info";
+                info.innerHTML = `
+                    <span class="item-id">ID: ${item.id}</span>
+                    <span class="item-state">${typeof item.state === "object" ? JSON.stringify(item.state) : item.state}</span>
+                `;
+
+                const delBtn = document.createElement("button");
+                delBtn.className = "btn-danger btn-sm-danger";
+                delBtn.textContent = "Remove";
+                delBtn.onclick = () => {
+                    coll.update_items({ remove: [item.id] });
+                };
+
+                card.appendChild(info);
+                card.appendChild(delBtn);
+                viewerEl.appendChild(card);
+            });
+        }
+
+        // Subscribe to collection changes
+        coll.add_callback(() => {
+            render();
+        });
+
+        // Event Listeners
+        document.querySelector("#addBtn").onclick = () => {
+            const idx = getRandomInt(100);
+            const items = [{ id: `id_${idx}`, state: `state_val_${idx}` }];
+            coll.update_items({ insert: items });
+        };
+
+        document.querySelector("#changeBtn").onclick = () => {
+            const items = coll.get_items();
+            if (items.length === 0) return;
+            const target = items[getRandomInt(items.length)];
+            const new_idx = getRandomInt(100);
+            coll.update_items({ insert: [{ id: target.id, state: `state_val_${new_idx}` }] });
+        };
+
+        document.querySelector("#resetBtn").onclick = () => {
+            coll.update_items({ reset: true });
+        };
+
+        // Initial render
+        render();
+    </script>
 </body>
-</html> 
+</html>
