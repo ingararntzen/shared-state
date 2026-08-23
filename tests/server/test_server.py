@@ -41,16 +41,14 @@ async def server(tmp_path):
 
     port = srv._ws_server.sockets[0].getsockname()[1]
     srv._port = port
-    srv._http_port = port
-    srv._ws_port = port
 
-    yield srv, port, port
+    yield srv, port
 
     await srv.shutdown()
 
 
-def make_ws_client(ws_port):
-    return websockets.connect(f"ws://127.0.0.1:{ws_port}")
+def make_ws_client(port):
+    return websockets.connect(f"ws://127.0.0.1:{port}")
 
 
 async def send_ws_request(ws, cmd, path, arg=None):
@@ -66,25 +64,25 @@ async def send_ws_request(ws, cmd, path, arg=None):
     return json.loads(resp)
 
 
-def _sync_http_get_json(http_port, path):
-    url = f"http://127.0.0.1:{http_port}{path}"
+def _sync_http_get_json(port, path):
+    url = f"http://127.0.0.1:{port}{path}"
     req = urllib.request.Request(url, headers={"Accept": "application/json"})
     with urllib.request.urlopen(req) as resp:
         return resp.status, json.loads(resp.read().decode('utf-8'))
 
 
-async def http_get_json(http_port, path):
-    return await asyncio.to_thread(_sync_http_get_json, http_port, path)
+async def http_get_json(port, path):
+    return await asyncio.to_thread(_sync_http_get_json, port, path)
 
 
-def _sync_http_get_raw(http_port, path):
-    url = f"http://127.0.0.1:{http_port}{path}"
+def _sync_http_get_raw(port, path):
+    url = f"http://127.0.0.1:{port}{path}"
     with urllib.request.urlopen(url) as resp:
         return resp.status, resp.read().decode('utf-8')
 
 
-async def http_get_raw(http_port, path):
-    return await asyncio.to_thread(_sync_http_get_raw, http_port, path)
+async def http_get_raw(port, path):
+    return await asyncio.to_thread(_sync_http_get_raw, port, path)
 
 
 # =====================================================================
@@ -93,8 +91,8 @@ async def http_get_raw(http_port, path):
 
 @pytest.mark.asyncio
 async def test_ws_get_services(server):
-    _, _, ws_port = server
-    async with make_ws_client(ws_port) as ws:
+    _, port = server
+    async with make_ws_client(port) as ws:
         reply = await send_ws_request(ws, MsgCmd.GET, "/")
         assert reply["type"] == MsgType.REPLY
         assert reply["ok"] is True
@@ -103,8 +101,8 @@ async def test_ws_get_services(server):
 
 @pytest.mark.asyncio
 async def test_ws_get_clock(server):
-    _, _, ws_port = server
-    async with make_ws_client(ws_port) as ws:
+    _, port = server
+    async with make_ws_client(port) as ws:
         reply = await send_ws_request(ws, MsgCmd.GET, "/clock")
         assert reply["type"] == MsgType.REPLY
         assert reply["ok"] is True
@@ -114,8 +112,8 @@ async def test_ws_get_clock(server):
 
 @pytest.mark.asyncio
 async def test_ws_items_crud(server):
-    _, _, ws_port = server
-    async with make_ws_client(ws_port) as ws:
+    _, port = server
+    async with make_ws_client(port) as ws:
         path = "/app/mitems/chnl"
         items = [{"id": "item1", "data": "val1"}]
         reply = await send_ws_request(ws, MsgCmd.PUT, path, {"insert": items})
@@ -129,10 +127,10 @@ async def test_ws_items_crud(server):
 
 @pytest.mark.asyncio
 async def test_ws_multicast_notify(server):
-    _, _, ws_port = server
+    _, port = server
     sub_path = "/app/mitems/chnl"
 
-    async with make_ws_client(ws_port) as ws_a, make_ws_client(ws_port) as ws_b:
+    async with make_ws_client(port) as ws_a, make_ws_client(port) as ws_b:
         sub_req = {
             "type": MsgType.REQUEST,
             "cmd": MsgCmd.PUT,
@@ -164,8 +162,8 @@ async def test_ws_multicast_notify(server):
 
 @pytest.mark.asyncio
 async def test_http_services_list(server):
-    _, http_port, _ = server
-    status, data = await http_get_json(http_port, "/api/services")
+    _, port = server
+    status, data = await http_get_json(port, "/api/services")
     assert status == 200
     srv_names = [s["name"] if isinstance(s, dict) else s for s in data["data"]]
     assert "mitems" in srv_names
@@ -173,27 +171,27 @@ async def test_http_services_list(server):
 
 @pytest.mark.asyncio
 async def test_http_rest_hierarchy(server):
-    _, http_port, ws_port = server
+    _, port = server
     path = "/app/mitems/chnl"
 
     # Insert items via WS
-    async with make_ws_client(ws_port) as ws:
+    async with make_ws_client(port) as ws:
         await send_ws_request(ws, MsgCmd.PUT, path, {"insert": [{"id": "h1", "data": "test"}]})
 
     # 1. GET /api/services/mitems/ -> list app names
-    status, res = await http_get_json(http_port, "/api/services/mitems/")
+    status, res = await http_get_json(port, "/api/services/mitems/")
     assert status == 200
     assert res["ok"] is True
     assert "app" in res["data"]
 
     # 2. GET /api/services/mitems/app/ -> list channel names
-    status, res = await http_get_json(http_port, "/api/services/mitems/app/")
+    status, res = await http_get_json(port, "/api/services/mitems/app/")
     assert status == 200
     assert res["ok"] is True
     assert "chnl" in res["data"]
 
     # 3. GET /api/services/mitems/app/chnl -> list items
-    status, res = await http_get_json(http_port, "/api/services/mitems/app/chnl")
+    status, res = await http_get_json(port, "/api/services/mitems/app/chnl")
     assert status == 200
     assert res["ok"] is True
     assert len(res["data"]) == 1
@@ -202,9 +200,9 @@ async def test_http_rest_hierarchy(server):
 
 @pytest.mark.asyncio
 async def test_http_subs_and_connections(server):
-    _, http_port, ws_port = server
+    _, port = server
 
-    async with make_ws_client(ws_port) as ws:
+    async with make_ws_client(port) as ws:
         # Subscribe
         sub_req = {
             "type": MsgType.REQUEST,
@@ -217,13 +215,13 @@ async def test_http_subs_and_connections(server):
         await ws.recv()  # NOTIFY
 
         # Query HTTP /api/connections
-        status, conns_res = await http_get_json(http_port, "/api/connections")
+        status, conns_res = await http_get_json(port, "/api/connections")
         assert status == 200
         assert conns_res["ok"] is True
         assert len(conns_res["data"]) == 1
 
         # Query HTTP /api/subs
-        status, subs_res = await http_get_json(http_port, "/api/subs")
+        status, subs_res = await http_get_json(port, "/api/subs")
         assert status == 200
         assert subs_res["ok"] is True
         assert len(subs_res["data"]) == 1
@@ -232,12 +230,12 @@ async def test_http_subs_and_connections(server):
 
 @pytest.mark.asyncio
 async def test_http_static_explorer_ui(server):
-    _, http_port, _ = server
-    status, content = await http_get_raw(http_port, "/")
+    _, port = server
+    status, content = await http_get_raw(port, "/")
     assert status == 200
     assert "<title>SharedState - Overview</title>" in content
 
     # Test /static/ prefix asset serving
-    status, content_static = await http_get_raw(http_port, "/static/index.html")
+    status, content_static = await http_get_raw(port, "/static/index.html")
     assert status == 200
     assert "<title>SharedState - Overview</title>" in content_static

@@ -124,20 +124,9 @@ class Clients:
 class SharedStateServer:
 
     def __init__(self, port=9000, host="0.0.0.0", services=[],
-                 http_log="logs/http.log", ws_log="logs/ws.log", html_dir=None,
-                 http_port=None, ws_port=None):
+                 http_log="logs/http.log", ws_log="logs/ws.log", html_dir=None):
         self._host = host
-        # Consolidate single port (support legacy http_port / ws_port kwargs if provided)
-        if http_port is not None and port == 9000:
-            self._port = http_port
-        elif ws_port is not None and port == 9000:
-            self._port = ws_port
-        else:
-            self._port = port
-
-        # Backwards compatibility properties for existing tests
-        self._http_port = self._port
-        self._ws_port = self._port
+        self._port = port
 
         self._http_log_path = http_log
         self._ws_log_path = ws_log
@@ -377,8 +366,6 @@ class SharedStateServer:
                 cfg_data = {
                     "host": self._host,
                     "port": self._port,
-                    "http_port": self._port,
-                    "ws_port": self._port,
                     "http_log": str(self._http_log_path),
                     "ws_log": str(self._ws_log_path),
                     "services": self._service_meta

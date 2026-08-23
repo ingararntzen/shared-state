@@ -21,7 +21,7 @@ export default defineConfig({
       {
         text: 'Design',
         items: [
-          { text: 'Design Overview', link: '/design/framework' },
+          { text: 'Overview', link: '/design/framework' },
           { text: 'Item Collections', link: '/design/collections' },
           { text: 'Proxy Objects', link: '/design/proxyobjects' },
           { text: 'Subscriptions', link: '/design/subscriptions' },
