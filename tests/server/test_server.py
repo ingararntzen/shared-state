@@ -8,10 +8,10 @@ from sharedstate.ss_server import SharedStateServer, MsgType, MsgCmd
 
 @pytest.fixture
 async def server(tmp_path):
-    services_config = [
+    stores_config = [
         {
             "name": "mitems",
-            "module": "items_service",
+            "module": "items_store",
             "config": {
                 "db_type": "sqlite",
                 "db_name": ":memory:",
@@ -27,10 +27,10 @@ async def server(tmp_path):
         port=0,
         http_log=http_log,
         ws_log=ws_log,
-        services=services_config
+        stores=stores_config
     )
-    for service in srv._services.values():
-        await service.open()
+    for store in srv._stores.values():
+        await store.open()
 
     srv._ws_server = await websockets.serve(
         srv._handle_ws_client,
@@ -90,7 +90,7 @@ async def http_get_raw(port, path):
 # =====================================================================
 
 @pytest.mark.asyncio
-async def test_ws_get_services(server):
+async def test_ws_get_stores(server):
     _, port = server
     async with make_ws_client(port) as ws:
         reply = await send_ws_request(ws, MsgCmd.GET, "/")
@@ -161,12 +161,12 @@ async def test_ws_multicast_notify(server):
 # =====================================================================
 
 @pytest.mark.asyncio
-async def test_http_services_list(server):
+async def test_http_stores_list(server):
     _, port = server
-    status, data = await http_get_json(port, "/api/services")
+    status, data = await http_get_json(port, "/api/stores")
     assert status == 200
-    srv_names = [s["name"] if isinstance(s, dict) else s for s in data["data"]]
-    assert "mitems" in srv_names
+    store_names = [s["name"] if isinstance(s, dict) else s for s in data["data"]]
+    assert "mitems" in store_names
 
 
 @pytest.mark.asyncio
@@ -178,20 +178,20 @@ async def test_http_rest_hierarchy(server):
     async with make_ws_client(port) as ws:
         await send_ws_request(ws, MsgCmd.PUT, path, {"insert": [{"id": "h1", "data": "test"}]})
 
-    # 1. GET /api/services/mitems/ -> list app names
-    status, res = await http_get_json(port, "/api/services/mitems/")
+    # 1. GET /api/stores/mitems/ -> list app names
+    status, res = await http_get_json(port, "/api/stores/mitems/")
     assert status == 200
     assert res["ok"] is True
     assert "app" in res["data"]
 
-    # 2. GET /api/services/mitems/app/ -> list channel names
-    status, res = await http_get_json(port, "/api/services/mitems/app/")
+    # 2. GET /api/stores/mitems/app/ -> list channel names
+    status, res = await http_get_json(port, "/api/stores/mitems/app/")
     assert status == 200
     assert res["ok"] is True
     assert "chnl" in res["data"]
 
-    # 3. GET /api/services/mitems/app/chnl -> list items
-    status, res = await http_get_json(port, "/api/services/mitems/app/chnl")
+    # 3. GET /api/stores/mitems/app/chnl -> list items
+    status, res = await http_get_json(port, "/api/stores/mitems/app/chnl")
     assert status == 200
     assert res["ok"] is True
     assert len(res["data"]) == 1

@@ -13,11 +13,11 @@ from sharedstate.ss_server import SharedStateServer
 
 config = [
     {
-        "name": "mitems", "module": "items_service",
+        "name": "mitems", "module": "items_store",
         "config": {"db_type": "sqlite", "db_name": ":memory:", "db_table": "items"}
     }
 ]
-server = SharedStateServer(host="127.0.0.1", port=${PORT}, http_log=None, ws_log=None, services=config)
+server = SharedStateServer(host="127.0.0.1", port=${PORT}, http_log=None, ws_log=None, stores=config)
 asyncio.run(server.serve_forever())
 `;
 

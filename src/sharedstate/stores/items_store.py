@@ -3,14 +3,14 @@ from sharedstate.db_sqlite import SqliteDB
 from collections import OrderedDict
 
 
-class ItemsService:
+class ItemsStore:
 
     def __init__(self, config):
         if config["db_type"] == "mysql":
             self._db = MysqlDB(config)
         elif config["db_type"] == "sqlite":
             self._db = SqliteDB(config)
-        # this service does not include old state in diffs
+        # this store does not include old state in diffs
         self.oldstate_included = False
 
     async def open(self):
@@ -45,7 +45,7 @@ class ItemsService:
         # diffs
         diffs = OrderedDict()
         if reset:
-            # if reset flag is set - no information is incuded
+            # if reset flag is set - no information is included
             # about which items have been removed
             pass
         else:
@@ -58,5 +58,5 @@ class ItemsService:
         return list(diffs.values())
 
 
-def get_service(config):
-    return ItemsService(config)
+def get_store(config):
+    return ItemsStore(config)

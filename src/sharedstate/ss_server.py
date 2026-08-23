@@ -123,7 +123,7 @@ class Clients:
 
 class SharedStateServer:
 
-    def __init__(self, port=9000, host="0.0.0.0", services=[],
+    def __init__(self, port=9000, host="0.0.0.0", stores=[],
                  http_log="logs/http.log", ws_log="logs/ws.log", html_dir=None):
         self._host = host
         self._port = port
@@ -148,21 +148,23 @@ class SharedStateServer:
         # processing tasks
         self._tasks = []
 
-        # services
-        self._services = {}
-        self._service_meta = []
-        for service in services:
-            module_path = f"sharedstate.services.{service['module']}"
+        # item stores
+        self._stores = {}
+        self._store_meta = []
+
+        for store in stores:
+            module_path = f"sharedstate.stores.{store['module']}"
             module = importlib.import_module(module_path)
-            service_obj = module.get_service(service.get("config", {}))
-            self._services[service['name']] = service_obj
-            self._service_meta.append({
-                "name": service['name'],
-                "module": service['module'],
-                "description": service.get("description", f"{service['module']} service")
+            store_obj = module.get_store(store.get("config", {}))
+            
+            self._stores[store['name']] = store_obj
+            self._store_meta.append({
+                "name": store['name'],
+                "module": store['module'],
+                "description": store.get("description", f"{store['module']} store")
             })
 
-        self.ws_logger.info(f"Loaded services: {list(self._services.keys())}")
+        self.ws_logger.info(f"Loaded stores: {list(self._stores.keys())}")
 
     ####################################################################
     # WEBSOCKET HANDLERS & LOGGING
@@ -282,7 +284,7 @@ class SharedStateServer:
         n_path = normalize(path)
 
         if n_path == PurePosixPath("/"):
-            return True, list(self._services.keys())
+            return True, list(self._stores.keys())
 
         if n_path == PurePosixPath("/subs"):
             return True, self._clients.get_subs(ws)
@@ -290,15 +292,15 @@ class SharedStateServer:
         if n_path == PurePosixPath("/clock"):
             return True, datetime.now(timezone.utc).timestamp()
 
-        # /app/service/chnl
+        # /app/store/chnl
         parts = n_path.parts[1:]
         if len(parts) >= 3:
-            app, service, resource = parts[0], parts[1], parts[2]
-            srvc = self._services.get(service, None)
-            if srvc is None:
-                return False, "no service"
+            app, store_name, resource = parts[0], parts[1], parts[2]
+            store = self._stores.get(store_name, None)
+            if store is None:
+                return False, "no store"
             else:
-                return True, await srvc.get(app, resource)
+                return True, await store.get(app, resource)
         return False, "invalid path"
 
     async def handle_PUT(self, ws, path, changes):
@@ -315,12 +317,12 @@ class SharedStateServer:
 
         parts = n_path.parts[1:]
         if len(parts) >= 3:
-            app, service, chnl = parts[0], parts[1], parts[2]
-            srvc = self._services.get(service, None)
-            if srvc is None:
-                return False, "no service"
-            diffs = await srvc.update(app, chnl, changes)
-            oldstate_included = getattr(srvc, "oldstate_included", False)
+            app, store_name, chnl = parts[0], parts[1], parts[2]
+            store = self._stores.get(store_name, None)
+            if store is None:
+                return False, "no store"
+            diffs = await store.update(app, chnl, changes)
+            oldstate_included = getattr(store, "oldstate_included", False)
             self._tasks.append(("multicast_notify", path_str, changes, diffs, oldstate_included))
             return True, len(diffs)
         return False, "invalid path"
@@ -368,27 +370,27 @@ class SharedStateServer:
                     "port": self._port,
                     "http_log": str(self._http_log_path),
                     "ws_log": str(self._ws_log_path),
-                    "services": self._service_meta
+                    "stores": self._store_meta
                 }
                 return 200, "application/json; charset=utf-8", json.dumps({"ok": True, "data": cfg_data}).encode('utf-8'), []
 
-            if api_parts == ['services']:
+            if api_parts == ['stores']:
                 res = []
-                for srv_name, srv in self._services.items():
-                    meta = next((s for s in self._service_meta if isinstance(s, dict) and s.get("name") == srv_name), {}) if isinstance(self._service_meta, list) else {}
+                for store_name, store in self._stores.items():
+                    meta = next((s for s in self._store_meta if isinstance(s, dict) and s.get("name") == store_name), {}) if isinstance(self._store_meta, list) else {}
                     desc = meta.get("description", "")
                     apps_count = 0
                     resources_count = 0
-                    if hasattr(srv, 'apps'):
-                        apps = await srv.apps()
+                    if hasattr(store, 'apps'):
+                        apps = await store.apps()
                         apps_count = len(apps)
                         for app in apps:
-                            if hasattr(srv, 'channels'):
-                                channels = await srv.channels(app)
+                            if hasattr(store, 'channels'):
+                                channels = await store.channels(app)
                                 resources_count += len(channels)
                     res.append({
-                        "name": srv_name,
-                        "path": f"/api/services/{srv_name}",
+                        "name": store_name,
+                        "path": f"/api/stores/{store_name}",
                         "description": desc,
                         "apps": apps_count,
                         "resources": resources_count
@@ -406,14 +408,14 @@ class SharedStateServer:
             if api_parts and api_parts[0] == 'apps':
                 if len(api_parts) == 1:
                     app_map = {}
-                    for srv in self._services.values():
-                        if hasattr(srv, 'apps'):
-                            apps = await srv.apps()
+                    for store in self._stores.values():
+                        if hasattr(store, 'apps'):
+                            apps = await store.apps()
                             for app in apps:
                                 if app not in app_map:
                                     app_map[app] = 0
-                                if hasattr(srv, 'channels'):
-                                    channels = await srv.channels(app)
+                                if hasattr(store, 'channels'):
+                                    channels = await store.channels(app)
                                     app_map[app] += len(channels)
 
                     res = []
@@ -429,60 +431,60 @@ class SharedStateServer:
 
                 if len(api_parts) == 2:
                     app_tree = {}
-                    for srv_name, srv in self._services.items():
-                        if hasattr(srv, 'apps'):
-                            apps = await srv.apps()
+                    for store_name, store in self._stores.items():
+                        if hasattr(store, 'apps'):
+                            apps = await store.apps()
                             if app_name in apps:
-                                app_tree[srv_name] = []
-                                if hasattr(srv, 'channels'):
-                                    channels = await srv.channels(app_name)
+                                app_tree[store_name] = []
+                                if hasattr(store, 'channels'):
+                                    channels = await store.channels(app_name)
                                     for chnl in channels:
-                                        items = await srv.get(app_name, chnl)
-                                        app_tree[srv_name].append({"name": chnl, "count": len(items)})
+                                        items = await store.get(app_name, chnl)
+                                        app_tree[store_name].append({"name": chnl, "count": len(items)})
                     return 200, "application/json; charset=utf-8", json.dumps({"ok": True, "data": app_tree}).encode('utf-8'), []
 
                 if len(api_parts) == 3:
-                    srv_name = api_parts[2]
-                    srvc = self._services.get(srv_name)
-                    if not srvc:
-                        return 404, "application/json", json.dumps({"ok": False, "error": f"no service '{srv_name}'"}).encode('utf-8'), []
-                    if hasattr(srvc, 'channels'):
-                        channels = await srvc.channels(app_name)
+                    store_name = api_parts[2]
+                    store = self._stores.get(store_name)
+                    if not store:
+                        return 404, "application/json", json.dumps({"ok": False, "error": f"no store '{store_name}'"}).encode('utf-8'), []
+                    if hasattr(store, 'channels'):
+                        channels = await store.channels(app_name)
                         return 200, "application/json; charset=utf-8", json.dumps({"ok": True, "data": channels}).encode('utf-8'), []
                     return 200, "application/json; charset=utf-8", json.dumps({"ok": True, "data": []}).encode('utf-8'), []
 
                 if len(api_parts) == 4:
-                    srv_name, chnl_name = api_parts[2], api_parts[3]
-                    srvc = self._services.get(srv_name)
-                    if not srvc:
-                        return 404, "application/json", json.dumps({"ok": False, "error": f"no service '{srv_name}'"}).encode('utf-8'), []
-                    items = await srvc.get(app_name, chnl_name)
+                    store_name, chnl_name = api_parts[2], api_parts[3]
+                    store = self._stores.get(store_name)
+                    if not store:
+                        return 404, "application/json", json.dumps({"ok": False, "error": f"no store '{store_name}'"}).encode('utf-8'), []
+                    items = await store.get(app_name, chnl_name)
                     return 200, "application/json; charset=utf-8", json.dumps({"ok": True, "data": items}).encode('utf-8'), []
 
-            # GET /api/services/...
-            if api_parts and api_parts[0] == 'services':
-                service_name = api_parts[1] if len(api_parts) > 1 else None
-                srvc = self._services.get(service_name) if service_name else None
+            # GET /api/stores/...
+            if api_parts and api_parts[0] == 'stores':
+                store_name = api_parts[1] if len(api_parts) > 1 else None
+                store = self._stores.get(store_name) if store_name else None
 
-                if service_name and not srvc:
-                    return 404, "application/json", json.dumps({"ok": False, "error": f"no service '{service_name}'"}).encode('utf-8'), []
+                if store_name and not store:
+                    return 404, "application/json", json.dumps({"ok": False, "error": f"no store '{store_name}'"}).encode('utf-8'), []
 
                 if len(api_parts) == 2:
-                    if hasattr(srvc, 'apps'):
-                        apps = await srvc.apps()
+                    if hasattr(store, 'apps'):
+                        apps = await store.apps()
                         return 200, "application/json; charset=utf-8", json.dumps({"ok": True, "data": apps}).encode('utf-8'), []
                     return 200, "application/json; charset=utf-8", json.dumps({"ok": True, "data": []}).encode('utf-8'), []
 
                 if len(api_parts) == 3:
                     app_name = api_parts[2]
-                    if hasattr(srvc, 'channels'):
-                        channels = await srvc.channels(app_name)
+                    if hasattr(store, 'channels'):
+                        channels = await store.channels(app_name)
                         return 200, "application/json; charset=utf-8", json.dumps({"ok": True, "data": channels}).encode('utf-8'), []
                     return 200, "application/json; charset=utf-8", json.dumps({"ok": True, "data": []}).encode('utf-8'), []
 
                 if len(api_parts) == 4:
                     app_name, chnl_name = api_parts[2], api_parts[3]
-                    items = await srvc.get(app_name, chnl_name)
+                    items = await store.get(app_name, chnl_name)
                     return 200, "application/json; charset=utf-8", json.dumps({"ok": True, "data": items}).encode('utf-8'), []
 
             return 404, "application/json", json.dumps({"ok": False, "error": "API route not found"}).encode('utf-8'), []
@@ -535,8 +537,8 @@ class SharedStateServer:
 
     async def serve_forever(self):
         self._stop_event = asyncio.Event()
-        for service in self._services.values():
-            await service.open()
+        for store_obj in self._stores.values():
+            await store_obj.open()
             
         self._ws_server = await websockets.serve(
             self._handle_ws_client,
@@ -547,8 +549,6 @@ class SharedStateServer:
 
         if self._ws_server.sockets:
             self._port = self._ws_server.sockets[0].getsockname()[1]
-            self._http_port = self._port
-            self._ws_port = self._port
 
         startup_msg = f"SharedState: Server listening at http://{self._host}:{self._port} (HTTP & WebSockets)"
         print(startup_msg)
@@ -565,8 +565,8 @@ class SharedStateServer:
 
         for ws in list(self._clients.all_clients()):
             await ws.close()
-        for service in self._services.values():
-            await service.close()
+        for store_obj in self._stores.values():
+            await store_obj.close()
 
         if self._ws_server:
             self._ws_server.close()
@@ -592,19 +592,19 @@ async def main():
     with open(args.config) as f:
         config = json.load(f)
 
-    srv_cfg = config.get("service", {})
+    srv_cfg = config.get("service", config.get("server", {}))
     host = srv_cfg.get("host", "0.0.0.0")
     port = int(srv_cfg.get("port", srv_cfg.get("http_port", srv_cfg.get("ws_port", 9000))))
     http_log = srv_cfg.get("http_log", "logs/http.log")
     ws_log = srv_cfg.get("ws_log", "logs/ws.log")
-    services = config.get("services", [])
+    stores = config.get("stores", config.get("services", []))
 
     server = SharedStateServer(
         host=host,
         port=port,
         http_log=http_log,
         ws_log=ws_log,
-        services=services
+        stores=stores
     )
     try:
         await server.serve_forever()

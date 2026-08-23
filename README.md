@@ -74,16 +74,16 @@ flush privileges;
 
 ### Server Config
 
-The following config file defines services for the SharedState server.
-The service named _items_ is based on MySQl. The second service is named
+The following config file defines stores for the SharedState server.
+The store named _items_ is based on MySQL. The second store is named
 _mitems_ and is based on an in-memory sqlite database.
 
 ```json
 {
     "service": {"host": "0.0.0.0", "port": 9000},
-    "services": [
+    "stores": [
         {
-            "name": "items", "module": "items_service", 
+            "name": "items", "module": "items_store", 
             "config": {
                 "db_type": "mysql",
                 "db_name": "sharedstate",
@@ -98,7 +98,7 @@ _mitems_ and is based on an in-memory sqlite database.
             }
         },
         {
-            "name": "mitems", "module": "items_service", 
+            "name": "mitems", "module": "items_store", 
             "config": {
                 "db_type": "sqlite",
                 "db_name": ":memory:",

@@ -1,12 +1,12 @@
 # Server Setup & Administration
 
-The SharedState Python server manages WebSocket clients, route dispatching, and backend storage service execution.
+The SharedState Python server manages WebSocket clients, route dispatching, and backend ItemStore execution.
 
 ## Starting the Server
 
 ### Via CLI
 ```sh
-poetry run sharedstate-server
+poetry run sharedstate-server config.json
 ```
 
 ### Via Python Script
@@ -16,10 +16,10 @@ from sharedstate.ss_server import SharedStateServer
 
 server = SharedStateServer(
     port=9000,
-    services=[
+    stores=[
         {
             "name": "items",
-            "module": "items_service",
+            "module": "items_store",
             "config": {
                 "db_type": "sqlite",
                 "db_name": ":memory:"
@@ -28,7 +28,7 @@ server = SharedStateServer(
     ]
 )
 
-asyncio.run(server.start())
+asyncio.run(server.serve_forever())
 ```
 
 ---
@@ -37,8 +37,7 @@ asyncio.run(server.start())
 
 The server runs HTTP REST administration endpoints on the same port as WebSockets:
 
-* `GET /api/config`: Returns active server configuration and loaded service metadata.
-* `GET /api/services`: Returns loaded service statistics and app counts.
-* `GET /api/subscriptions`: Returns current client subscription mappings.
-* `GET /api/log/http`: Fetches recent HTTP access logs.
-* `GET /api/log/ws`: Fetches recent WebSocket access logs.
+* `GET /api/config`: Returns active server configuration and loaded store metadata.
+* `GET /api/stores`: Returns loaded store statistics and app counts.
+* `GET /api/subs`: Returns current client subscription mappings.
+* `GET /api/connections`: Returns connected client IP list.
