@@ -75,7 +75,7 @@ async def test_channels(db):
     assert len(items_A) == 1
     assert len(items_B) == 1
 
-    res = await db.channels(APP)
+    res = await db.resources(APP)
     assert CHNL_A in res
     assert CHNL_B in res
 

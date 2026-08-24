@@ -10,20 +10,23 @@ class ItemsStore:
         elif config["db_type"] == "sqlite":
             self._db = SqliteDB(config)
 
+    # namespace methods
+    async def apps(self):
+        return await self._db.apps()
+
+    async def resources(self, app):
+        return await self._db.resources(app)
+
+    # lifecycle methods
     async def open(self):
         await self._db.open()
 
     async def close(self):
         await self._db.close()
 
+    # resource methods
     async def get(self, app, resource):
         return await self._db.get_all(app, resource)
-
-    async def apps(self):
-        return await self._db.apps()
-
-    async def channels(self, app):
-        return await self._db.channels(app)
 
     async def update(self, app, resource, changes):
         insert = changes.get("insert", [])

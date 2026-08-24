@@ -371,9 +371,9 @@ class SharedStateServer:
                         apps = await store.apps()
                         apps_count = len(apps)
                         for app in apps:
-                            if hasattr(store, 'channels'):
-                                channels = await store.channels(app)
-                                resources_count += len(channels)
+                            if hasattr(store, 'resources'):
+                                resources = await store.resources(app)
+                                resources_count += len(resources)
                     res.append({
                         "name": store_name,
                         "path": f"/api/stores/{store_name}",
@@ -400,9 +400,9 @@ class SharedStateServer:
                             for app in apps:
                                 if app not in app_map:
                                     app_map[app] = 0
-                                if hasattr(store, 'channels'):
-                                    channels = await store.channels(app)
-                                    app_map[app] += len(channels)
+                                if hasattr(store, 'resources'):
+                                    resources = await store.resources(app)
+                                    app_map[app] += len(resources)
 
                     res = []
                     for app_name in sorted(app_map.keys()):
@@ -422,11 +422,11 @@ class SharedStateServer:
                             apps = await store.apps()
                             if app_name in apps:
                                 app_tree[store_name] = []
-                                if hasattr(store, 'channels'):
-                                    channels = await store.channels(app_name)
-                                    for chnl in channels:
-                                        items = await store.get(app_name, chnl)
-                                        app_tree[store_name].append({"name": chnl, "count": len(items)})
+                                if hasattr(store, 'resources'):
+                                    resources = await store.resources(app_name)
+                                    for res_item in resources:
+                                        items = await store.get(app_name, res_item)
+                                        app_tree[store_name].append({"name": res_item, "count": len(items)})
                     return 200, "application/json; charset=utf-8", json.dumps({"ok": True, "data": app_tree}).encode('utf-8'), []
 
                 if len(api_parts) == 3:
@@ -434,9 +434,9 @@ class SharedStateServer:
                     store = self._stores.get(store_name)
                     if not store:
                         return 404, "application/json", json.dumps({"ok": False, "error": f"no store '{store_name}'"}).encode('utf-8'), []
-                    if hasattr(store, 'channels'):
-                        channels = await store.channels(app_name)
-                        return 200, "application/json; charset=utf-8", json.dumps({"ok": True, "data": channels}).encode('utf-8'), []
+                    if hasattr(store, 'resources'):
+                        resources = await store.resources(app_name)
+                        return 200, "application/json; charset=utf-8", json.dumps({"ok": True, "data": resources}).encode('utf-8'), []
                     return 200, "application/json; charset=utf-8", json.dumps({"ok": True, "data": []}).encode('utf-8'), []
 
                 if len(api_parts) == 4:
@@ -463,9 +463,9 @@ class SharedStateServer:
 
                 if len(api_parts) == 3:
                     app_name = api_parts[2]
-                    if hasattr(store, 'channels'):
-                        channels = await store.channels(app_name)
-                        return 200, "application/json; charset=utf-8", json.dumps({"ok": True, "data": channels}).encode('utf-8'), []
+                    if hasattr(store, 'resources'):
+                        resources = await store.resources(app_name)
+                        return 200, "application/json; charset=utf-8", json.dumps({"ok": True, "data": resources}).encode('utf-8'), []
                     return 200, "application/json; charset=utf-8", json.dumps({"ok": True, "data": []}).encode('utf-8'), []
 
                 if len(api_parts) == 4:

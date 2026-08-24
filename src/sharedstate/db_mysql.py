@@ -300,9 +300,9 @@ class MysqlDB:
                 await self._execute(cur, SQL, args)
                 return [row[0] for row in await cur.fetchall()]
 
-    async def channels(self, app):
+    async def resources(self, app):
         """
-        Get all unique channels of app.
+        Get all unique resources of app.
         Returns entire result as list - not batch generator
         """
         SQL = f"SELECT DISTINCT chnl FROM {self._table} WHERE app=%s"

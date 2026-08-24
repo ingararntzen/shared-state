@@ -1,76 +1,130 @@
+[Path]: /design/collections#path
+[Paths]: /design/collections#path
+[ItemCollection]: /design/collections#itemcollection
+[ItemCollections]: /design/collections#itemcollection
+[Changes]: /design/collections#changes
+[Item]: /design/collections#item
+[ItemStore]: /design/stores#itemstore
+[ItemStores]: /design/stores#itemstores
+[ItemsStore]: /design/stores#default-item-store
+
 # Item Stores
 
-In SharedState, the server core decouples network protocol handling, client connections, and subscription dispatching from persistent storage logic. State persistence is delegated to pluggable **ItemStores**.
+The SharedState server implements state management through the concept of [ItemStores]. This functionality is decoupled from other server functions, such as the handling of client connections, network communication, and subscription management. This is done to support extensibility of the server, allowing custom storage solutions to be used as backends with the SharedState server. 
+
+
+**Default Item Store**
+
+The SharedState server provides a default implementation of the [ItemStore] interface, called `ItemsStore` (`sharedstate.stores.items_store`). This module supports simple item collections indexed by item ID, and may be configured to support either persistent or in-memory storage. Persistent storage is implemented using MySQL, whereas the in-memory version is backed by SQLite.
+
+**Custom Item Store**
+
+Custom implementations may be realized by creating a Python module implementing the [ItemStore] interface. Typically, this module will wrap an existing storage solution, such as a MySQL or PostgreSQL database. This module may then be imported and registered with the server by adding it to the server configuration.
+
 
 ---
 
-## Store Namespace & Delegation
+## Module Functions
 
-Every item collection path in SharedState follows a 3-part URL hierarchy:
-
-$$\text{Path} = \text{/app-name/store-name/resource-name}$$
-
-Within this design:
-
-* **Applications (`app`)**: Each `ItemStore` manages state on behalf of multiple distinct applications.
-* **Resources (`resource`)**: Within each application, the store maintains multiple isolated resources (item collections).
-* **Store Delegation**: When a request targets `/app/store/resource`, `SharedStateServer` routes the request to the `ItemStore` registered under `store-name`. The server never manipulates state directly; it relies on the `ItemStore` interface for all state reads and writes.
-
----
-
-## 1. Lifecycle Methods
-
-Lifecycle methods manage the instantiation, resource allocation, and graceful teardown of an `ItemStore`.
+Python modules implementing the [ItemStore] interface must provide a module-level factory function for the creation of [ItemStore] objects. 
 
 ### `get_store(config)`
 
-* **Purpose**: A module-level factory function that instantiates the `ItemStore` with backend configuration options (e.g. database type, host, credentials, table names, or memory mode).
-* **Server Circumstance**: Invoked once during `SharedStateServer` initialization when parsing server configuration files.
+```python
+def get_store(config: dict | None = None):
+    # create item store
+    return itemstore
+```
 
-### `open()`
-
-* **Purpose**: Asynchronously opens database connections, initializes connection pools, or sets up file handles required for storage operations.
-* **Server Circumstance**: Invoked by `SharedStateServer.serve_forever()` during server startup before the server begins accepting network connections.
-
-### `close()`
-
-* **Purpose**: Performs clean teardown by flushing pending transactions and closing active database connection pools or file handles.
-* **Server Circumstance**: Invoked by `SharedStateServer.shutdown()` when the server process terminates.
+* The configuration object is given in the server configuration file.
 
 ---
 
-## 2. Functional Operations
+## ItemStore Namespace Methods
 
-Functional operations perform the core data retrieval and state mutation tasks required for real-time synchronization.
+[ItemStores] manage resources on behalf of multiple applications. Resources are identified by a 3-part [Path].
 
-### `get(app, resource)`
+```
+/app/store/resource
+```
 
-* **Purpose**: Retrieves the full current state snapshot of an item collection for a specified application and resource. The store returns all active items as a list of item dictionaries (`[ {"id": "...", ...}, ... ]`).
+Namespace methods are used by the Admin UI of the SharedState server:
 
-* **Server Circumstances**:
-  1. **Client Read (`GET` Request)**: When a client issues a WebSocket `REQUEST` with `GET /app/store/resource`, the server calls `store.get(app, resource)` to fetch the current collection snapshot and returns it in a WebSocket `REPLY` message.
-  2. **Subscription Resynchronization**: When a client connects or updates its subscription list (`PUT /subs`), the server calls `store.get(app, resource)` for each subscribed path to fetch a fresh state snapshot, which is sent directly to that client as a unicast `NOTIFY` reset message.
-
-### `update(app, resource, changes)`
-
-* **Purpose**: Applies an atomic batch update containing `insert` items, `remove` item IDs, or a `reset` flag to backend storage. The method processes the mutation atomically and returns the effective `changes` dictionary (`{ "insert": [...], "remove": [...], "reset": bool }`).
-
-* **Server Circumstances**:
-  1. **Client Mutation (`PUT` Request)**: When a client issues a WebSocket `REQUEST` with `PUT /app/store/resource`, the server calls `store.update(app, resource, changes)` to persist the change in storage.
-  2. **Real-time Multicast Notification**: The server takes the effective `changes` dictionary returned by `store.update(...)` and packages it into a `NOTIFY` message. This message is multicasted in real time to all other connected clients currently subscribed to `/app/store/resource`.
-
----
-
-## 3. Administrative & Introspection Methods
-
-Administrative methods allow the server and external tooling to inspect the structure of stored data without mutating state.
 
 ### `apps()`
 
-* **Purpose**: Returns a list of all application names (`app`) currently stored in the backend database.
-* **Server Circumstance**: Invoked by HTTP REST endpoints (`GET /api/apps` or `GET /api/stores/{store}/`) to power administrative discovery.
+```python
+async def apps(self):
+    return []
+```
 
-### `channels(app)`
+* Returns (asynchronously) a list of all application names currently managed by the [ItemStore].
 
-* **Purpose**: Returns a list of all active resource/channel names stored under a specific application.
-* **Server Circumstance**: Invoked by HTTP REST inspection endpoints (`GET /api/stores/{store}/{app}`) and the web-based Admin UI explorer.
+
+### `resources(app)`
+
+```python
+async def resources(self, app: str):
+    return []
+```
+
+* Returns (asynchronously) a list of all active resource names currently managed under a specific application.
+
+
+---
+
+## ItemStore Lifecycle Methods
+
+Lifecycle methods are used by the SharedState server during initialization to open an [ItemStore], and during termination to close it.
+
+
+### `open()`
+
+```python
+async def open(self):
+    pass
+```
+
+* Opens (asynchronously) database connections, initializes connection pools, or sets up file handles required for storage operations.
+
+
+### `close()`
+
+```python
+async def close(self):
+    pass
+```
+
+* Performs clean teardown (asynchronously) of active database connection pools or file handles.
+
+
+---
+
+## ItemStore Resource Methods
+
+Resource methods are used by the SharedState server to fetch or update resource state. Resources correspond to [ItemCollections].
+
+
+### `get(app, resource)`
+
+```python
+async def get(self, app: str, resource: str):
+    return []
+```
+
+* Returns (asynchronously) a list of all items in the collection.
+* Used by the SharedState server to resolve the initial state whenever a client subscribes to a resource.
+ 
+
+### `update(app, resource, changes)`
+
+```python
+async def update(self, app: str, resource: str, changes: dict):
+    return changes
+```
+
+* Requests an update of the resource, as defined by [Changes].
+* Returns (asynchronously) the resulting [Changes] after applying the update.
+* Used by the SharedState server whenever a client requests an update to a resource.
+
+---
