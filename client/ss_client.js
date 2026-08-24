@@ -129,59 +129,61 @@ export class SharedStateClient {
         SERVER REQUESTS
     *********************************************************************/
 
-    _request(cmd, path, arg) {
+    async _request(cmd, path, reqData) {
         const reqid = this._reqid++;
         const msg = {
             type: MsgType.REQUEST,
             cmd,
             path,
-            arg,
+            data: reqData,
             tunnel: reqid
         };
         this._connection.send(JSON.stringify(msg));
         let [promise, resolver] = resolvablePromise();
         this._pending.set(reqid, resolver);
-        return promise.then(({ ok, data }) => {
-            if (cmd === MsgCmd.PUT && path === "/subs" && ok) {
-                this._subs_map = new Map(data);
-            }
-            return { ok, path, data };
-        });
+        const { ok, data } = await promise;
+        if (cmd === MsgCmd.PUT && path === "/subs" && ok) {
+            this._subs_map = new Map(data);
+        }
+        return { ok, path, data };
     }
 
-    _sub(path) {
+    async _sub(path) {
         if (this._connection.state === ConnectionState.CONNECTED) {
             const subs_map = new Map([...this._subs_map]);
             subs_map.set(path, {});
             const items = [...subs_map.entries()];
-            return this.update("/subs", { insert: items, reset: true });
+            return await this.update("/subs", { insert: items, reset: true });
         } else {
             this._subs_map.set(path, {});
-            return Promise.resolve({ ok: true, path, data: undefined });
+            return { ok: true, path, data: undefined };
         }
     }
 
-    _unsub(path) {
+    async _unsub(path) {
         const subs_map = new Map([...this._subs_map]);
         subs_map.delete(path);
         const items = [...subs_map.entries()];
-        return this.update("/subs", { insert: items, reset: true });
+        return await this.update("/subs", { insert: items, reset: true });
     }
 
     /*********************************************************************
         API
     *********************************************************************/
 
-    get(path) {
-        return this._request(MsgCmd.GET, path);
+    async get(path) {
+        return await this._request(MsgCmd.GET, path);
     }
 
-    update(path, changes) {
-        return this._request(MsgCmd.PUT, path, changes);
+    async update(path, changes) {
+        return await this._request(MsgCmd.PUT, path, changes);
     }
 
     acquire_collection(path, options) {
         path = path.startsWith("/") ? path : "/" + path;
+        if (!path.startsWith("/resources/")) {
+            path = "/resources" + path;
+        }
         if (!this._subs_map.has(path)) {
             this._sub(path);
         }
@@ -193,6 +195,9 @@ export class SharedStateClient {
 
     acquire_object(path, name, options) {
         path = path.startsWith("/") ? path : "/" + path;
+        if (!path.startsWith("/resources/")) {
+            path = "/resources" + path;
+        }
         const ds = this.acquire_collection(path);
         if (!this._obj_map.has(path)) {
             this._obj_map.set(path, new Map());
@@ -205,6 +210,10 @@ export class SharedStateClient {
     }
 
     release(path) {
+        path = path.startsWith("/") ? path : "/" + path;
+        if (!path.startsWith("/resources/")) {
+            path = "/resources" + path;
+        }
         if (this._subs_map.has(path)) {
             this._unsub(path);
         }

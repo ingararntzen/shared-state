@@ -25,10 +25,10 @@ export default defineConfig({
           { text: 'Item Collections', link: '/design/collections' },
           { text: 'Item Store', link: '/design/stores' },
           { text: 'Connection', link: '/design/connection' },
-          { text: 'Commmunication', link: '/design/protocol' },
+          { text: 'Communication', link: '/design/communication' },
           { text: 'Subscriptions', link: '/design/subscriptions' },
-          { text: 'Proxy Objects', link: '/design/proxyobjects' },
           { text: 'Server Clock', link: '/design/clock' },
+          { text: 'Proxy Objects', link: '/design/proxyobjects' },
         ]
       },
       {

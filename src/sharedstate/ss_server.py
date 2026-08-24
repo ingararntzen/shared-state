@@ -208,7 +208,8 @@ class SharedStateServer:
             if msg['cmd'] == MsgCmd.GET:
                 ok, result = await self.handle_GET(ws, msg["path"])
             elif msg["cmd"] == MsgCmd.PUT:
-                ok, result = await self.handle_PUT(ws, msg["path"], msg["arg"])
+                req_data = msg.get("data") if "data" in msg else msg.get("arg")
+                ok, result = await self.handle_PUT(ws, msg["path"], req_data)
 
             reply = {
                 "type": MsgType.REPLY,
@@ -274,8 +275,10 @@ class SharedStateServer:
         if n_path == PurePosixPath("/clock"):
             return True, datetime.now(timezone.utc).timestamp()
 
-        # /app/store/resource
+        # /resources/app/store/resource OR /app/store/resource
         parts = n_path.parts[1:]
+        if parts and parts[0] == "resources":
+            parts = parts[1:]
         if len(parts) >= 3:
             app, store_name, resource = parts[0], parts[1], parts[2]
             store = self._stores.get(store_name, None)
@@ -302,6 +305,8 @@ class SharedStateServer:
             return True, self._clients.get_subs(ws)
 
         parts = n_path.parts[1:]
+        if parts and parts[0] == "resources":
+            parts = parts[1:]
         if len(parts) >= 3:
             app, store_name, resource = parts[0], parts[1], parts[2]
             store = self._stores.get(store_name, None)
@@ -359,6 +364,10 @@ class SharedStateServer:
                     "stores": self._store_meta
                 }
                 return 200, "application/json; charset=utf-8", json.dumps({"ok": True, "data": cfg_data}).encode('utf-8'), []
+
+            if api_parts == ['clock']:
+                now_ts = datetime.now(timezone.utc).timestamp()
+                return 200, "application/json; charset=utf-8", json.dumps({"ok": True, "data": now_ts}).encode('utf-8'), []
 
             if api_parts == ['stores']:
                 res = []
@@ -475,23 +484,12 @@ class SharedStateServer:
 
             return 404, "application/json", json.dumps({"ok": False, "error": "API route not found"}).encode('utf-8'), []
 
-        # 2. Root Redirect: / or /index.html -> HTTP 302 Redirect to /adm/index.html
+        # 2. Root Redirect: / or /index.html -> HTTP 302 Redirect to /files/adm/index.html
         if not parts or parts == ['index.html']:
-            return 302, "text/html; charset=utf-8", b"", [("Location", "/adm/index.html")]
+            return 302, "text/html; charset=utf-8", b"", [("Location", "/files/adm/index.html")]
 
-        # 3. Explicit /adm/* Admin UI Routing
-        if parts and parts[0] == 'adm':
-            adm_parts = parts[1:]
-            rel_path = "/".join(adm_parts) if adm_parts else "index.html"
-            adm_file = (self._html_dir / "adm" / rel_path).resolve()
-            if adm_file.exists() and adm_file.is_file() and str(adm_file).startswith(str((self._html_dir / "adm").resolve())):
-                content_type, _ = mimetypes.guess_type(str(adm_file))
-                content_type = content_type or "text/html; charset=utf-8"
-                return 200, content_type, adm_file.read_bytes(), []
-            return 404, "application/json", json.dumps({"ok": False, "error": "Admin page not found"}).encode('utf-8'), []
-
-        # 4. Built Client SDK Bundles (/dist/* or /libs/*)
-        if parts and parts[0] in ('dist', 'libs'):
+        # 3. Built Client SDK Bundles (/dist/*)
+        if parts and parts[0] == 'dist':
             rel_path = "/".join(parts[1:])
             dist_file = (self._dist_dir / rel_path).resolve()
             if dist_file.exists() and dist_file.is_file() and str(dist_file).startswith(str(self._dist_dir.resolve())):
@@ -499,23 +497,52 @@ class SharedStateServer:
                 content_type = content_type or "application/javascript; charset=utf-8"
                 return 200, content_type, dist_file.read_bytes(), []
 
-        # 5. Static Asset Files (check html/adm/ first, then html/)
-        static_parts = parts[1:] if parts and parts[0] == 'static' else parts
-        rel_path = "/".join(static_parts)
+        # 4. Static Files (/files/*)
+        if parts and parts[0] == 'files':
+            rel_path = "/".join(parts[1:])
+            static_file = (self._html_dir / rel_path).resolve()
+            if static_file.exists() and str(static_file).startswith(str(self._html_dir.resolve())):
+                if static_file.is_file():
+                    content_type, _ = mimetypes.guess_type(str(static_file))
+                    return 200, content_type or "application/octet-stream", static_file.read_bytes(), []
+                elif static_file.is_dir():
+                    index_file = static_file / "index.html"
+                    if index_file.exists() and index_file.is_file() and rel_path != "":
+                        content_type, _ = mimetypes.guess_type(str(index_file))
+                        return 200, content_type or "text/html; charset=utf-8", index_file.read_bytes(), []
+                    return self._render_directory_listing(static_file, path_str)
 
-        adm_file = (self._html_dir / "adm" / rel_path).resolve()
-        if adm_file.exists() and adm_file.is_file() and str(adm_file).startswith(str((self._html_dir / "adm").resolve())):
-            content_type, _ = mimetypes.guess_type(str(adm_file))
-            content_type = content_type or "text/html; charset=utf-8"
-            return 200, content_type, adm_file.read_bytes(), []
+        return self._render_404_page(path_str)
 
-        static_file = (self._html_dir / rel_path).resolve()
-        if static_file.exists() and static_file.is_file() and str(static_file).startswith(str(self._html_dir.resolve())):
-            content_type, _ = mimetypes.guess_type(str(static_file))
-            content_type = content_type or "application/octet-stream"
-            return 200, content_type, static_file.read_bytes(), []
+    def _render_404_page(self, req_path):
+        """Render a minimal HTML 404 Not Found page."""
+        display_path = unquote(req_path)
+        html_content = f"<!DOCTYPE html><html><head><title>404 Not Found</title></head><body><h1>404 Not Found</h1><p>The requested URL {display_path} was not found on this server.</p></body></html>"
+        return 404, "text/html; charset=utf-8", html_content.encode('utf-8'), []
 
-        return 404, "application/json", json.dumps({"ok": False, "error": "Not Found"}).encode('utf-8'), []
+    def _render_directory_listing(self, dir_path, req_path):
+        """Render a minimal HTML directory listing."""
+        display_path = unquote(req_path)
+        if not display_path.endswith('/'):
+            display_path += '/'
+
+        entries = sorted(dir_path.iterdir(), key=lambda p: (not p.is_dir(), p.name.lower()))
+        lines = [f'<!DOCTYPE html><html><head><title>Index of {display_path}</title></head><body><h1>Index of {display_path}</h1><hr><pre>']
+
+        clean_req = req_path.rstrip('/')
+        if clean_req != '/files' and clean_req != '':
+            lines.append('<a href="../">../</a>')
+
+        for entry in entries:
+            name = entry.name
+            if name.startswith('.'):
+                continue
+            is_dir = entry.is_dir()
+            href = f"{name}/" if is_dir else name
+            lines.append(f'<a href="{href}">{name}{"/" if is_dir else ""}</a>')
+
+        lines.append('</pre><hr></body></html>')
+        return 200, "text/html; charset=utf-8", "\n".join(lines).encode('utf-8'), []
 
     ####################################################################
     # RUN & LIFECYCLE

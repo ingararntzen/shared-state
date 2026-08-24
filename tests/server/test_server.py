@@ -51,14 +51,14 @@ def make_ws_client(port):
     return websockets.connect(f"ws://127.0.0.1:{port}")
 
 
-async def send_ws_request(ws, cmd, path, arg=None):
+async def send_ws_request(ws, cmd, path, data=None):
     req = {
         "type": MsgType.REQUEST,
         "cmd": cmd,
         "path": path,
     }
-    if arg is not None:
-        req["arg"] = arg
+    if data is not None:
+        req["data"] = data
     await ws.send(json.dumps(req))
     resp = await ws.recv()
     return json.loads(resp)
@@ -135,7 +135,7 @@ async def test_ws_multicast_notify(server):
             "type": MsgType.REQUEST,
             "cmd": MsgCmd.PUT,
             "path": "/subs",
-            "arg": {"insert": [[sub_path, {}]], "reset": True}
+            "data": {"insert": [[sub_path, {}]], "reset": True}
         }
         await ws_a.send(json.dumps(sub_req))
         assert json.loads(await ws_a.recv())["type"] == MsgType.REPLY
@@ -146,7 +146,7 @@ async def test_ws_multicast_notify(server):
             "type": MsgType.REQUEST,
             "cmd": MsgCmd.PUT,
             "path": sub_path,
-            "arg": {"insert": [item]}
+            "data": {"insert": [item]}
         }))
         await ws_b.recv()  # REPLY
 
@@ -208,7 +208,7 @@ async def test_http_subs_and_connections(server):
             "type": MsgType.REQUEST,
             "cmd": MsgCmd.PUT,
             "path": "/subs",
-            "arg": {"insert": [["/app/mitems/chnl", {}]], "reset": True}
+            "data": {"insert": [["/app/mitems/chnl", {}]], "reset": True}
         }
         await ws.send(json.dumps(sub_req))
         await ws.recv()  # REPLY
@@ -229,13 +229,30 @@ async def test_http_subs_and_connections(server):
 
 
 @pytest.mark.asyncio
+async def test_http_clock(server):
+    _, port = server
+    status, res = await http_get_json(port, "/api/clock")
+    assert status == 200
+    assert res["ok"] is True
+    assert isinstance(res["data"], (int, float))
+    assert res["data"] > 0
+
+
+@pytest.mark.asyncio
 async def test_http_static_explorer_ui(server):
     _, port = server
-    status, content = await http_get_raw(port, "/")
+    status, content = await http_get_raw(port, "/files/adm/index.html")
     assert status == 200
     assert "<title>SharedState - Overview</title>" in content
 
-    # Test /static/ prefix asset serving
-    status, content_static = await http_get_raw(port, "/static/index.html")
+    # Test /files/ prefix asset serving
+    status, content_files = await http_get_raw(port, "/files/demo.html")
     assert status == 200
-    assert "<title>SharedState - Overview</title>" in content_static
+    assert "SharedState Collection Demo" in content_files
+
+    # Test /files/ directory listing
+    status, content_dir = await http_get_raw(port, "/files/")
+    assert status == 200
+    assert "Index of /files/" in content_dir
+    assert "demo.html" in content_dir
+    assert "minimal.html" in content_dir

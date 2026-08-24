@@ -100,7 +100,7 @@
         }
 
         async function loadStorageServicesList() {
-            const services = await fetchJSON('/api/services') || [];
+            const services = await fetchJSON('/api/stores') || [];
             document.getElementById('servicesCountBadge').textContent = services.length;
 
             const listContainer = document.getElementById('servicesList');
