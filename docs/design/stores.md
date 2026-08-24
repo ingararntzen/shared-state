@@ -8,7 +8,7 @@
 [ItemStores]: /design/stores#itemstores
 [ItemsStore]: /design/stores#default-item-store
 
-# Item Stores
+# Item Store
 
 The SharedState server implements state management through the concept of [ItemStores]. This functionality is decoupled from other server functions, such as the handling of client connections, network communication, and subscription management. This is done to support extensibility of the server, allowing custom storage solutions to be used as backends with the SharedState server. 
 

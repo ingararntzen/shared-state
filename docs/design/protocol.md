@@ -1,29 +1,65 @@
-# Communication Protocol
+[Path]: /design/collections#path
+[Paths]: /design/collections#path
+[ItemCollection]: /design/collections#itemcollection
+[ItemCollections]: /design/collections#itemcollection
 
-> - SharedState uses a clean JSON message envelope over a single WebSocket connection.
-> - The protocol supports request-reply tunneling and push-based change notifications.
+# Communication
+
+> - The SharedState client exchanges messages with the server across an open WebSocket connection.
 
 
 ---
 
-## Message Envelope
+## Message Types
 
-All WebSocket frames are serialized JSON objects containing three core fields: `type`, `cmd`, and payload attributes.
+The SharedState server supports request-reply interaction across from the client, as well as one-way push messages from server to client. The message type is indicated by the `type` field.
 
-
-1. **`REQUEST`**: Sent by client to request an action on a resource path.
-2. **`REPLY`**: Sent by server in response to a specific `REQUEST`, matched via a `tunnel` ID field.
-3. **`MESSAGE`**: Sent asynchronously by server to broadcast notifications (`NOTIFY`) to subscribers.
+* **`REQUEST`**: Message sent by client to request an action with the server.
+* **`REPLY`**: Message sent by server in response to a specific `REQUEST`.
+* **`MESSAGE`**: Message sent by server to clients, to broadcast state changes.
 
 ---
 
-## Command Set
+## Message Commands
 
-| Command (`cmd`) | Type | Purpose |
-| :--- | :--- | :--- |
-| **`GET`** | `REQUEST` | Fetches state snapshot for a path (e.g. `/path` or `/subs`). |
-| **`PUT`** | `REQUEST` | Submits batch delta updates or updates subscription list (`/subs`). |
-| **`NOTIFY`** | `MESSAGE` | Broadcasts atomic change deltas (`{ remove, insert, reset }`) to subscribed clients. |
+Messages also include a command field to indicate the action associated with the message. The command is indicated by the `cmd` field.
+
+* **`GET`**: Fetching state from the server.
+* **`PUT`**: Updating state on the server. 
+* **`NOTIFY`**: Updating state on the client, after state change on server.
+
+## Server Namespace
+
+Resources on the SharedState server are identified by a `server path`, indicated by the `path` field. Notably, the server does not only host application resources (i.e. [ItemCollections]), but defines a namespace including multiple resource types:
+
+* **/**: Stores
+* **/subs**: Active subscriptions
+* **/clock**: Server clock
+* **/api/config**: Server configuration
+* **/adm/**: Server files
+* **/dist/**: SharedState client code
+
+
+
+
+
+
+
+## Message Serialization
+
+Messages are currently serialized as stringified JSON objects, with the following fields:
+
+* **`type`**: `str` : message type `("REQUEST"|"REPLY"|"MESSAGE")`
+* **`cmd`**: `str` : command `("GET"|"PUT"|"NOTIFY")`
+* **`path`**: `str`: path `/apps/app/store/resource`
+* **`arg`**: `dict` : arguments
+* **`tunnel`**: `int` : request / reply identifier
+
+Note that resource paths `/app/store/resource` are prefixed with `/resource
+
+
+follow the [ResourcePaths](/design/collections#path) definition.
+
 
 ---
 
