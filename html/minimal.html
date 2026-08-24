@@ -1,40 +1,47 @@
 <!DOCTYPE html>
-<meta charset="utf-8" />
+<html lang="en">
 <head>
+    <meta charset="utf-8" />
+    <title>SharedState Minimal Counter</title>
     <script type="module">
-        import {SharedStateClient} from "./libs/sharedstate.es.js";
-        const client = new SharedStateClient("ws://0.0.0.0:9000");
+        import { SharedStateClient } from "/dist/sharedstate.es.js";
 
-        // Collection
-        const coll = client.acquire_collection("/app/items/chnl")
+        const client = new SharedStateClient("ws://127.0.0.1:9000");
+        const coll = client.acquire_collection("/app/mitems/minimal");
+        const counterEl = document.querySelector("#counter");
 
-        // Collection Change Handler
-        coll.add_callback(function (eArgs) {
-            const item = coll.get_item("myid");
-            if (item != undefined) {
-                console.log(coll.get_item("myid").state)
-            }
-        });
-
-        // Update Button
-        document.querySelector("#updateBtn").onclick = () => {
-            const item = coll.get_item("myid");
-            if (item != undefined) {
-                // toggle state
-                coll.update_items({insert:[{id:"myid", state:!(item.state)}]});
-            } else {
-                // initialize state
-                coll.update_items({insert:[{id: "myid", state:true}]});
-            }
+        function getVal() {
+            const item = coll.get_item("counter");
+            return item !== undefined && typeof item.state === "number" ? item.state : 0;
         }
-        // Reset Button
-        document.querySelector("#resetBtn").onclick = () => {
-            coll.update_items({reset:true});
+
+        function render() {
+            counterEl.textContent = getVal();
         }
+
+        coll.add_callback(render);
+
+        document.querySelector("#incBtn").onclick = () => {
+            coll.update_items({ insert: [{ id: "counter", state: getVal() + 1 }] });
+        };
+
+        document.querySelector("#decBtn").onclick = () => {
+            coll.update_items({ insert: [{ id: "counter", state: getVal() - 1 }] });
+        };
+
+        document.querySelector("#zeroBtn").onclick = () => {
+            coll.update_items({ insert: [{ id: "counter", state: 0 }] });
+        };
+
+        render();
     </script>
 </head>
 <body>
-    <button id="updateBtn">Update</button>
-    <button id="resetBtn">Reset</button>
+    <h1 id="counter">0</h1>
+    <p>
+        <button id="incBtn">Increment</button>
+        <button id="decBtn">Decrement</button>
+        <button id="zeroBtn">Zero</button>
+    </p>
 </body>
-</html> 
+</html>
