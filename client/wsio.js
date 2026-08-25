@@ -1,4 +1,4 @@
-import { resolvablePromise } from "./util.js";
+import { resolvablePromise } from "./util/util.js";
 
 const MAX_RETRIES = 4;
 

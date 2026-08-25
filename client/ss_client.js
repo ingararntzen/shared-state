@@ -1,5 +1,5 @@
 import { WebSocketIO, ConnectionState } from "./wsio.js";
-import { resolvablePromise } from "./util.js";
+import { resolvablePromise } from "./util/util.js";
 import { ProxyCollection } from "./ss_collection.js";
 import { ProxyObject } from "./ss_object.js";
 import { ServerClock, CLOCK } from "./ss_clock.js";

@@ -1,8 +1,8 @@
 /*
-    Create a promise which can be resolved
-    programmatically by external code.
-    Return a promise and a resolve function
-*/
+ * Create a promise which can be resolved
+ * programmatically by external code.
+ * Return a promise and a resolve function
+ */
 
 export function resolvablePromise() {
     let resolver;
@@ -12,7 +12,7 @@ export function resolvablePromise() {
     return [promise, resolver];
 }
 
-export function timeoutPromise (ms) {
+export function timeoutPromise(ms) {
     let resolver;
     let promise = new Promise((resolve, reject) => {
         let tid = setTimeout(() => {
@@ -23,16 +23,15 @@ export function timeoutPromise (ms) {
                 clearTimeout(tid);
             }
             resolve(false);
-        }
+        };
     });
     return [promise, resolver];
 }
 
-
 export function random_string(length) {
     var text = "";
     var possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-    for(var i = 0; i < length; i++) {
+    for (var i = 0; i < length; i++) {
         text += possible.charAt(Math.floor(Math.random() * possible.length));
     }
     return text;

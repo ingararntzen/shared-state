@@ -1,4 +1,4 @@
-import { random_string } from "./util.js";
+import { random_string } from "./util/util.js";
 
 export class ProxyCollection {
 
