@@ -1,8 +1,20 @@
 import { WebSocketIO, ConnectionState } from "./wsio.js";
 import { resolvablePromise } from "./util/util.js";
 import { ProxyCollection } from "./ss_collection.js";
-import { ProxyObject } from "./ss_object.js";
 import { ServerClock, CLOCK } from "./ss_clock.js";
+import {
+    SharedValue,
+    SharedString,
+    SharedInteger,
+    SharedFloat,
+    SharedObject,
+    SharedArray
+} from "./variables/variables.js";
+import { BaseCollection } from "./collections/base_collection.js";
+import { SharedCollection } from "./collections/collection.js";
+import { SharedList } from "./collections/list.js";
+import { SharedSet } from "./collections/set.js";
+import { SharedMap } from "./collections/map.js";
 
 const MsgType = Object.freeze({
     MESSAGE: "MESSAGE",
@@ -15,6 +27,20 @@ const MsgCmd = Object.freeze({
     PUT: "PUT",
     NOTIFY: "NOTIFY"
 });
+
+const TYPE_REGISTRY = {
+    Value: SharedValue,
+    String: SharedString,
+    Integer: SharedInteger,
+    Float: SharedFloat,
+    Object: SharedObject,
+    Array: SharedArray,
+    BaseCollection: BaseCollection,
+    Collection: SharedCollection,
+    List: SharedList,
+    Set: SharedSet,
+    Map: SharedMap
+};
 
 export class SharedStateClient {
 
@@ -33,8 +59,12 @@ export class SharedStateClient {
         // proxy collections {path -> proxy collection}
         this._coll_map = new Map();
 
-        // proxy objects {[path, id] -> proxy object}
-        this._obj_map = new Map();
+        // Layer 2 objects registry {name -> Layer 2 object}
+        this.objects = {};
+
+        // Track registered paths for collision protection
+        this._coll_paths = new Set();
+        this._var_coll_paths = new Set();
 
         // server clock
         this._server_clock = undefined;
@@ -49,57 +79,24 @@ export class SharedStateClient {
         this._connection.connect();
     }
 
-    /*********************************************************************
-        ACCESSORS
-    *********************************************************************/
+    get state() {
+        return this._connection.state;
+    }
 
     get connection() {
         return this._connection;
     }
 
-    get local_clock() {
-        return CLOCK;
-    }
-
-    get server_clock() {
-        if (this._server_clock === undefined) {
-            this._server_clock = new ServerClock(this);
-            if (this._connection.state === ConnectionState.CONNECTED) {
-                this._server_clock.restart();
-            }
-        }
-        return this._server_clock;
-    }
-
-    /*********************************************************************
-        CONNECTION HANDLERS
-    *********************************************************************/
-
     _on_connect() {
-        console.log(`Connect  ${this._connection.url}`);
-        // refresh local subscriptions
         if (this._subs_map.size > 0) {
             const items = [...this._subs_map.entries()];
             this.update("/subs", { insert: items, reset: true });
         }
-        // server clock
-        if (this._server_clock !== undefined) {
-            this._server_clock.restart();
-        }
     }
 
-    _on_disconnect(event) {
-        console.error(`Disconnect ${this._connection.url}`);
-        // server clock
-        if (this._server_clock !== undefined) {
-            this._server_clock.pinger.pause();
-        }
-    }
+    _on_disconnect() {}
 
-    _on_error(error) {
-        const { debug = false } = this._connection.options;
-        if (debug) { console.log(`Communication Error: ${error}`); }
-    }
+    _on_error() {}
 
     _on_message(data) {
         let msg = JSON.parse(data);
@@ -148,16 +145,20 @@ export class SharedStateClient {
         return { ok, path, data };
     }
 
-    async _sub(path) {
+    async _sub_batch(paths) {
+        for (const p of paths) {
+            this._subs_map.set(p, {});
+        }
         if (this._connection.state === ConnectionState.CONNECTED) {
-            const subs_map = new Map([...this._subs_map]);
-            subs_map.set(path, {});
-            const items = [...subs_map.entries()];
+            const items = [...this._subs_map.entries()];
             return await this.update("/subs", { insert: items, reset: true });
         } else {
-            this._subs_map.set(path, {});
-            return { ok: true, path, data: undefined };
+            return { ok: true, path: "/subs", data: undefined };
         }
+    }
+
+    async _sub(path) {
+        return await this._sub_batch([path]);
     }
 
     async _unsub(path) {
@@ -193,20 +194,81 @@ export class SharedStateClient {
         return this._coll_map.get(path);
     }
 
-    acquire_object(path, name, options) {
-        path = path.startsWith("/") ? path : "/" + path;
-        if (!path.startsWith("/resources/")) {
-            path = "/resources" + path;
+    load(config) {
+        if (!config || typeof config !== "object") {
+            throw new Error("client.load() expects a configuration object.");
         }
-        const ds = this.acquire_collection(path);
-        if (!this._obj_map.has(path)) {
-            this._obj_map.set(path, new Map());
+
+        const newObjects = {};
+        const pathsToSub = [];
+
+        for (const [name, def] of Object.entries(config)) {
+            let typeName, rawPath, options;
+
+            if (typeof def === "object" && def !== null) {
+                typeName = def.type;
+                rawPath = def.path;
+                options = def.options || {};
+            } else {
+                throw new Error(`Invalid configuration for '${name}'. Expected object format: { type: "...", path: "..." }`);
+            }
+
+            if (!typeName || !TYPE_REGISTRY[typeName]) {
+                throw new Error(`Unknown or missing type '${typeName}' for '${name}'. Supported types: ${Object.keys(TYPE_REGISTRY).join(", ")}`);
+            }
+
+            if (!rawPath || typeof rawPath !== "string") {
+                throw new Error(`Path missing or invalid for '${name}'.`);
+            }
+
+            let normPath = rawPath.startsWith("/") ? rawPath : "/" + rawPath;
+            let cleanPath = normPath.startsWith("/resources/") ? normPath.slice(10) : (normPath.startsWith("/resources") ? normPath.slice(10) : normPath);
+            const segments = cleanPath.split("/").filter(Boolean);
+
+            const ClassCtor = TYPE_REGISTRY[typeName];
+
+            if (segments.length === 3) {
+                // Collection Type (3 segments: app/store/resource)
+                const collWirePath = normPath.startsWith("/resources/") ? normPath : "/resources" + normPath;
+
+                if (this._var_coll_paths.has(collWirePath)) {
+                    throw new Error(`Conflict: Cannot register Collection '${name}' at '${rawPath}'. Path is already reserved for Variables.`);
+                }
+
+                this._coll_paths.add(collWirePath);
+                pathsToSub.push(collWirePath);
+                const proxyColl = this.acquire_collection(collWirePath, options);
+                const obj = new ClassCtor(proxyColl);
+                this.objects[name] = obj;
+                newObjects[name] = obj;
+
+            } else if (segments.length === 4) {
+                // Variable Type (4 segments: app/store/resource/itemId)
+                const itemId = segments[3];
+                const collPathStr = "/" + segments.slice(0, 3).join("/");
+                const collWirePath = "/resources" + collPathStr;
+
+                if (this._coll_paths.has(collWirePath)) {
+                    throw new Error(`Conflict: Cannot bind Variable '${name}' at '${rawPath}'. Parent collection '${collPathStr}' is already registered as a Collection.`);
+                }
+
+                this._var_coll_paths.add(collWirePath);
+                pathsToSub.push(collWirePath);
+                const proxyColl = this.acquire_collection(collWirePath, options);
+                const obj = new ClassCtor(proxyColl, itemId);
+                this.objects[name] = obj;
+                newObjects[name] = obj;
+
+            } else {
+                throw new Error(`Invalid path '${rawPath}' for '${name}'. Path must have 3 segments (Collection: /app/store/res) or 4 segments (Variable: /app/store/res/item_id).`);
+            }
         }
-        const obj_map = this._obj_map.get(path);
-        if (!obj_map.get(name)) {
-            obj_map.set(name, new ProxyObject(ds, name, options));
+
+        if (pathsToSub.length > 0) {
+            this._sub_batch(pathsToSub);
         }
-        return obj_map.get(name);
+
+        return newObjects;
     }
 
     release(path) {
@@ -221,13 +283,6 @@ export class SharedStateClient {
         if (ds !== undefined) {
             ds._ssclient_terminate();
         }
-        const obj_map = this._obj_map.get(path);
-        if (obj_map !== undefined) {
-            for (const v of obj_map.values()) {
-                v._ssclient_terminate();
-            }
-        }
         this._coll_map.delete(path);
-        this._obj_map.delete(path);
     }
 }

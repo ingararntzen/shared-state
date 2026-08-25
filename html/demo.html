@@ -1,24 +1,25 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>SharedState Collection Demo</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SharedState - Map Demo</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-color: #0f172a;
-            --card-bg: rgba(30, 41, 59, 0.7);
-            --card-border: rgba(255, 255, 255, 0.1);
-            --text-main: #f8fafc;
-            --text-muted: #94a3b8;
-            --accent-primary: #6366f1;
+            --bg-primary: #0a0d14;
+            --bg-card: rgba(22, 27, 38, 0.7);
+            --bg-card-border: rgba(255, 255, 255, 0.08);
+            --accent-glow: rgba(99, 102, 241, 0.15);
+            --accent-color: #6366f1;
             --accent-hover: #4f46e5;
-            --accent-danger: #ef4444;
-            --badge-bg: rgba(99, 102, 241, 0.15);
-            --badge-color: #818cf8;
+            --text-main: #f3f4f6;
+            --text-muted: #9ca3af;
+            --danger-color: #ef4444;
+            --danger-hover: #dc2626;
+            --success-color: #10b981;
         }
 
         * {
@@ -28,146 +29,169 @@
         }
 
         body {
-            font-family: 'Inter', system-ui, -apple-system, sans-serif;
-            background-color: var(--bg-color);
+            font-family: 'Outfit', sans-serif;
+            background-color: var(--bg-primary);
             color: var(--text-main);
             min-height: 100vh;
             display: flex;
             justify-content: center;
-            align-items: flex-start;
-            padding: 2rem 1rem;
+            align-items: center;
+            padding: 2rem;
+            background-image: 
+                radial-gradient(circle at 15% 15%, var(--accent-glow) 0%, transparent 40%),
+                radial-gradient(circle at 85% 85%, rgba(16, 185, 129, 0.08) 0%, transparent 40%);
         }
 
         .container {
             width: 100%;
-            max-width: 650px;
-            background: var(--card-bg);
-            backdrop-filter: blur(12px);
-            border: 1px solid var(--card-border);
-            border-radius: 16px;
-            padding: 2rem;
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
+            max-width: 680px;
+            background: var(--bg-card);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--bg-card-border);
+            border-radius: 20px;
+            padding: 2.5rem;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
         }
 
-        .header {
+        header {
             display: flex;
-            align-items: center;
             justify-content: space-between;
-            margin-bottom: 1.5rem;
+            align-items: center;
+            margin-bottom: 2rem;
             padding-bottom: 1rem;
-            border-bottom: 1px solid var(--card-border);
+            border-bottom: 1px solid var(--bg-card-border);
         }
 
-        h2 {
-            font-size: 1.35rem;
+        h1 {
+            font-size: 1.75rem;
             font-weight: 700;
-            background: linear-gradient(135deg, #a5b4fc 0%, #6366f1 100%);
+            background: linear-gradient(135deg, #ffffff 0%, #a5b4fc 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
 
         .badge {
-            background: var(--badge-bg);
-            color: var(--badge-color);
-            font-size: 0.85rem;
-            font-weight: 600;
+            background: rgba(99, 102, 241, 0.2);
+            color: #a5b4fc;
             padding: 0.25rem 0.75rem;
             border-radius: 9999px;
+            font-size: 0.875rem;
+            font-weight: 500;
             border: 1px solid rgba(99, 102, 241, 0.3);
         }
 
         .controls {
-            display: flex;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
             gap: 0.75rem;
-            margin-bottom: 1.5rem;
-            flex-wrap: wrap;
+            margin-bottom: 2rem;
         }
 
         button {
             font-family: inherit;
             font-size: 0.9rem;
             font-weight: 600;
-            padding: 0.6rem 1.2rem;
-            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            border-radius: 12px;
             border: none;
             cursor: pointer;
-            transition: all 0.2s ease;
-            display: inline-flex;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
             align-items: center;
+            justify-content: center;
             gap: 0.5rem;
         }
 
         .btn-primary {
-            background-color: var(--accent-primary);
-            color: #fff;
+            background: var(--accent-color);
+            color: white;
+            box-shadow: 0 4px 14px rgba(99, 102, 241, 0.4);
         }
 
         .btn-primary:hover {
-            background-color: var(--accent-hover);
+            background: var(--accent-hover);
             transform: translateY(-1px);
         }
 
         .btn-secondary {
-            background-color: rgba(255, 255, 255, 0.08);
+            background: rgba(255, 255, 255, 0.05);
             color: var(--text-main);
-            border: 1px solid var(--card-border);
+            border: 1px solid var(--bg-card-border);
         }
 
         .btn-secondary:hover {
-            background-color: rgba(255, 255, 255, 0.15);
+            background: rgba(255, 255, 255, 0.1);
             transform: translateY(-1px);
         }
 
         .btn-danger {
-            background-color: rgba(239, 68, 68, 0.15);
+            background: rgba(239, 68, 68, 0.15);
             color: #fca5a5;
             border: 1px solid rgba(239, 68, 68, 0.3);
         }
 
         .btn-danger:hover {
-            background-color: var(--accent-danger);
-            color: #fff;
-            transform: translateY(-1px);
+            background: var(--danger-hover);
+            color: white;
         }
 
-        .item-list {
+        .viewer {
             display: flex;
             flex-direction: column;
             gap: 0.75rem;
+            max-height: 380px;
+            overflow-y: auto;
+            padding-right: 0.25rem;
+        }
+
+        .viewer::-webkit-scrollbar {
+            width: 6px;
+        }
+        .viewer::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 3px;
         }
 
         .item-card {
-            background: rgba(15, 23, 42, 0.6);
-            border: 1px solid var(--card-border);
-            border-radius: 10px;
-            padding: 0.85rem 1.1rem;
             display: flex;
-            align-items: center;
             justify-content: space-between;
+            align-items: center;
+            padding: 1rem 1.25rem;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--bg-card-border);
+            border-radius: 12px;
             transition: all 0.2s ease;
+            animation: fadeIn 0.3s ease-out;
         }
 
         .item-card:hover {
+            background: rgba(255, 255, 255, 0.06);
             border-color: rgba(99, 102, 241, 0.4);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
         }
 
         .item-info {
             display: flex;
             flex-direction: column;
-            gap: 0.2rem;
+            gap: 0.25rem;
         }
 
         .item-id {
-            font-size: 0.85rem;
-            font-weight: 600;
-            color: #818cf8;
-            font-family: monospace;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
         }
 
         .item-state {
-            font-size: 0.95rem;
+            font-size: 1.05rem;
+            font-weight: 500;
             color: var(--text-main);
+        }
+
+        .btn-sm-danger {
+            padding: 0.4rem 0.75rem;
+            font-size: 0.8rem;
+            border-radius: 8px;
         }
 
         .empty-state {
@@ -175,39 +199,36 @@
             padding: 3rem 1rem;
             color: var(--text-muted);
             font-size: 0.95rem;
-            background: rgba(15, 23, 42, 0.4);
-            border: 1px dashed var(--card-border);
-            border-radius: 12px;
+            border: 2px dashed rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
         }
 
-        .btn-sm-danger {
-            padding: 0.35rem 0.65rem;
-            font-size: 0.78rem;
-            border-radius: 6px;
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
         }
     </style>
 </head>
 <body>
-
     <div class="container">
-        <div class="header">
-            <h2>SharedState Collection Demo</h2>
-            <div class="badge" id="countBadge">0 Items</div>
-        </div>
+        <header>
+            <h1>SharedMap Viewer</h1>
+            <span class="badge" id="countBadge">0 Items</span>
+        </header>
 
         <div class="controls">
-            <button id="addBtn" class="btn-primary">+ Add Item</button>
-            <button id="changeBtn" class="btn-secondary">⚡ Mutate Random</button>
-            <button id="resetBtn" class="btn-danger">🗑 Reset Collection</button>
+            <button class="btn-primary" id="addBtn">+ Add Entry</button>
+            <button class="btn-secondary" id="changeBtn">⚡ Change Random</button>
+            <button class="btn-danger" id="resetBtn">🗑️ Delete All</button>
         </div>
 
-        <div id="viewer" class="item-list">
-            <div class="empty-state">Loading collection items...</div>
+        <div class="viewer" id="viewer">
+            <div class="empty-state">Loading map data...</div>
         </div>
     </div>
 
     <script type="module">
-        import { SharedStateClient } from "/dist/sharedstate.es.js";
+        import { SharedStateClient } from "../dist/sharedstate.es.js";
 
         function getRandomInt(max) {
             return Math.floor(Math.random() * max);
@@ -216,18 +237,20 @@
         const wsUrl = `ws://${location.hostname || "127.0.0.1"}:${location.port || 9000}`;
         const client = new SharedStateClient(wsUrl);
 
-        // Acquire Collection
-        const coll = client.acquire_collection("/app/mitems/chnl");
+        // Load SharedMap via client.load()
+        const { demoMap } = client.load({
+            demoMap: { type: "Map", path: "/app/mitems/chnl" }
+        });
 
         const viewerEl = document.querySelector("#viewer");
         const countBadgeEl = document.querySelector("#countBadge");
 
         function render() {
-            const items = coll.get_items();
-            countBadgeEl.textContent = `${items.length} ${items.length === 1 ? 'Item' : 'Items'}`;
+            const items = demoMap.get_items();
+            countBadgeEl.textContent = `${items.length} ${items.length === 1 ? 'Entry' : 'Entries'}`;
 
             if (items.length === 0) {
-                viewerEl.innerHTML = `<div class="empty-state">Collection is empty. Click "+ Add Item" to populate.</div>`;
+                viewerEl.innerHTML = `<div class="empty-state">Map is empty. Click "+ Add Entry" to populate.</div>`;
                 return;
             }
 
@@ -238,16 +261,17 @@
 
                 const info = document.createElement("div");
                 info.className = "item-info";
+                const val = item.state !== undefined ? item.state : item.value;
                 info.innerHTML = `
-                    <span class="item-id">ID: ${item.id}</span>
-                    <span class="item-state">${typeof item.state === "object" ? JSON.stringify(item.state) : item.state}</span>
+                    <span class="item-id">Key: ${item.id}</span>
+                    <span class="item-state">${typeof val === "object" ? JSON.stringify(val) : val}</span>
                 `;
 
                 const delBtn = document.createElement("button");
                 delBtn.className = "btn-danger btn-sm-danger";
-                delBtn.textContent = "Remove";
+                delBtn.textContent = "Delete";
                 delBtn.onclick = () => {
-                    coll.update_items({ remove: [item.id] });
+                    demoMap.delete(item.id);
                 };
 
                 card.appendChild(info);
@@ -256,32 +280,29 @@
             });
         }
 
-        // Subscribe to collection changes
-        coll.add_callback(() => {
+        // Subscribe to map changes using eventify stateful listener
+        demoMap.on("change", () => {
             render();
-        });
+        }, { init: true });
 
         // Event Listeners
         document.querySelector("#addBtn").onclick = () => {
             const idx = getRandomInt(100);
-            const items = [{ id: `id_${idx}`, state: `state_val_${idx}` }];
-            coll.update_items({ insert: items });
+            demoMap.set(`key_${idx}`, `val_${idx}`);
         };
 
         document.querySelector("#changeBtn").onclick = () => {
-            const items = coll.get_items();
+            const items = demoMap.get_items();
             if (items.length === 0) return;
             const target = items[getRandomInt(items.length)];
             const new_idx = getRandomInt(100);
-            coll.update_items({ insert: [{ id: target.id, state: `state_val_${new_idx}` }] });
+            demoMap.set(target.id, `val_${new_idx}`);
         };
 
         document.querySelector("#resetBtn").onclick = () => {
-            coll.update_items({ reset: true });
+            const items = demoMap.get_items();
+            items.forEach(item => demoMap.delete(item.id));
         };
-
-        // Initial render
-        render();
     </script>
 </body>
 </html>

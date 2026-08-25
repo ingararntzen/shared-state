@@ -7,33 +7,20 @@
         import { SharedStateClient } from "/dist/sharedstate.es.js";
 
         const client = new SharedStateClient("ws://127.0.0.1:9000");
-        const coll = client.acquire_collection("/app/mitems/minimal");
+
+        const { counter } = client.load({
+            counter: { type: "Integer", path: "/app/mitems/minimal/counter" }
+        });
+
         const counterEl = document.querySelector("#counter");
 
-        function getVal() {
-            const item = coll.get_item("counter");
-            return item !== undefined && typeof item.state === "number" ? item.state : 0;
-        }
+        counter.on("change", (val) => {
+            counterEl.textContent = val;
+        }, { init: true });
 
-        function render() {
-            counterEl.textContent = getVal();
-        }
-
-        coll.add_callback(render);
-
-        document.querySelector("#incBtn").onclick = () => {
-            coll.update_items({ insert: [{ id: "counter", state: getVal() + 1 }] });
-        };
-
-        document.querySelector("#decBtn").onclick = () => {
-            coll.update_items({ insert: [{ id: "counter", state: getVal() - 1 }] });
-        };
-
-        document.querySelector("#zeroBtn").onclick = () => {
-            coll.update_items({ insert: [{ id: "counter", state: 0 }] });
-        };
-
-        render();
+        document.querySelector("#incBtn").onclick = () => counter.inc(1);
+        document.querySelector("#decBtn").onclick = () => counter.dec(1);
+        document.querySelector("#zeroBtn").onclick = () => counter.set(0);
     </script>
 </head>
 <body>

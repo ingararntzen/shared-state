@@ -98,26 +98,32 @@ describe("Client-Server Integration Tests (Obsoletes test.html)", () => {
         client.release("/app/mitems/chnl");
     });
 
-    test("ProxyObject set_items and get_items", async () => {
+    test("client.load() with SharedInteger and SharedList", async () => {
         const client = new SharedStateClient(SERVER_URL);
         await client.connection.connectedPromise();
 
-        const obj = client.acquire_object("/app/mitems/chnl", "my_object");
+        const { counter, chat } = client.load({
+            counter: { type: "Integer", path: "/app/mitems/counter_chnl/counter" },
+            chat: { type: "List", path: "/app/mitems/chat_chnl" }
+        });
 
-        const subItems = [
-            { id: "sub1", name: "A" },
-            { id: "sub2", name: "B" }
-        ];
+        // Allow _sub PUT /subs request to settle on server
+        await new Promise((resolve) => setTimeout(resolve, 150));
 
-        const setRes = await obj.set_items(subItems);
+        const setRes = await counter.set(100);
         expect(setRes.ok).toBe(true);
 
-        await new Promise((resolve) => setTimeout(resolve, 100));
-        expect(obj.get_items()).toEqual(subItems);
-        expect(obj.has_item("sub1")).toBe(true);
-        expect(obj.get_item("sub1")).toEqual({ id: "sub1", name: "A" });
+        await new Promise((resolve) => setTimeout(resolve, 150));
+        expect(counter.value).toBe(100);
 
-        client.release("/app/mitems/chnl");
+        const appendRes = await chat.append({ id: "msg1", text: "hello" });
+        expect(appendRes.ok).toBe(true);
+
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        expect(chat.get("msg1")).toEqual({ id: "msg1", text: "hello" });
+
+        client.release("/app/mitems/counter_chnl");
+        client.release("/app/mitems/chat_chnl");
     });
 
     test("Real-time synchronization across two client instances", async () => {

@@ -1,78 +1,103 @@
 import { describe, test, expect, vi } from "vitest";
 import { ProxyCollection } from "../../client/ss_collection.js";
-import { ProxyObject } from "../../client/ss_object.js";
+import {
+    SharedInteger,
+    SharedFloat,
+    SharedString,
+    SharedObject,
+    SharedArray
+} from "../../client/variables/variables.js";
+import { SharedList } from "../../client/collections/list.js";
+import { SharedSet } from "../../client/collections/set.js";
+import { SharedMap } from "../../client/collections/map.js";
 
-describe("ProxyObject Unit Tests", () => {
+describe("Layer 2 Domain Abstractions Unit Tests", () => {
     function createMockClient() {
         return {
             update: vi.fn().mockResolvedValue({ ok: true })
         };
     }
 
-    test("initial state and querying methods", () => {
+    test("SharedInteger operations and eventify notifications", () => {
         const mockClient = createMockClient();
-        const coll = new ProxyCollection(mockClient, "/app/mitems/chnl");
-        const obj = new ProxyObject(coll, "my_obj");
+        const coll = new ProxyCollection(mockClient, "/resources/app/store/vars");
+        const num = new SharedInteger(coll, "score");
 
-        expect(obj.get_items()).toEqual([]);
-        expect(obj.has_item("sub1")).toBe(false);
-        expect(obj.get_item("sub1")).toBeUndefined();
-    });
+        expect(num.value).toBe(0);
 
-    test("set_items delegates to ProxyCollection update_items", () => {
-        const mockClient = createMockClient();
-        const coll = new ProxyCollection(mockClient, "/app/mitems/chnl");
-        const obj = new ProxyObject(coll, "my_obj");
+        const changeHandler = vi.fn();
+        num.on("change", changeHandler);
 
-        const subItems = [
-            { id: "sub1", name: "Alpha" },
-            { id: "sub2", name: "Beta" }
-        ];
-        obj.set_items(subItems);
-
-        expect(mockClient.update).toHaveBeenCalledWith("/app/mitems/chnl", {
-            insert: [{ id: "my_obj", state: subItems }],
-            reset: false
-        });
-    });
-
-    test("receives collection state updates and notifies callbacks", () => {
-        const mockClient = createMockClient();
-        const coll = new ProxyCollection(mockClient, "/app/mitems/chnl");
-        const obj = new ProxyObject(coll, "my_obj");
-
-        const callback = vi.fn();
-        obj.add_callback(callback);
-
-        const subItems = [{ id: "sub1", val: 100 }];
-
-        // Simulate server update for my_obj
+        // Simulate server update for score
         coll._ssclient_update({
-            insert: [{ id: "my_obj", state: subItems }]
+            insert: [{ id: "score", state: 42 }]
         });
 
-        expect(obj.get_items()).toEqual(subItems);
-        expect(obj.has_item("sub1")).toBe(true);
-        expect(obj.get_item("sub1")).toEqual({ id: "sub1", val: 100 });
-        expect(callback).toHaveBeenCalledWith({
-            id: "my_obj",
-            item: { id: "my_obj", state: subItems },
-            removed: false
+        expect(num.value).toBe(42);
+
+        // Test inc / dec / set
+        num.inc(5);
+        expect(mockClient.update).toHaveBeenCalledWith("/resources/app/store/vars", {
+            insert: [{ id: "score", state: 47 }]
         });
 
-        // Simulate update for unrelated item id
-        callback.mockClear();
-        coll._ssclient_update({
-            insert: [{ id: "other_obj", state: [] }]
+        num.set(100);
+        expect(mockClient.update).toHaveBeenCalledWith("/resources/app/store/vars", {
+            insert: [{ id: "score", state: 100 }]
         });
-        expect(callback).not.toHaveBeenCalled();
     });
 
-    test("set_items throws error if items is not array", () => {
+    test("SharedString, SharedFloat, SharedObject, and SharedArray", () => {
         const mockClient = createMockClient();
-        const coll = new ProxyCollection(mockClient, "/app/mitems/chnl");
-        const obj = new ProxyObject(coll, "my_obj");
+        const coll = new ProxyCollection(mockClient, "/resources/app/store/vars");
+        const str = new SharedString(coll, "status");
+        const flt = new SharedFloat(coll, "temp");
+        const obj = new SharedObject(coll, "settings");
+        const arr = new SharedArray(coll, "tags");
 
-        expect(() => obj.set_items("not an array")).toThrow("items must be an array");
+        coll._ssclient_update({
+            insert: [
+                { id: "status", state: "active" },
+                { id: "temp", state: 98.6 },
+                { id: "settings", state: { mode: "dark" } },
+                { id: "tags", state: ["admin", "dev"] }
+            ]
+        });
+
+        expect(str.value).toBe("active");
+        expect(flt.value).toBe(98.6);
+        expect(obj.value).toEqual({ mode: "dark" });
+        expect(arr.value).toEqual(["admin", "dev"]);
+
+        // Type restrictions
+        expect(() => obj.set("not an object")).toThrow("SharedObject value must be an object ({})");
+        expect(() => arr.set({ not: "an array" })).toThrow("SharedArray value must be an array ([])");
+    });
+
+    test("SharedList, SharedSet, and SharedMap", () => {
+        const mockClient = createMockClient();
+        const coll = new ProxyCollection(mockClient, "/resources/app/store/chat");
+        const list = new SharedList(coll);
+
+        list.append({ id: "m1", text: "hello" });
+        expect(mockClient.update).toHaveBeenCalledWith("/resources/app/store/chat", {
+            insert: [{ id: "m1", text: "hello" }]
+        });
+
+        const setColl = new ProxyCollection(mockClient, "/resources/app/store/members");
+        const setObj = new SharedSet(setColl);
+
+        setObj.add("alice");
+        expect(mockClient.update).toHaveBeenCalledWith("/resources/app/store/members", {
+            insert: [{ id: "alice", state: "alice" }]
+        });
+
+        const mapColl = new ProxyCollection(mockClient, "/resources/app/store/config");
+        const mapObj = new SharedMap(mapColl);
+
+        mapObj.set("theme", "dark");
+        expect(mockClient.update).toHaveBeenCalledWith("/resources/app/store/config", {
+            insert: [{ id: "theme", state: "dark" }]
+        });
     });
 });
