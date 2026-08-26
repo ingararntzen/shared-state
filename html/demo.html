@@ -33,10 +33,11 @@
             background-color: var(--bg-primary);
             color: var(--text-main);
             min-height: 100vh;
+            margin: 0;
             display: flex;
             justify-content: center;
-            align-items: center;
-            padding: 2rem;
+            align-items: stretch;
+            padding: 1.5rem;
             background-image: 
                 radial-gradient(circle at 15% 15%, var(--accent-glow) 0%, transparent 40%),
                 radial-gradient(circle at 85% 85%, rgba(16, 185, 129, 0.08) 0%, transparent 40%);
@@ -44,12 +45,14 @@
 
         .container {
             width: 100%;
-            max-width: 680px;
+            max-width: 800px;
+            display: flex;
+            flex-direction: column;
             background: var(--bg-card);
             backdrop-filter: blur(16px);
             border: 1px solid var(--bg-card-border);
             border-radius: 20px;
-            padding: 2.5rem;
+            padding: 2rem;
             box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
         }
 
@@ -57,7 +60,7 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 2rem;
+            margin-bottom: 1.5rem;
             padding-bottom: 1rem;
             border-bottom: 1px solid var(--bg-card-border);
         }
@@ -84,7 +87,7 @@
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
             gap: 0.75rem;
-            margin-bottom: 2rem;
+            margin-bottom: 1.5rem;
         }
 
         button {
@@ -136,10 +139,10 @@
         }
 
         .viewer {
+            flex: 1;
             display: flex;
             flex-direction: column;
             gap: 0.75rem;
-            max-height: 380px;
             overflow-y: auto;
             padding-right: 0.25rem;
         }
@@ -154,9 +157,11 @@
 
         .item-card {
             display: flex;
+            flex-direction: row;
             justify-content: space-between;
             align-items: center;
-            padding: 1rem 1.25rem;
+            gap: 1rem;
+            padding: 0.6rem 1rem;
             background: rgba(255, 255, 255, 0.03);
             border: 1px solid var(--bg-card-border);
             border-radius: 12px;
@@ -171,36 +176,49 @@
 
         .item-info {
             display: flex;
-            flex-direction: column;
-            gap: 0.25rem;
+            flex-direction: row;
+            align-items: center;
+            gap: 1.5rem;
+            flex: 1;
+            min-width: 0;
         }
 
         .item-id {
-            font-size: 0.75rem;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
+            font-size: 0.85rem;
+            color: #a5b4fc;
+            font-weight: 600;
+            min-width: 120px;
+            flex-shrink: 0;
         }
 
         .item-state {
-            font-size: 1.05rem;
-            font-weight: 500;
+            font-size: 0.95rem;
+            font-weight: 400;
             color: var(--text-main);
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
         .btn-sm-danger {
-            padding: 0.4rem 0.75rem;
+            padding: 0.35rem 0.65rem;
             font-size: 0.8rem;
             border-radius: 8px;
+            flex-shrink: 0;
         }
 
         .empty-state {
+            flex: 1;
             text-align: center;
             padding: 3rem 1rem;
             color: var(--text-muted);
             font-size: 0.95rem;
             border: 2px dashed rgba(255, 255, 255, 0.05);
             border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         @keyframes fadeIn {
@@ -237,15 +255,16 @@
         const wsUrl = `ws://${location.hostname || "127.0.0.1"}:${location.port || 9000}`;
         const client = new SharedStateClient(wsUrl);
 
-        // Load SharedMap via client.load()
+        // Load SharedMap via client.load() with local_update enabled for 0ms speculative updates
         const { demoMap } = client.load({
-            demoMap: { type: "Map", path: "/app/mitems/chnl" }
+            demoMap: { type: "Map", path: "/app/mitems/chnl", local_update: true }
         });
 
         const viewerEl = document.querySelector("#viewer");
         const countBadgeEl = document.querySelector("#countBadge");
 
-        function render() {
+        function updateDOM(changes = {}) {
+            const { insert = [], remove = [], reset = false } = changes;
             const items = demoMap.get_items();
             countBadgeEl.textContent = `${items.length} ${items.length === 1 ? 'Entry' : 'Entries'}`;
 
@@ -254,35 +273,65 @@
                 return;
             }
 
-            viewerEl.innerHTML = "";
-            items.forEach((item) => {
-                const card = document.createElement("div");
-                card.className = "item-card";
+            const emptyEl = viewerEl.querySelector(".empty-state");
+            if (emptyEl) {
+                emptyEl.remove();
+            }
 
-                const info = document.createElement("div");
-                info.className = "item-info";
+            if (reset) {
+                viewerEl.innerHTML = "";
+            }
+
+            // Handle removals
+            remove.forEach((id) => {
+                const card = viewerEl.querySelector(`[data-id="${CSS.escape(id)}"]`);
+                if (card) {
+                    card.remove();
+                }
+            });
+
+            // Handle inserts / updates
+            insert.forEach((item) => {
                 const val = item.state !== undefined ? item.state : item.value;
-                info.innerHTML = `
-                    <span class="item-id">Key: ${item.id}</span>
-                    <span class="item-state">${typeof val === "object" ? JSON.stringify(val) : val}</span>
-                `;
+                const formattedVal = typeof val === "object" ? JSON.stringify(val) : val;
 
-                const delBtn = document.createElement("button");
-                delBtn.className = "btn-danger btn-sm-danger";
-                delBtn.textContent = "Delete";
-                delBtn.onclick = () => {
-                    demoMap.delete(item.id);
-                };
+                let card = viewerEl.querySelector(`[data-id="${CSS.escape(item.id)}"]`);
+                if (card) {
+                    // Update existing element in-place
+                    const stateEl = card.querySelector(".item-state");
+                    if (stateEl) {
+                        stateEl.textContent = formattedVal;
+                    }
+                } else {
+                    // Create and append new DOM node
+                    card = document.createElement("div");
+                    card.className = "item-card";
+                    card.setAttribute("data-id", item.id);
 
-                card.appendChild(info);
-                card.appendChild(delBtn);
-                viewerEl.appendChild(card);
+                    const info = document.createElement("div");
+                    info.className = "item-info";
+                    info.innerHTML = `
+                        <span class="item-id">${item.id}</span>
+                        <span class="item-state">${formattedVal}</span>
+                    `;
+
+                    const delBtn = document.createElement("button");
+                    delBtn.className = "btn-danger btn-sm-danger";
+                    delBtn.textContent = "Delete";
+                    delBtn.onclick = () => {
+                        demoMap.delete(item.id);
+                    };
+
+                    card.appendChild(info);
+                    card.appendChild(delBtn);
+                    viewerEl.appendChild(card);
+                }
             });
         }
 
         // Subscribe to map changes using eventify stateful listener
-        demoMap.on("change", () => {
-            render();
+        demoMap.on("change", (changes) => {
+            updateDOM(changes);
         }, { init: true });
 
         // Event Listeners

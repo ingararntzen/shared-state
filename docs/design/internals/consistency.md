@@ -14,7 +14,7 @@ To support high-frequency client edits, microtask batching, and concurrent multi
 | **Server Tunneling** | Server | Per Message (`REQUEST`, `REPLY`, `NOTIFY`) | Payload-agnostic pass-through of client metadata across network. |
 | **Client ID (`client_id`)** | Client | Per Client Instance | Distinguishes local client edits from remote client updates. |
 | **Request Counter (`request_count`)** | Client | All WebSocket Requests | Matches WebSocket `REQUEST` messages to client Promise resolvers. |
-| **Update Counter (`update_count`)** | Client | Resource Update Operations | Sequences collection mutations for optimistic overlay tracking and dropped-request detection. |
+| **Update Counter (`_last_requested_update_count`)** | Client | Resource Update Operations | Sequences collection mutations for optimistic overlay tracking and dropped-request detection. |
 
 ---
 
@@ -28,6 +28,7 @@ Maintains a global, monotonically increasing integer version counter on the serv
 ### 2. Server Tunneling (`tunnel`)
 Allows clients to attach custom tracking metadata (`tunnel` object) to outgoing `REQUEST` messages, which the server echoes back in `REPLY` messages, multicast `NOTIFY` update broadcasts, and unicast subscription `reset` snapshots.
 - The server is payload-agnostic regarding `tunnel`. It preserves the exact JSON structure provided by the originating client and routes it to all subscribed clients.
+- `tunnel` metadata is used strictly for internal client sequencing and is **omitted from public change callback payloads** to keep application code unpolluted.
 
 ### 3. Client ID (`client_id`)
 Distinguishes updates originating from the local client instance from updates made by remote clients.
@@ -39,9 +40,9 @@ Resolves asynchronous JavaScript `Promise` instances for WebSocket request/reply
 - Monotonically incremented on **every** WebSocket request sent by `SharedStateClient` (`GET /clock`, `PUT /subs`, `PUT /resources/*`).
 - Passed in `tunnel.request_count`.
 
-### 5. Update Counter (`update_count`)
+### 5. Update Counter (`client._last_requested_update_count`)
 Sequences collection update operations (`update_items`) for detecting dropped network requests and providing the foundation for speculative client-side overlays.
-- Monotonically incremented **only for collection update operations** (`update_items`).
+- Monotonically incremented **only on dispatch of update requests** (`update_items`).
 - Carried in `tunnel.update_count`. In non-update requests (e.g. `PUT /subs`), `update_count` is included without incrementing, ensuring a 100% consistent `tunnel` schema across all notifications.
 
 ---
@@ -66,41 +67,57 @@ SharedState supports conditional updates to prevent lost updates when multiple c
 
 ---
 
-## Client-Side Speculative Updates
+## Client-Side Speculative Local Updates
 
-Speculative updates allow applications to provide **0ms instant UI feedback** by immediately overlaying local edits before server acknowledgments arrive.
+Speculative local updates allow applications to provide **0ms instant UI feedback** by immediately overlaying local edits before server acknowledgments arrive.
 
 ### Architecture: Overlay Facade Pattern
 
-Speculative execution wraps the server-authoritative `ProxyCollection` with a thin speculative facade (`SpeculativeProxyCollection`):
+Speculative execution wraps the server-authoritative `ProxyCollection` with a thin speculative facade (`SpeculativeProxyCollection`), opt-in via `local_update: true`, `immediate_update: true`, or `speculative: true`:
 
 ```
-+-------------------------------------------------------------+
-|                 Speculative Overlay Facade                  |
-| - Maintains local speculative overlay: Map<id, { state, update_count }> |
-| - Intercepts reads: returns overlay item if present, else Proxy |
-| - Emits 0ms change events to application observers           |
-+-------------------------------------------------------------+
-                              |
-                              v
-+-------------------------------------------------------------+
-|                 Base ProxyCollection (Layer 1)              |
-| - Strictly server-authoritative Map<id, item>               |
-+-------------------------------------------------------------+
++-------------------------------------------------------------------------+
+|                  SpeculativeProxyCollection (Facade)                    |
+| - Maintains local speculative overlay: Map<id, { item, update_count }>  |
+| - Intercepts queries: returns overlay item if present, else Proxy       |
+| - Emits 0ms change events to Facade callback observers                  |
++-------------------------------------------------------------------------+
+                                     |
+                                     v
++-------------------------------------------------------------------------+
+|                      ProxyCollection (Base Layer)                       |
+| - Strictly server-authoritative Map<id, item>                           |
+| - Manages network dispatching & microtask batching (UpdateBuilder)      |
++-------------------------------------------------------------------------+
 ```
 
-### Sequence-Based Eviction & Reconciliation
+### The $1 + N$ Eviction Engine
 
-1. **Local Edit**:
-   - When `.set()` or `.update_items()` is called, the facade assigns `update_count = ++client._update_count` and updates its local overlay map.
-   - Emits a `"change"` event immediately (0ms latency).
-2. **Receiving Notifications (`tunnel.client_id` & `tunnel.update_count`)**:
-   - **Own ACK (`tunnel.client_id == my_client_id`)**:
-     - Compares `incoming_update_count` with `overlay_item.update_count`.
-     - If `incoming_update_count >= overlay_item.update_count`: Evicts the entry from the speculative overlay map. The item seamlessly transitions to confirmed `ProxyCollection` state.
-     - If `incoming_update_count < overlay_item.update_count`: A newer local edit is still pending. The facade **retains the speculative overlay**, preventing UI rollback flicker.
-   - **Remote Edit (`tunnel.client_id != my_client_id`)**:
-     - Updates the underlying `ProxyCollection` server state.
-     - The facade retains any local pending speculative overlay until the local client's own pending update sequence is acknowledged.
-3. **Reconnection & Snapshot Reset**:
-   - When the client reconnects and receives a server snapshot with `reset: true`, the facade flushes all speculative overlays (`overlay.clear()`) and adopts the clean server snapshot.
+Eviction and reconciliation logic is governed by 1 global counter on the facade and $N$ per-item overlay counters:
+
+1. **1 Global Facade Counter (`facade._last_acked_update_count`)**:
+   - Updated **only** when incoming server notifications carry `tunnel.client_id == client.id`.
+2. **$N$ Per-Item Overlay Counters (`item.update_count`)**:
+   - Stamped on each item in `_overlay` when its speculative edit is dispatched:
+     $$\text{item.update\_count} = \text{client.\_last\_requested\_update\_count} + 1$$
+3. **Eviction Rule**:
+   An overlay item is **evicted (flushed to server state)** if:
+   $$\Big(\text{item.update\_count} \le \text{facade.\_last\_acked\_update\_count}\Big) \quad \text{OR} \quad \text{item.is\_expired()}$$
+
+### Reconciliation Flow
+
+1. **Local Write (`update_items`)**:
+   - Facade stamps inserted/removed items in `_overlay` with `item.update_count = client._last_requested_update_count + 1`.
+   - Invokes Facade callbacks immediately for **0ms UI latency**.
+   - Delegates network batching directly to `this._proxyCollection.update_items(changes, options)`. `ProxyCollection` is **not mutated** on write.
+2. **Server Notification (`_ssclient_update`)**:
+   - **Own ACK (`tunnel.client_id == client.id`)**:
+     - Updates `_last_acked_update_count = tunnel.update_count`.
+     - Evicts overlay items where `item.update_count <= _last_acked_update_count`.
+   - **Remote Edit (`tunnel.client_id != client.id`)**:
+     - Updates underlying `ProxyCollection` server state.
+     - The facade retains local pending speculative overlays until the local client's own pending update sequence ACKs arrive.
+   - **Snapshot Reset (`reset: true`)**:
+     - Flushes all speculative overlays (`_overlay.clear()`) and adopts the clean server snapshot.
+   - **Callback Suppression**:
+     - Facade computes the effective visible state diff before vs. after. If the visible state actually changed, Facade callbacks are invoked. If the server ACK matches what was already speculatively displayed, Facade callbacks are **suppressed** to prevent redundant UI re-renders.

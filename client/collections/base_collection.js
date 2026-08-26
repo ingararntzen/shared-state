@@ -5,7 +5,8 @@ export class BaseCollection {
         this._proxyCollection = proxyCollection;
 
         this._proxyCollection.add_callback((changes) => {
-            this.emit("change", changes);
+            const formatted = this._formatChanges ? this._formatChanges(changes) : changes;
+            this.emit("change", formatted);
         });
     }
 

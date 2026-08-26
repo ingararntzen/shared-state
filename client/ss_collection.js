@@ -160,8 +160,7 @@ export class ProxyCollection {
             remove: eff_remove,
             insert: eff_insert,
             reset: reset,
-            version: this._version,
-            tunnel: tunnel
+            version: this._version
         };
 
         this._notify_callbacks(effective_changes);

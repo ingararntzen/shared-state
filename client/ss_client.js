@@ -1,6 +1,7 @@
 import { WebSocketIO, ConnectionState } from "./wsio.js";
 import { resolvablePromise, random_string } from "./util/util.js";
 import { ProxyCollection } from "./ss_collection.js";
+import { SpeculativeProxyCollection } from "./ss_speculative_collection.js";
 import { ServerClock, CLOCK } from "./ss_clock.js";
 import {
     Variable,
@@ -199,7 +200,7 @@ export class SharedStateClient {
         return await this._request(MsgCmd.PUT, path, changes);
     }
 
-    acquire_collection(path, options) {
+    acquire_collection(path, options = {}) {
         path = path.startsWith("/") ? path : "/" + path;
         if (!path.startsWith("/resources/")) {
             path = "/resources" + path;
@@ -208,7 +209,10 @@ export class SharedStateClient {
             this._sub(path);
         }
         if (!this._coll_map.has(path)) {
-            this._coll_map.set(path, new ProxyCollection(this, path, options));
+            const baseColl = new ProxyCollection(this, path, options);
+            const isSpeculative = options.local_update ?? options.immediate_update ?? options.speculative ?? (this._options && (this._options.local_update ?? this._options.immediate_update ?? this._options.speculative));
+            const coll = Boolean(isSpeculative) ? new SpeculativeProxyCollection(this, baseColl, options) : baseColl;
+            this._coll_map.set(path, coll);
         }
         return this._coll_map.get(path);
     }
@@ -227,7 +231,10 @@ export class SharedStateClient {
             if (typeof def === "object" && def !== null) {
                 typeName = def.type;
                 rawPath = def.path;
-                options = def.options || {};
+                options = { ...(def.options || {}) };
+                if (def.local_update !== undefined) options.local_update = def.local_update;
+                if (def.immediate_update !== undefined) options.immediate_update = def.immediate_update;
+                if (def.speculative !== undefined) options.speculative = def.speculative;
             } else {
                 throw new Error(`Invalid configuration for '${name}'. Expected object format: { type: "...", path: "..." }`);
             }

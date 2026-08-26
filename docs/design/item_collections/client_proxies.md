@@ -37,3 +37,12 @@
 
 The Shared client automatically updates the `ProxyCollection` in response to notifications of state change received from the server.
 
+
+## Speculative Proxy Collection (`SpeculativeProxyCollection`)
+
+To support **0ms immediate UI feedback**, SharedState provides `SpeculativeProxyCollection`, an overlay facade that wraps a base `ProxyCollection`:
+
+- **Opt-in Configuration**: Enabled by passing `{ speculative: true }` in `client.acquire_collection(path, { speculative: true })` or `client.load()`.
+- **Overlay Interception**: Local writes (`update_items`) immediately update a local overlay map, invoking registered callback handlers instantly without waiting for network latency.
+- **$1 + N$ Sequence Eviction**: Overlay entries are stamped with `item.update_count`. When server notifications arrive carrying `tunnel.client_id == my_id`, overlay entries where `item.update_count <= facade._last_acked_update_count` are evicted, smoothly handing control over to the confirmed server state without UI flicker.
+
