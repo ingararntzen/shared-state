@@ -11,7 +11,7 @@ hero:
       link: /concept/paradigm
     - theme: alt
       text: Design
-      link: /design/framework
+      link: /design/overview
     - theme: alt
       text: Client API Reference
       link: /client-api/

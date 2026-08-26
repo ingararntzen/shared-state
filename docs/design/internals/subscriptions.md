@@ -1,7 +1,7 @@
-[Path]: /design/collections#path
-[Paths]: /design/collections#path
-[SharedState Client]: /design/framework#sharedstate-client
-[SharedState Server]: /design/framework#sharedstate-server
+[Path]: /design/item_collections/item_collection#path
+[Paths]: /design/item_collections/item_collection#path
+[SharedState Client]: /design/overview#sharedstate-client
+[SharedState Server]: /design/overview#sharedstate-server
 
 
 

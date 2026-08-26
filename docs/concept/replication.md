@@ -1,7 +1,7 @@
-[Item]: /design/collections#item
-[Items]: /design/collections#item
-[ItemCollection]: /design/collections#itemcollection
-[ItemCollections]: /design/collections#itemcollection
+[Item]: /design/item_collections/item_collection#item
+[Items]: /design/item_collections/item_collection#item
+[ItemCollection]: /design/item_collections/item_collection#itemcollection
+[ItemCollections]: /design/item_collections/item_collection#itemcollection
 
 # Replication Strategy
 

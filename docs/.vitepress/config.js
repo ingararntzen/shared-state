@@ -21,14 +21,34 @@ export default defineConfig({
       {
         text: 'Design',
         items: [
-          { text: 'Overview', link: '/design/framework' },
-          { text: 'Item Collections', link: '/design/collections' },
-          { text: 'Item Store', link: '/design/stores' },
-          { text: 'Connection', link: '/design/connection' },
-          { text: 'Communication', link: '/design/communication' },
-          { text: 'Subscriptions', link: '/design/subscriptions' },
-          { text: 'Server Clock', link: '/design/clock' },
-          { text: 'Proxy Objects', link: '/design/proxyobjects' },
+          { text: 'Overview', link: '/design/overview' },
+          {
+            text: 'Item Collections',
+            collapsed: false,
+            items: [
+              { text: 'Item Collection', link: '/design/item_collections/item_collection' },
+              { text: 'Server Stores', link: '/design/item_collections/server_stores' },
+              { text: 'Client Proxies', link: '/design/item_collections/client_proxies' }
+            ]
+          },
+          {
+            text: 'Internals',
+            collapsed: false,
+            items: [
+              { text: 'Communication', link: '/design/internals/communication' },
+              { text: 'Subscriptions', link: '/design/internals/subscriptions' }
+            ]
+          },
+          {
+            text: 'Abstractions',
+            collapsed: false,
+            items: [
+              { text: 'Connection', link: '/design/abstractions/connection' },
+              { text: 'Shared Variables', link: '/design/abstractions/variables' },
+              { text: 'Shared Collections', link: '/design/abstractions/collections' },
+              { text: 'Shared Clock', link: '/design/abstractions/clock' }
+            ]
+          }
         ]
       },
       {
@@ -37,7 +57,6 @@ export default defineConfig({
           { text: 'Client Overview', link: '/client-api/' },
           { text: 'SharedStateClient', link: '/client-api/sharedstate-client' },
           { text: 'ProxyCollection', link: '/client-api/proxy-collection' },
-          { text: 'ProxyObject', link: '/client-api/proxy-object' },
           { text: 'ServerClock', link: '/client-api/server-clock' }
         ]
       },

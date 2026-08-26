@@ -1,11 +1,11 @@
-[Item]: /design/collections#item
-[Items]: /design/collections#item
-[ItemCollection]: /design/collections#itemcollection
-[ItemCollections]: /design/collections#itemcollection
-[Path]: /design/collections#path
-[Paths]: /design/collections#path
-[ItemStore]: /design/stores
-[ItemStores]: /design/stores
+[Item]: /design/item_collections/item_collection#item
+[Items]: /design/item_collections/item_collection#item
+[ItemCollection]: /design/item_collections/item_collection#itemcollection
+[ItemCollections]: /design/item_collections/item_collection#itemcollection
+[Path]: /design/item_collections/item_collection#path
+[Paths]: /design/item_collections/item_collection#path
+[ItemStore]: /design/item_collections/server_stores
+[ItemStores]: /design/item_collections/server_stores
 
 # Design Overview
 

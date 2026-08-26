@@ -5,10 +5,10 @@
 [Changes]: #changes
 [ItemCollection]: #itemcollection
 [ItemCollections]: #itemcollection
-[ItemStore]: /design/stores
-[ItemStores]: /design/stores
-[SharedState Client]: /design/framework#sharedstate-client
-[SharedState Server]: /design/framework#sharedstate-server
+[ItemStore]: /design/item_collections/server_stores
+[ItemStores]: /design/item_collections/server_stores
+[SharedState Client]: /design/overview#sharedstate-client
+[SharedState Server]: /design/overview#sharedstate-server
 
 
 # Item Collections

@@ -1,5 +1,5 @@
-[SharedState Client]: /design/framework#sharedstate-client
-[SharedState Server]: /design/framework#sharedstate-server
+[SharedState Client]: /design/overview#sharedstate-client
+[SharedState Server]: /design/overview#sharedstate-server
 
 # Clock
 
