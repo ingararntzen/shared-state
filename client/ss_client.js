@@ -3,7 +3,8 @@ import { resolvablePromise } from "./util/util.js";
 import { ProxyCollection } from "./ss_collection.js";
 import { ServerClock, CLOCK } from "./ss_clock.js";
 import {
-    SharedValue,
+    Variable,
+    SharedBool,
     SharedString,
     SharedInteger,
     SharedFloat,
@@ -11,8 +12,6 @@ import {
     SharedArray
 } from "./variables/variables.js";
 import { BaseCollection } from "./collections/base_collection.js";
-import { SharedCollection } from "./collections/collection.js";
-import { SharedList } from "./collections/list.js";
 import { SharedSet } from "./collections/set.js";
 import { SharedMap } from "./collections/map.js";
 
@@ -29,15 +28,16 @@ const MsgCmd = Object.freeze({
 });
 
 const TYPE_REGISTRY = {
-    Value: SharedValue,
+    Variable: Variable,
+    Bool: SharedBool,
+    Boolean: SharedBool,
     String: SharedString,
     Integer: SharedInteger,
     Float: SharedFloat,
     Object: SharedObject,
     Array: SharedArray,
     BaseCollection: BaseCollection,
-    Collection: SharedCollection,
-    List: SharedList,
+    Collection: BaseCollection,
     Set: SharedSet,
     Map: SharedMap
 };
@@ -238,7 +238,7 @@ export class SharedStateClient {
                 this._coll_paths.add(collWirePath);
                 pathsToSub.push(collWirePath);
                 const proxyColl = this.acquire_collection(collWirePath, options);
-                const obj = new ClassCtor(proxyColl);
+                const obj = new ClassCtor(proxyColl, options);
                 this.objects[name] = obj;
                 newObjects[name] = obj;
 
@@ -255,7 +255,7 @@ export class SharedStateClient {
                 this._var_coll_paths.add(collWirePath);
                 pathsToSub.push(collWirePath);
                 const proxyColl = this.acquire_collection(collWirePath, options);
-                const obj = new ClassCtor(proxyColl, itemId);
+                const obj = new ClassCtor(proxyColl, itemId, options);
                 this.objects[name] = obj;
                 newObjects[name] = obj;
 

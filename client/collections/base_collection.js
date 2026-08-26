@@ -9,6 +9,10 @@ export class BaseCollection {
         });
     }
 
+    get provider() {
+        return this._proxyCollection;
+    }
+
     get_state(name) {
         if (name === "change") {
             const items = this._proxyCollection.get_items();

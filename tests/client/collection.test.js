@@ -94,11 +94,12 @@ describe("ProxyCollection Unit Tests", () => {
         expect(callback).toHaveBeenCalled();
     });
 
-    test("update_items auto-generates id if missing and delegates to client", () => {
+    test("update_items auto-generates id if missing and delegates to client", async () => {
         const mockClient = createMockClient();
         const coll = new ProxyCollection(mockClient, "/app/mitems/chnl");
 
-        coll.update_items({ insert: [{ data: "no_id" }] });
+        const p = coll.update_items({ insert: [{ data: "no_id" }] });
+        await p;
 
         expect(mockClient.update).toHaveBeenCalledTimes(1);
         const [path, changes] = mockClient.update.mock.calls[0];
@@ -121,5 +122,29 @@ describe("ProxyCollection Unit Tests", () => {
         expect(() => {
             coll.update_items({ insert: [{ id: "i1" }] });
         }).toThrow("collection already terminated");
+    });
+
+    test("batches multiple synchronous update_items calls into 1 microtask request", async () => {
+        const mockClient = createMockClient();
+        const coll = new ProxyCollection(mockClient, "/app/mitems/chnl");
+
+        const p1 = coll.update_items({ insert: [{ id: "item1", state: "val1" }] });
+        const p2 = coll.update_items({ insert: [{ id: "item1", state: "val2" }] }); // Overwrites item1
+        const p3 = coll.update_items({ insert: [{ id: "item2", state: "val3" }] });
+
+        expect(p1).toBe(p2);
+        expect(p2).toBe(p3);
+
+        const res = await p1;
+        expect(res.ok).toBe(true);
+        expect(mockClient.update).toHaveBeenCalledTimes(1);
+        expect(mockClient.update).toHaveBeenCalledWith("/app/mitems/chnl", {
+            insert: [
+                { id: "item1", state: "val2" },
+                { id: "item2", state: "val3" }
+            ],
+            remove: [],
+            reset: false
+        });
     });
 });

@@ -98,13 +98,13 @@ describe("Client-Server Integration Tests (Obsoletes test.html)", () => {
         client.release("/app/mitems/chnl");
     });
 
-    test("client.load() with SharedInteger and SharedList", async () => {
+    test("client.load() with SharedInteger and SharedMap", async () => {
         const client = new SharedStateClient(SERVER_URL);
         await client.connection.connectedPromise();
 
-        const { counter, chat } = client.load({
+        const { counter, settings } = client.load({
             counter: { type: "Integer", path: "/app/mitems/counter_chnl/counter" },
-            chat: { type: "List", path: "/app/mitems/chat_chnl" }
+            settings: { type: "Map", path: "/app/mitems/settings_chnl" }
         });
 
         // Allow _sub PUT /subs request to settle on server
@@ -116,14 +116,14 @@ describe("Client-Server Integration Tests (Obsoletes test.html)", () => {
         await new Promise((resolve) => setTimeout(resolve, 150));
         expect(counter.value).toBe(100);
 
-        const appendRes = await chat.append({ id: "msg1", text: "hello" });
-        expect(appendRes.ok).toBe(true);
+        const mapRes = await settings.set("theme", "dark");
+        expect(mapRes.ok).toBe(true);
 
         await new Promise((resolve) => setTimeout(resolve, 100));
-        expect(chat.get("msg1")).toEqual({ id: "msg1", text: "hello" });
+        expect(settings.get("theme")).toBe("dark");
 
         client.release("/app/mitems/counter_chnl");
-        client.release("/app/mitems/chat_chnl");
+        client.release("/app/mitems/settings_chnl");
     });
 
     test("Real-time synchronization across two client instances", async () => {

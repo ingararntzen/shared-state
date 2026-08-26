@@ -1,4 +1,82 @@
-import { random_string } from "./util/util.js";
+import { random_string, resolvablePromise } from "./util/util.js";
+
+export class UpdateBuilder {
+    constructor(proxyCollection) {
+        this._proxyCollection = proxyCollection;
+
+        this._pendingInserts = new Map();
+        this._pendingRemoves = new Set();
+        this._pendingReset = false;
+
+        this._scheduled = false;
+        this._sharedPromise = null;
+        this._sharedResolver = null;
+    }
+
+    add_change(changes = {}) {
+        const { insert = [], remove = [], reset = false } = changes;
+
+        if (reset) {
+            this._pendingInserts.clear();
+            this._pendingRemoves.clear();
+            this._pendingReset = true;
+        }
+
+        if (remove.length > 0) {
+            for (const id of remove) {
+                this._pendingInserts.delete(id);
+                this._pendingRemoves.add(id);
+            }
+        }
+
+        if (insert.length > 0) {
+            for (const item of insert) {
+                const id = item.id;
+                this._pendingRemoves.delete(id);
+                this._pendingInserts.set(id, item);
+            }
+        }
+
+        if (!this._scheduled) {
+            this._scheduled = true;
+            const [promise, resolver] = resolvablePromise();
+            this._sharedPromise = promise;
+            this._sharedResolver = resolver;
+
+            queueMicrotask(() => this._flush());
+        }
+
+        return this._sharedPromise;
+    }
+
+    async _flush() {
+        const inserts = Array.from(this._pendingInserts.values());
+        const removes = Array.from(this._pendingRemoves);
+        const reset = this._pendingReset;
+        const resolver = this._sharedResolver;
+
+        // Reset builder state for future synchronous calls
+        this._pendingInserts = new Map();
+        this._pendingRemoves = new Set();
+        this._pendingReset = false;
+        this._scheduled = false;
+        this._sharedPromise = null;
+        this._sharedResolver = null;
+
+        const payload = {
+            insert: inserts,
+            remove: removes,
+            reset: reset
+        };
+
+        try {
+            const res = await this._proxyCollection._ssclient.update(this._proxyCollection._path, payload);
+            resolver(res);
+        } catch (err) {
+            resolver({ ok: false, error: err });
+        }
+    }
+}
 
 export class ProxyCollection {
 
@@ -12,6 +90,8 @@ export class ProxyCollection {
         this._handlers = [];
         // items
         this._map = new Map();
+        // microtask batch update builder
+        this._builder = new UpdateBuilder(this);
     }
 
     /*********************************************************
@@ -96,7 +176,7 @@ export class ProxyCollection {
             item.id = item.id || random_string(10);
             return item;
         });
-        return this._ssclient.update(this._path, changes);
+        return this._builder.add_change(changes);
     }
 
     /**
@@ -112,5 +192,5 @@ export class ProxyCollection {
         if (index > -1) {
             this._handlers.splice(index, 1);
         }
-    };    
+    };
 }

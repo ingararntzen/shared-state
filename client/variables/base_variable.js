@@ -1,14 +1,21 @@
 import eventify from "../util/events.js";
 
 export class BaseVariable {
-    constructor(proxyCollection, itemId) {
+    constructor(proxyCollection, itemId, options = {}) {
         this._proxyCollection = proxyCollection;
         this._itemId = itemId;
+        this._options = options;
+        this._initialValue = options.initialValue !== undefined ? options.initialValue : options.initial;
+        this._hasValidValue = false;
         this._lastVal = undefined;
 
         this._proxyCollection.add_callback((changes) => {
             this._on_collection_update(changes);
         });
+    }
+
+    get provider() {
+        return this._proxyCollection;
     }
 
     _get_current_raw() {
@@ -23,7 +30,7 @@ export class BaseVariable {
 
     get_state(name) {
         if (name === "change") {
-            const val = this._get_current_raw();
+            const val = this.value;
             return val !== undefined ? val : null;
         }
         return null;
@@ -48,9 +55,11 @@ export class BaseVariable {
         }
 
         if (touched) {
-            const newVal = this._get_current_raw();
-            this._lastVal = newVal;
-            this.emit("change", newVal);
+            const newVal = this.value;
+            if (newVal !== this._lastVal) {
+                this._lastVal = newVal;
+                this.emit("change", newVal);
+            }
         }
     }
 }

@@ -248,7 +248,7 @@ async def test_http_static_explorer_ui(server):
     # Test /files/ prefix asset serving
     status, content_files = await http_get_raw(port, "/files/demo.html")
     assert status == 200
-    assert "SharedState Collection Demo" in content_files
+    assert "SharedMap Viewer" in content_files
 
     # Test /files/ directory listing
     status, content_dir = await http_get_raw(port, "/files/")

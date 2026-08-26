@@ -4,7 +4,7 @@ export { ProxyCollection } from "./ss_collection.js";
 export { BaseVariable } from "./variables/base_variable.js";
 export {
     Variable,
-    SharedValue,
+    SharedBool,
     SharedString,
     SharedInteger,
     SharedFloat,
@@ -12,8 +12,6 @@ export {
     SharedArray
 } from "./variables/variables.js";
 export { BaseCollection } from "./collections/base_collection.js";
-export { SharedCollection } from "./collections/collection.js";
-export { SharedList } from "./collections/list.js";
 export { SharedSet } from "./collections/set.js";
 export { SharedMap } from "./collections/map.js";
 export { eventify } from "./util/events.js";
