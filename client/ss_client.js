@@ -1,5 +1,5 @@
 import { WebSocketIO, ConnectionState } from "./wsio.js";
-import { resolvablePromise } from "./util/util.js";
+import { resolvablePromise, random_string } from "./util/util.js";
 import { ProxyCollection } from "./ss_collection.js";
 import { ServerClock, CLOCK } from "./ss_clock.js";
 import {
@@ -48,8 +48,10 @@ export class SharedStateClient {
         // logical connection instance
         this._connection = new WebSocketIO(url, options);
 
-        // requests
-        this._reqid = 0;
+        // client identification & request counters
+        this.id = random_string(12);
+        this._request_count = 0;
+        this._update_count = 0;
         this._pending = new Map();
 
         // subscriptions
@@ -87,10 +89,19 @@ export class SharedStateClient {
         return this._connection;
     }
 
+    get state() {
+        return this._connection.state;
+    }
+
+    get connection() {
+        return this._connection;
+    }
+
     _on_connect() {
-        if (this._subs_map.size > 0) {
-            const items = [...this._subs_map.entries()];
-            this.update("/subs", { insert: items, reset: true });
+        // subscribe on connect/reconnect
+        const subs = Array.from(this._subs_map.entries());
+        if (subs.length > 0) {
+            this._request(MsgCmd.PUT, "/subs", { insert: subs });
         }
     }
 
@@ -101,7 +112,7 @@ export class SharedStateClient {
     _on_message(data) {
         let msg = JSON.parse(data);
         if (msg.type === MsgType.REPLY) {
-            let reqid = msg.tunnel;
+            let reqid = typeof msg.tunnel === "object" && msg.tunnel !== null ? msg.tunnel.request_count : msg.tunnel;
             if (this._pending.has(reqid)) {
                 let resolver = this._pending.get(reqid);
                 this._pending.delete(reqid);
@@ -118,7 +129,7 @@ export class SharedStateClient {
     _handle_notify(msg) {
         const ds = this._coll_map.get(msg["path"]);
         if (ds !== undefined) {
-            ds._ssclient_update(msg["data"]);
+            ds._ssclient_update(msg["data"], msg["tunnel"]);
         }
     }
 
@@ -127,17 +138,25 @@ export class SharedStateClient {
     *********************************************************************/
 
     async _request(cmd, path, reqData) {
-        const reqid = this._reqid++;
+        const request_count = ++this._request_count;
+        if (cmd === MsgCmd.PUT && path !== "/subs") {
+            this._update_count++;
+        }
+        const tunnel = {
+            client_id: this.id,
+            request_count,
+            update_count: this._update_count
+        };
         const msg = {
             type: MsgType.REQUEST,
             cmd,
             path,
             data: reqData,
-            tunnel: reqid
+            tunnel
         };
         this._connection.send(JSON.stringify(msg));
         let [promise, resolver] = resolvablePromise();
-        this._pending.set(reqid, resolver);
+        this._pending.set(request_count, resolver);
         const { ok, data } = await promise;
         if (cmd === MsgCmd.PUT && path === "/subs" && ok) {
             this._subs_map = new Map(data);

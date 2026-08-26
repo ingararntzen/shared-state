@@ -36,7 +36,8 @@ export default defineConfig({
             collapsed: false,
             items: [
               { text: 'Communication', link: '/design/internals/communication' },
-              { text: 'Subscriptions', link: '/design/internals/subscriptions' }
+              { text: 'Subscriptions', link: '/design/internals/subscriptions' },
+              { text: 'Consistency', link: '/design/internals/consistency' }
             ]
           },
           {

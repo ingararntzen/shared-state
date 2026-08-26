@@ -209,7 +209,7 @@ class SharedStateServer:
                 ok, result = await self.handle_GET(ws, msg["path"])
             elif msg["cmd"] == MsgCmd.PUT:
                 req_data = msg.get("data") if "data" in msg else msg.get("arg")
-                ok, result = await self.handle_PUT(ws, msg["path"], req_data)
+                ok, result = await self.handle_PUT(ws, msg["path"], req_data, tunnel=msg.get("tunnel"))
 
             reply = {
                 "type": MsgType.REPLY,
@@ -239,21 +239,23 @@ class SharedStateServer:
                 await self._process_multicast_notify(*args)
         self._tasks = []
 
-    async def _process_unicast_reset(self, ws, path, changes):
+    async def _process_unicast_reset(self, ws, path, changes, tunnel=None):
         msg = {
             "type": MsgType.MESSAGE,
             "cmd": MsgCmd.NOTIFY,
             "path": path,
-            "data": changes
+            "data": changes,
+            "tunnel": tunnel
         }
         await self._send(ws, json.dumps(msg))
 
-    async def _process_multicast_notify(self, path, changes):
+    async def _process_multicast_notify(self, path, changes, tunnel=None):
         msg = {
             "type": MsgType.MESSAGE,
             "cmd": MsgCmd.NOTIFY,
             "path": path,
-            "data": changes
+            "data": changes,
+            "tunnel": tunnel
         }
         data = json.dumps(msg)
         for ws in self._clients.clients(path):
@@ -288,7 +290,7 @@ class SharedStateServer:
                 return True, await store.get(app, resource)
         return False, "invalid path"
 
-    async def handle_PUT(self, ws, path, changes):
+    async def handle_PUT(self, ws, path, changes, tunnel=None):
         parsed_url = urlparse(path)
         n_path = normalize(parsed_url.path)
         path_str = str(n_path)
@@ -300,8 +302,18 @@ class SharedStateServer:
                 if self._clients.is_subscribed_to_path(ws, sub_path):
                     ok, result = await self.handle_GET(ws, sub_path)
                     if ok:
-                        reset_changes = {"remove": [], "insert": result, "reset": True}
-                        self._tasks.append(("unicast_reset", ws, sub_path, reset_changes))
+                        sub_n_path = normalize(sub_path)
+                        parts = sub_n_path.parts[1:]
+                        if parts and parts[0] == "resources":
+                            parts = parts[1:]
+                        version = 0
+                        if len(parts) >= 3:
+                            app, store_name, resource = parts[0], parts[1], parts[2]
+                            st = self._stores.get(store_name)
+                            if st and hasattr(st, "get_version"):
+                                version = await st.get_version(app, resource)
+                        reset_changes = {"remove": [], "insert": result, "reset": True, "version": version}
+                        self._tasks.append(("unicast_reset", ws, sub_path, reset_changes, tunnel))
             return True, self._clients.get_subs(ws)
 
         parts = n_path.parts[1:]
@@ -312,8 +324,11 @@ class SharedStateServer:
             store = self._stores.get(store_name, None)
             if store is None:
                 return False, "no store"
-            eff_changes = await store.update(app, resource, changes)
-            self._tasks.append(("multicast_notify", path_str, eff_changes))
+            ok, result = await store.update(app, resource, changes)
+            if not ok:
+                return False, result
+            eff_changes = result
+            self._tasks.append(("multicast_notify", path_str, eff_changes, tunnel))
             total_items = len(eff_changes.get("insert", [])) + len(eff_changes.get("remove", []))
             return True, total_items
         return False, "invalid path"

@@ -1,5 +1,5 @@
-[ItemCollection]: /design/item_collections/item_collection]
-[ItemCollections]: /design/item_collections/item_collection]
+[ItemCollection]: /design/item_collections/item_collection
+[ItemCollections]: /design/item_collections/item_collection
 [ProxyCollection]: /design/item_collections/client_proxies
 [ProxyCollections]: /design/item_collections/client_proxies
 [Variables]: /design/abstractions/variables

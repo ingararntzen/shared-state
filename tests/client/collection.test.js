@@ -34,11 +34,11 @@ describe("ProxyCollection Unit Tests", () => {
         expect(coll.size).toBe(1);
         expect(coll.has_item("item1")).toBe(true);
         expect(coll.get_item("item1")).toEqual({ id: "item1", state: "foo" });
-        expect(callback).toHaveBeenLastCalledWith({
+        expect(callback).toHaveBeenLastCalledWith(expect.objectContaining({
             remove: [],
             insert: [{ id: "item1", state: "foo" }],
             reset: false
-        });
+        }));
 
         // 2. Replace item1
         coll._ssclient_update({
@@ -49,11 +49,11 @@ describe("ProxyCollection Unit Tests", () => {
 
         expect(coll.size).toBe(1);
         expect(coll.get_item("item1")).toEqual({ id: "item1", state: "bar" });
-        expect(callback).toHaveBeenLastCalledWith({
+        expect(callback).toHaveBeenLastCalledWith(expect.objectContaining({
             remove: [],
             insert: [{ id: "item1", state: "bar" }],
             reset: false
-        });
+        }));
 
         // 3. Delete item1
         coll._ssclient_update({
@@ -64,11 +64,11 @@ describe("ProxyCollection Unit Tests", () => {
 
         expect(coll.size).toBe(0);
         expect(coll.has_item("item1")).toBe(false);
-        expect(callback).toHaveBeenLastCalledWith({
+        expect(callback).toHaveBeenLastCalledWith(expect.objectContaining({
             remove: ["item1"],
             insert: [],
             reset: false
-        });
+        }));
     });
 
     test("handles reset update", () => {
@@ -145,6 +145,25 @@ describe("ProxyCollection Unit Tests", () => {
             ],
             remove: [],
             reset: false
+        });
+    });
+
+    test("conditional option attaches last_version to payload data", async () => {
+        const mockClient = createMockClient();
+        const coll = new ProxyCollection(mockClient, "/app/mitems/chnl");
+
+        // Set version via server update
+        coll._ssclient_update({ version: 10 });
+        expect(coll.version).toBe(10);
+
+        // Perform conditional update
+        await coll.update_items({ insert: [{ id: "i1", state: "v1" }] }, { conditional: true });
+
+        expect(mockClient.update).toHaveBeenCalledWith("/app/mitems/chnl", {
+            insert: [{ id: "i1", state: "v1" }],
+            remove: [],
+            reset: false,
+            last_version: 10
         });
     });
 });

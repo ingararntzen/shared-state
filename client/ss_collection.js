@@ -7,14 +7,19 @@ export class UpdateBuilder {
         this._pendingInserts = new Map();
         this._pendingRemoves = new Set();
         this._pendingReset = false;
+        this._pendingConditional = false;
 
         this._scheduled = false;
         this._sharedPromise = null;
         this._sharedResolver = null;
     }
 
-    add_change(changes = {}) {
-        const { insert = [], remove = [], reset = false } = changes;
+    add_change(changes = {}, options = {}) {
+        const { insert = [], remove = [], reset = false, conditional = false } = changes;
+
+        if (conditional || options.conditional) {
+            this._pendingConditional = true;
+        }
 
         if (reset) {
             this._pendingInserts.clear();
@@ -53,12 +58,14 @@ export class UpdateBuilder {
         const inserts = Array.from(this._pendingInserts.values());
         const removes = Array.from(this._pendingRemoves);
         const reset = this._pendingReset;
+        const isConditional = this._pendingConditional;
         const resolver = this._sharedResolver;
 
         // Reset builder state for future synchronous calls
         this._pendingInserts = new Map();
         this._pendingRemoves = new Set();
         this._pendingReset = false;
+        this._pendingConditional = false;
         this._scheduled = false;
         this._sharedPromise = null;
         this._sharedResolver = null;
@@ -68,6 +75,10 @@ export class UpdateBuilder {
             remove: removes,
             reset: reset
         };
+
+        if (isConditional) {
+            payload.last_version = this._proxyCollection._version;
+        }
 
         try {
             const res = await this._proxyCollection._ssclient.update(this._proxyCollection._path, payload);
@@ -90,6 +101,8 @@ export class ProxyCollection {
         this._handlers = [];
         // items
         this._map = new Map();
+        // resource version
+        this._version = 0;
         // microtask batch update builder
         this._builder = new UpdateBuilder(this);
     }
@@ -112,10 +125,14 @@ export class ProxyCollection {
     /**
      * server update collection 
      */
-    _ssclient_update (changes={}) {
+    _ssclient_update (changes={}, tunnel=null) {
 
         if (this._terminated) {
             throw new Error("collection already terminated")
+        }
+
+        if (changes && changes.version !== undefined) {
+            this._version = changes.version;
         }
 
         const {remove=[], insert=[], reset=false} = changes;
@@ -142,7 +159,9 @@ export class ProxyCollection {
         const effective_changes = {
             remove: eff_remove,
             insert: eff_insert,
-            reset: reset
+            reset: reset,
+            version: this._version,
+            tunnel: tunnel
         };
 
         this._notify_callbacks(effective_changes);
@@ -162,11 +181,12 @@ export class ProxyCollection {
     has_item(id) {return this._map.has(id)}
     get_item(id) {return this._map.get(id)}
     get_items() {return [...this._map.values()]}
+    get version() {return this._version}
 
     /**
      * application dispatching update to server
      */
-    update_items (changes={}) {
+    update_items (changes={}, options={}) {
         if (this._terminated) {
             throw new Error("collection already terminated")
         }
@@ -176,7 +196,7 @@ export class ProxyCollection {
             item.id = item.id || random_string(10);
             return item;
         });
-        return this._builder.add_change(changes);
+        return this._builder.add_change(changes, options);
     }
 
     /**

@@ -256,3 +256,64 @@ async def test_http_static_explorer_ui(server):
     assert "Index of /files/" in content_dir
     assert "demo.html" in content_dir
     assert "minimal.html" in content_dir
+
+
+@pytest.mark.asyncio
+async def test_server_versioning_and_conditional_updates(server):
+    _, port = server
+    async with make_ws_client(port) as ws:
+        tunnel_payload = {
+            "client_id": "client_test_1",
+            "request_count": 1,
+            "update_count": 1
+        }
+
+        # 1. Regular update (no last_version)
+        put_req = {
+            "type": MsgType.REQUEST,
+            "cmd": MsgCmd.PUT,
+            "path": "/resources/app/mitems/res1",
+            "data": {
+                "insert": [{"id": "item1", "val": "a"}]
+            },
+            "tunnel": tunnel_payload
+        }
+        await ws.send(json.dumps(put_req))
+        reply = json.loads(await ws.recv())
+
+        assert reply["ok"] is True
+        assert reply["tunnel"] == tunnel_payload
+
+        # 2. Conditional update with correct last_version (1)
+        put_cond_ok = {
+            "type": MsgType.REQUEST,
+            "cmd": MsgCmd.PUT,
+            "path": "/resources/app/mitems/res1",
+            "data": {
+                "insert": [{"id": "item1", "val": "b"}],
+                "last_version": 1
+            },
+            "tunnel": tunnel_payload
+        }
+        await ws.send(json.dumps(put_cond_ok))
+        reply_cond = json.loads(await ws.recv())
+
+        assert reply_cond["ok"] is True
+
+        # 3. Conditional update with stale last_version (1) -> SHOULD FAIL with VERSION_MISMATCH
+        put_cond_fail = {
+            "type": MsgType.REQUEST,
+            "cmd": MsgCmd.PUT,
+            "path": "/resources/app/mitems/res1",
+            "data": {
+                "insert": [{"id": "item1", "val": "stale"}],
+                "last_version": 1  # Server version is now 2!
+            },
+            "tunnel": tunnel_payload
+        }
+        await ws.send(json.dumps(put_cond_fail))
+        reply_fail = json.loads(await ws.recv())
+
+        assert reply_fail["ok"] is False
+        assert reply_fail["data"]["error"] == "VERSION_MISMATCH"
+        assert reply_fail["data"]["current_version"] == 2
