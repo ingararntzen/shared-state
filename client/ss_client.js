@@ -1,242 +1,344 @@
 import { WebSocketIO, ConnectionState } from "./wsio.js";
-import { resolvablePromise, random_string } from "./util/util.js";
 import { ProxyCollection } from "./ss_collection.js";
 import { SpeculativeProxyCollection } from "./ss_speculative_collection.js";
-import { ServerClock, CLOCK } from "./ss_clock.js";
+import { SharedMap } from "./collections/map.js";
+import { SharedSet } from "./collections/set.js";
 import {
-    Variable,
     SharedBool,
     SharedString,
     SharedInteger,
     SharedFloat,
     SharedObject,
-    SharedArray
+    SharedArray,
+    Variable
 } from "./variables/variables.js";
-import { BaseCollection } from "./collections/base_collection.js";
-import { SharedSet } from "./collections/set.js";
-import { SharedMap } from "./collections/map.js";
 
-const MsgType = Object.freeze({
-    MESSAGE: "MESSAGE",
-    REQUEST: "REQUEST",
-    REPLY: "REPLY"
-});
-
-const MsgCmd = Object.freeze({
-    GET: "GET",
-    PUT: "PUT",
-    NOTIFY: "NOTIFY"
-});
-
-const TYPE_REGISTRY = {
-    Variable: Variable,
+/**
+ * Registry mapping abstraction names to their implementation constructors.
+ */
+export const TYPE_REGISTRY = {
+    Map: SharedMap,
+    Set: SharedSet,
     Bool: SharedBool,
-    Boolean: SharedBool,
     String: SharedString,
     Integer: SharedInteger,
     Float: SharedFloat,
     Object: SharedObject,
     Array: SharedArray,
-    BaseCollection: BaseCollection,
-    Collection: BaseCollection,
-    Set: SharedSet,
-    Map: SharedMap
+    Variable: Variable
 };
 
-export class SharedStateClient {
+export const MsgType = {
+    REQUEST: "REQUEST",
+    REPLY: "REPLY",
+    NOTIFY: "NOTIFY",
+    MESSAGE: "MESSAGE"
+};
 
-    constructor(url, options) {
-        // logical connection instance
+export const MsgCmd = {
+    GET: "GET",
+    PUT: "PUT",
+    NOTIFY: "NOTIFY"
+};
+
+function resolvablePromise() {
+    let resolver, rejecter;
+    const promise = new Promise((resolve, reject) => {
+        resolver = resolve;
+        rejecter = reject;
+    });
+    return [promise, resolver, rejecter];
+}
+
+function random_string(len = 12) {
+    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+    let res = "";
+    for (let i = 0; i < len; i++) {
+        res += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return res;
+}
+
+/**
+ * SharedStateClient manages logical network connections, microtask subscription batching,
+ * and high-level object binding (SharedMap, SharedInteger, etc.).
+ */
+export class SharedStateClient {
+    /**
+     * Initializes a new SharedState logical client connection.
+     * @param {string} url - WebSocket server URL
+     * @param {Object} [options] - Configuration options
+     */
+    constructor(url, options = {}) {
+        this._options = options;
         this._connection = new WebSocketIO(url, options);
 
-        // client identification & request counters
         this.id = random_string(12);
         this._request_count = 0;
         this._update_count = 0;
         this._pending = new Map();
 
-        // subscriptions
-        // path -> {} 
+        // Subscriptions state: path -> {}
         this._subs_map = new Map();
+        this._sub_scheduled = false;
 
-        // proxy collections {path -> proxy collection}
+        // Cached proxy collections: path -> ProxyCollection / SpeculativeProxyCollection
         this._coll_map = new Map();
 
-        // Layer 2 objects registry {name -> Layer 2 object}
+        // Bound Layer 2 objects: name -> Layer 2 instance (e.g. SharedMap)
         this.objects = {};
 
-        // Track registered paths for collision protection
+        // Track registered paths for collision detection
         this._coll_paths = new Set();
         this._var_coll_paths = new Set();
 
-        // server clock
         this._server_clock = undefined;
 
-        // bind connection callbacks
         this._connection.on_connect = () => this._on_connect();
         this._connection.on_disconnect = (event) => this._on_disconnect(event);
         this._connection.on_error = (error) => this._on_error(error);
         this._connection.on_message = (data) => this._on_message(data);
 
-        // initiate connection
         this._connection.connect();
     }
 
+    /** Connection state getter */
     get state() {
         return this._connection.state;
     }
 
+    /** WebSocketIO connection instance getter */
     get connection() {
         return this._connection;
     }
 
-    get state() {
-        return this._connection.state;
-    }
-
-    get connection() {
-        return this._connection;
-    }
-
+    /** Called automatically when WebSocket connects/reconnects. */
     _on_connect() {
-        // subscribe on connect/reconnect
-        const subs = Array.from(this._subs_map.entries());
-        if (subs.length > 0) {
-            this._request(MsgCmd.PUT, "/subs", { insert: subs });
-        }
+        this._sync_subs();
     }
 
-    _on_disconnect() {}
+    /** Rejects pending request promises on disconnect. */
+    _on_disconnect(event) {
+        for (const [seq, resolver] of this._pending.entries()) {
+            resolver({ ok: false, error: "WebSocket disconnected" });
+        }
+        this._pending.clear();
+    }
 
-    _on_error() {}
+    _on_error(error) {}
 
+    /** Parses incoming WebSocket messages and routes REPLY or NOTIFY. */
     _on_message(data) {
-        let msg = JSON.parse(data);
+        let msg;
+        try {
+            msg = JSON.parse(data);
+        } catch (e) {
+            return;
+        }
+
         if (msg.type === MsgType.REPLY) {
-            let reqid = typeof msg.tunnel === "object" && msg.tunnel !== null ? msg.tunnel.request_count : msg.tunnel;
-            if (this._pending.has(reqid)) {
-                let resolver = this._pending.get(reqid);
-                this._pending.delete(reqid);
-                const { ok, data } = msg;
-                resolver({ ok, data });
-            }
-        } else if (msg.type === MsgType.MESSAGE) {
-            if (msg.cmd === MsgCmd.NOTIFY) {
-                this._handle_notify(msg);
-            }
+            this._handle_reply(msg);
+        } else if (msg.type === MsgType.MESSAGE || msg.cmd === MsgCmd.NOTIFY) {
+            this._handle_notify(msg);
         }
     }
 
+    /** Resolves pending request promise matching request_count. */
+    _handle_reply(msg) {
+        const seq = msg.tunnel ? msg.tunnel.request_count : undefined;
+        if (seq !== undefined && this._pending.has(seq)) {
+            const resolver = this._pending.get(seq);
+            this._pending.delete(seq);
+            const { ok, data } = msg;
+            resolver({ ok, data });
+        }
+    }
+
+    /** Normalizes path and passes server updates to target ProxyCollection. */
     _handle_notify(msg) {
-        const ds = this._coll_map.get(msg["path"]);
-        if (ds !== undefined) {
-            ds._ssclient_update(msg["data"], msg["tunnel"]);
+        let path = msg.path || "";
+        path = path.startsWith("/") ? path : "/" + path;
+        if (!path.startsWith("/resources/")) {
+            path = "/resources" + path;
+        }
+        if (this._coll_map.has(path)) {
+            const coll = this._coll_map.get(path);
+            coll._ssclient_update(msg.data, msg.tunnel);
         }
     }
 
-    /*********************************************************************
-        SERVER REQUESTS
-    *********************************************************************/
-
+    /**
+     * Sends a WebSocket REQUEST message to the server.
+     * @param {string} cmd - Request command (GET, PUT)
+     * @param {string} path - Target path
+     * @param {*} reqData - Request payload data
+     * @returns {Promise<{ok: boolean, path: string, data: *}>}
+     */
     async _request(cmd, path, reqData) {
         const request_count = ++this._request_count;
         if (cmd === MsgCmd.PUT && path !== "/subs") {
             this._update_count++;
         }
+
         const tunnel = {
             client_id: this.id,
-            request_count,
+            request_count: request_count,
             update_count: this._update_count
         };
+
         const msg = {
             type: MsgType.REQUEST,
-            cmd,
-            path,
+            cmd: cmd,
+            path: path,
             data: reqData,
-            tunnel
+            tunnel: tunnel
         };
+
         this._connection.send(JSON.stringify(msg));
-        let [promise, resolver] = resolvablePromise();
+        const [promise, resolver] = resolvablePromise();
         this._pending.set(request_count, resolver);
         const { ok, data } = await promise;
+
         if (cmd === MsgCmd.PUT && path === "/subs" && ok) {
             this._subs_map = new Map(data);
         }
         return { ok, path, data };
     }
 
-    async _sub_batch(paths) {
-        for (const p of paths) {
-            this._subs_map.set(p, {});
+    /** Schedules a subscription sync on the microtask tick. */
+    _schedule_sub_sync() {
+        if (!this._sub_scheduled) {
+            this._sub_scheduled = true;
+            queueMicrotask(() => this._sync_subs());
         }
-        if (this._connection.state === ConnectionState.CONNECTED) {
-            const items = [...this._subs_map.entries()];
-            return await this.update("/subs", { insert: items, reset: true });
+    }
+
+    /** Flushes active subscriptions (_subs_map) to the server in a single PUT /subs request. */
+    _sync_subs() {
+        this._sub_scheduled = false;
+        if (this.state !== ConnectionState.CONNECTED) {
+            return;
+        }
+        const items = Array.from(this._subs_map.entries());
+        const payload = {
+            insert: items,
+            reset: true
+        };
+        return this._request(MsgCmd.PUT, "/subs", payload).catch(() => {});
+    }
+
+    /**
+     * Acquires and caches ProxyCollection instances for a batch of path specs.
+     * @param {Array<{path: string, options?: Object}>} specs
+     * @returns {Map<string, ProxyCollection>} Map of normalized wire path -> ProxyCollection
+     */
+    _acquire_collections(specs = []) {
+        const acquired = new Map();
+
+        for (const spec of specs) {
+            const rawPath = spec.path;
+            const options = spec.options || {};
+            const localUpdate = options.local_update ?? true;
+
+            let path = rawPath.startsWith("/") ? rawPath : "/" + rawPath;
+            if (!path.startsWith("/resources/")) {
+                path = "/resources" + path;
+            }
+
+            this._subs_map.set(path, {});
+
+            if (!this._coll_map.has(path)) {
+                const baseColl = new ProxyCollection(this, path, options);
+                const coll = localUpdate
+                    ? new SpeculativeProxyCollection(this, baseColl, options)
+                    : baseColl;
+                this._coll_map.set(path, coll);
+            }
+
+            acquired.set(path, this._coll_map.get(path));
+        }
+
+        this._schedule_sub_sync();
+        return acquired;
+    }
+
+    /**
+     * Releases specified collection paths (or all active collections if paths is null).
+     * @param {Array<string>|null} [paths]
+     */
+    _release_collections(paths = null) {
+        const targetPaths = paths || Array.from(this._coll_map.keys());
+
+        for (const path of targetPaths) {
+            this._subs_map.delete(path);
+            this._coll_paths.delete(path);
+            this._var_coll_paths.delete(path);
+
+            const ds = this._coll_map.get(path);
+            if (ds !== undefined) {
+                ds._ssclient_terminate();
+            }
+            this._coll_map.delete(path);
+        }
+
+        if (!paths) {
+            this.objects = {};
         } else {
-            return { ok: true, path: "/subs", data: undefined };
+            for (const [name, obj] of Object.entries(this.objects)) {
+                if (obj._proxyCollection && targetPaths.includes(obj._proxyCollection.path)) {
+                    delete this.objects[name];
+                }
+            }
         }
-    }
 
-    async _sub(path) {
-        return await this._sub_batch([path]);
-    }
-
-    async _unsub(path) {
-        const subs_map = new Map([...this._subs_map]);
-        subs_map.delete(path);
-        const items = [...subs_map.entries()];
-        return await this.update("/subs", { insert: items, reset: true });
+        this._schedule_sub_sync();
     }
 
     /*********************************************************************
-        API
+        PUBLIC API
     *********************************************************************/
 
+    /**
+     * Executes a raw GET request against the server.
+     * @param {string} path
+     */
     async get(path) {
         return await this._request(MsgCmd.GET, path);
     }
 
+    /**
+     * Executes a raw PUT update request against the server.
+     * @param {string} path
+     * @param {*} changes
+     */
     async update(path, changes) {
         return await this._request(MsgCmd.PUT, path, changes);
     }
 
-    acquire_collection(path, options = {}) {
-        path = path.startsWith("/") ? path : "/" + path;
-        if (!path.startsWith("/resources/")) {
-            path = "/resources" + path;
-        }
-        if (!this._subs_map.has(path)) {
-            this._sub(path);
-        }
-        if (!this._coll_map.has(path)) {
-            const baseColl = new ProxyCollection(this, path, options);
-            const isSpeculative = options.local_update ?? options.immediate_update ?? options.speculative ?? (this._options && (this._options.local_update ?? this._options.immediate_update ?? this._options.speculative));
-            const coll = Boolean(isSpeculative) ? new SpeculativeProxyCollection(this, baseColl, options) : baseColl;
-            this._coll_map.set(path, coll);
-        }
-        return this._coll_map.get(path);
-    }
-
+    /**
+     * Configures and loads Layer-2 abstraction objects (SharedMap, SharedInteger, etc.).
+     * @param {Object<string, {type: string, path: string, options?: Object, local_update?: boolean}>} config
+     * @returns {Object<string, *>} Map of bound abstraction instances
+     */
     load(config) {
         if (!config || typeof config !== "object") {
             throw new Error("client.load() expects a configuration object.");
         }
 
         const newObjects = {};
-        const pathsToSub = [];
+        const specs = [];
+        const itemsToInstantiate = [];
 
         for (const [name, def] of Object.entries(config)) {
-            let typeName, rawPath, options;
-
-            if (typeof def === "object" && def !== null) {
-                typeName = def.type;
-                rawPath = def.path;
-                options = { ...(def.options || {}) };
-                if (def.local_update !== undefined) options.local_update = def.local_update;
-                if (def.immediate_update !== undefined) options.immediate_update = def.immediate_update;
-                if (def.speculative !== undefined) options.speculative = def.speculative;
-            } else {
+            if (!def || typeof def !== "object") {
                 throw new Error(`Invalid configuration for '${name}'. Expected object format: { type: "...", path: "..." }`);
+            }
+
+            const typeName = def.type;
+            const rawPath = def.path;
+            const options = def.options || {};
+            if (def.local_update !== undefined) {
+                options.local_update = def.local_update;
             }
 
             if (!typeName || !TYPE_REGISTRY[typeName]) {
@@ -262,11 +364,8 @@ export class SharedStateClient {
                 }
 
                 this._coll_paths.add(collWirePath);
-                pathsToSub.push(collWirePath);
-                const proxyColl = this.acquire_collection(collWirePath, options);
-                const obj = new ClassCtor(proxyColl, options);
-                this.objects[name] = obj;
-                newObjects[name] = obj;
+                specs.push({ path: collWirePath, options });
+                itemsToInstantiate.push({ name, ClassCtor, collWirePath, isVariable: false, options });
 
             } else if (segments.length === 4) {
                 // Variable Type (4 segments: app/store/resource/itemId)
@@ -279,36 +378,38 @@ export class SharedStateClient {
                 }
 
                 this._var_coll_paths.add(collWirePath);
-                pathsToSub.push(collWirePath);
-                const proxyColl = this.acquire_collection(collWirePath, options);
-                const obj = new ClassCtor(proxyColl, itemId, options);
-                this.objects[name] = obj;
-                newObjects[name] = obj;
+                specs.push({ path: collWirePath, options });
+                itemsToInstantiate.push({ name, ClassCtor, collWirePath, isVariable: true, itemId, options });
 
             } else {
                 throw new Error(`Invalid path '${rawPath}' for '${name}'. Path must have 3 segments (Collection: /app/store/res) or 4 segments (Variable: /app/store/res/item_id).`);
             }
         }
 
-        if (pathsToSub.length > 0) {
-            this._sub_batch(pathsToSub);
+        const acquiredMaps = this._acquire_collections(specs);
+
+        for (const item of itemsToInstantiate) {
+            const proxyColl = acquiredMaps.get(item.collWirePath);
+            let obj;
+            if (item.isVariable) {
+                obj = new item.ClassCtor(proxyColl, item.itemId, item.options);
+            } else {
+                obj = new item.ClassCtor(proxyColl, item.options);
+            }
+            this.objects[item.name] = obj;
+            newObjects[item.name] = obj;
         }
 
         return newObjects;
     }
 
-    release(path) {
-        path = path.startsWith("/") ? path : "/" + path;
-        if (!path.startsWith("/resources/")) {
-            path = "/resources" + path;
+    /**
+     * Terminates the client session: releases all collections and closes the network connection.
+     */
+    terminate() {
+        this._release_collections();
+        if (this._connection) {
+            this._connection.close();
         }
-        if (this._subs_map.has(path)) {
-            this._unsub(path);
-        }
-        const ds = this._coll_map.get(path);
-        if (ds !== undefined) {
-            ds._ssclient_terminate();
-        }
-        this._coll_map.delete(path);
     }
 }

@@ -4,34 +4,42 @@ import { SpeculativeProxyCollection } from "../../client/ss_speculative_collecti
 import { SharedInteger } from "../../client/variables/variables.js";
 import { SharedMap } from "../../client/collections/map.js";
 
-describe("SpeculativeProxyCollection Unit Tests", () => {
-    function createMockClient() {
-        const client = {
-            id: "client_test_spec_1",
-            _request_count: 0,
-            _update_count: 0,
-            _request: null,
-            update: null
-        };
-        client._request = vi.fn().mockImplementation(async (cmd, path, payload) => {
-            if (cmd === "PUT" && path !== "/subs") {
-                client._update_count++;
-            }
-            return { ok: true, path, data: payload };
-        });
-        client.update = async (path, changes) => {
-            return await client._request("PUT", path, changes);
-        };
-        return client;
-    }
+function createMockClient() {
+    const client = {
+        id: "client_test_spec_1",
+        _update_count: 0,
+        _request: vi.fn()
+    };
+    client._request.mockImplementation(async (cmd, path, data) => {
+        if (cmd === "PUT" && path !== "/subs") {
+            client._update_count++;
+        }
+        return { ok: true, data: {} };
+    });
+    return client;
+}
 
-    test("speculative queries (get_item, has_item, size, get_items) overlay server state instantly", () => {
+describe("SpeculativeProxyCollection Unit Tests", () => {
+    test("instantiates SpeculativeProxyCollection wrapping ProxyCollection", () => {
         const mockClient = createMockClient();
-        const baseColl = new ProxyCollection(mockClient, "/resources/app/store/vars");
+        const baseColl = new ProxyCollection(mockClient, "/resources/app/store/res1");
         const specColl = new SpeculativeProxyCollection(mockClient, baseColl);
 
-        // Server has item1 = 100
-        baseColl._ssclient_update({ insert: [{ id: "item1", state: 100 }] });
+        expect(specColl.path).toBe("/resources/app/store/res1");
+        expect(specColl.provider).toBe(baseColl);
+        expect(specColl.size).toBe(0);
+    });
+
+    test("speculative queries (get_item, has_item, size, get_items) overlay server state on microtask tick", async () => {
+        const mockClient = createMockClient();
+        const baseColl = new ProxyCollection(mockClient, "/resources/app/store/res1");
+        const specColl = new SpeculativeProxyCollection(mockClient, baseColl);
+
+        // Populate base collection with server snapshot
+        baseColl._ssclient_update({
+            insert: [{ id: "item1", state: 100 }],
+            reset: true
+        });
 
         expect(specColl.has_item("item1")).toBe(true);
         expect(specColl.get_item("item1")).toEqual({ id: "item1", state: 100 });
@@ -48,7 +56,9 @@ describe("SpeculativeProxyCollection Unit Tests", () => {
             ]
         });
 
-        // 0ms immediate feedback
+        // Microtask tick flushes overlay write
+        await Promise.resolve();
+
         expect(specColl.get_item("item1")).toEqual({ id: "item1", state: 200 });
         expect(specColl.get_item("item2")).toEqual({ id: "item2", state: 300 });
         expect(specColl.size).toBe(2);
@@ -59,7 +69,7 @@ describe("SpeculativeProxyCollection Unit Tests", () => {
         expect(baseColl.get_item("item2")).toBeUndefined();
     });
 
-    test("speculative deletion via tombstone", () => {
+    test("speculative deletion via tombstone", async () => {
         const mockClient = createMockClient();
         const baseColl = new ProxyCollection(mockClient, "/resources/app/store/members");
         const specColl = new SpeculativeProxyCollection(mockClient, baseColl);
@@ -68,6 +78,7 @@ describe("SpeculativeProxyCollection Unit Tests", () => {
         expect(specColl.has_item("alice")).toBe(true);
 
         specColl.update_items({ remove: ["alice"] });
+        await Promise.resolve();
 
         expect(specColl.has_item("alice")).toBe(false);
         expect(specColl.get_item("alice")).toBeUndefined();
@@ -84,11 +95,13 @@ describe("SpeculativeProxyCollection Unit Tests", () => {
 
         // Local edit 1 in tick 1
         const p1 = specColl.update_items({ insert: [{ id: "score", state: 10 }] });
-        await p1; // Microtask flushes batch 1 (update_count becomes 1)
+        await new Promise(r => queueMicrotask(r));
+        await p1;
 
         // Local edit 2 in tick 2
         const p2 = specColl.update_items({ insert: [{ id: "score", state: 20 }] });
-        await p2; // Microtask flushes batch 2 (update_count becomes 2)
+        await new Promise(r => queueMicrotask(r));
+        await p2;
 
         expect(specColl.get_item("score")).toEqual({ id: "score", state: 20 });
 
@@ -112,13 +125,14 @@ describe("SpeculativeProxyCollection Unit Tests", () => {
         expect(baseColl.get_item("score")).toEqual({ id: "score", state: 20 });
     });
 
-    test("remote client edit updates base collection while local speculative overlay stays active", () => {
+    test("remote client edit updates base collection while local speculative overlay stays active", async () => {
         const mockClient = createMockClient();
         const baseColl = new ProxyCollection(mockClient, "/resources/app/store/vars");
         const specColl = new SpeculativeProxyCollection(mockClient, baseColl);
 
         // Local edit at update_count 1
         specColl.update_items({ insert: [{ id: "score", state: 50 }] });
+        await Promise.resolve();
 
         // Remote client (client_remote_99) sends update
         specColl._ssclient_update(
@@ -144,11 +158,13 @@ describe("SpeculativeProxyCollection Unit Tests", () => {
         expect(num.provider).toBe(specColl);
         expect(specColl.provider).toBe(baseColl);
 
-        // 0ms instant local value update
+        // Local value update on microtask tick
         num.inc(5);
+        await Promise.resolve();
         expect(num.value).toBe(5);
 
         mapObj.set("theme", "dark");
+        await Promise.resolve();
         expect(mapObj.get("theme")).toBe("dark");
     });
 });

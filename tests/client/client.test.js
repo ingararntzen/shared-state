@@ -36,7 +36,7 @@ afterAll(() => {
     }
 });
 
-describe("Client-Server Integration Tests (Obsoletes test.html)", () => {
+describe("Client-Server Integration Tests", () => {
     test("connects and queries GET / (Services) and GET /clock (Clock)", async () => {
         const client = new SharedStateClient(SERVER_URL);
         await client.connection.connectedPromise();
@@ -52,14 +52,17 @@ describe("Client-Server Integration Tests (Obsoletes test.html)", () => {
         expect(typeof clockRes.data).toBe("number");
         expect(clockRes.data).toBeGreaterThan(0);
 
-        client.release("/app/mitems/chnl");
+        client.terminate();
     });
 
-    test("acquire_collection, update_items (insert, remove, reset), and querying", async () => {
+    test("client.load() with SharedMap: update_items (insert, remove, reset), and querying", async () => {
         const client = new SharedStateClient(SERVER_URL);
         await client.connection.connectedPromise();
 
-        const coll = client.acquire_collection("/app/mitems/chnl");
+        const { itemsMap } = client.load({
+            itemsMap: { type: "Map", path: "/app/mitems/chnl" }
+        });
+        const coll = itemsMap._proxyCollection;
 
         // 1. Insert items
         const insertRes = await coll.update_items({
@@ -95,7 +98,7 @@ describe("Client-Server Integration Tests (Obsoletes test.html)", () => {
         expect(coll.size).toBe(1);
         expect(coll.get_item("item3")).toEqual({ id: "item3", data: "third" });
 
-        client.release("/app/mitems/chnl");
+        client.terminate();
     });
 
     test("client.load() with SharedInteger and SharedMap", async () => {
@@ -122,8 +125,7 @@ describe("Client-Server Integration Tests (Obsoletes test.html)", () => {
         await new Promise((resolve) => setTimeout(resolve, 100));
         expect(settings.get("theme")).toBe("dark");
 
-        client.release("/app/mitems/counter_chnl");
-        client.release("/app/mitems/settings_chnl");
+        client.terminate();
     });
 
     test("Real-time synchronization across two client instances", async () => {
@@ -132,24 +134,25 @@ describe("Client-Server Integration Tests (Obsoletes test.html)", () => {
 
         await Promise.all([clientA.connection.connectedPromise(), clientB.connection.connectedPromise()]);
 
-        const path = "/app/mitems/sync_chnl";
-        const collA = clientA.acquire_collection(path);
-        const collB = clientB.acquire_collection(path);
+        const { mapA } = clientA.load({
+            mapA: { type: "Map", path: "/app/mitems/sync_chnl" }
+        });
+        const { mapB } = clientB.load({
+            mapB: { type: "Map", path: "/app/mitems/sync_chnl" }
+        });
 
         // Give subscription processing time to complete
         await new Promise((resolve) => setTimeout(resolve, 150));
 
-        // Client B updates collection
-        await collB.update_items({
-            insert: [{ id: "shared_1", payload: "from_B" }]
-        });
+        // Client B updates map
+        await mapB.set("shared_1", "from_B");
 
         // Client A should automatically receive update
         await new Promise((resolve) => setTimeout(resolve, 200));
-        expect(collA.has_item("shared_1")).toBe(true);
-        expect(collA.get_item("shared_1")).toEqual({ id: "shared_1", payload: "from_B" });
+        expect(mapA.has("shared_1")).toBe(true);
+        expect(mapA.get("shared_1")).toBe("from_B");
 
-        clientA.release(path);
-        clientB.release(path);
+        clientA.terminate();
+        clientB.terminate();
     });
 });

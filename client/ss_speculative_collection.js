@@ -14,6 +14,10 @@ export class SpeculativeProxyCollection {
         this._ttlMs = options.ttlMs || options.ttl || 10000;
     }
 
+    get path() {
+        return this._path;
+    }
+
     get size() {
         return this.get_items().length;
     }
@@ -119,52 +123,56 @@ export class SpeculativeProxyCollection {
             throw new Error("collection already terminated");
         }
 
-        const stateBefore = this._get_visible_state_map();
         const { insert = [], remove = [], reset = false } = changes;
 
         // Auto-generate missing IDs
         const formattedInsert = insert.map((item) => {
-            const formatted = { ...item, id: item.id || random_string(10) };
-            return formatted;
+            return { ...item, id: item.id || random_string(10) };
         });
 
-        // Current pending batch will be dispatched at _update_count + 1
-        const currentUpdateCount = (this._ssclient._update_count || 0) + 1;
-        // console.log("update_items called, _update_count=", this._ssclient._update_count, "currentUpdateCount=", currentUpdateCount, "item=", insert[0]);
+        // Delegate network batching & dispatch directly to ProxyCollection
+        const promise = this._proxyCollection.update_items({ insert: formattedInsert, remove, reset }, options);
+
+        // Current pending batch will be dispatched at incremented _update_count
+        const currentUpdateCount = ++this._ssclient._update_count;
         const timestamp = Date.now();
 
-        if (reset) {
-            this._overlay.clear();
-        }
+        // Queue speculative overlay write and callback notification for microtask tick
+        queueMicrotask(() => {
+            const stateBefore = this._get_visible_state_map();
 
-        for (const id of remove) {
-            this._overlay.set(id, {
-                item: null,
-                update_count: currentUpdateCount,
-                is_delete: true,
-                timestamp
-            });
-        }
+            if (reset) {
+                this._overlay.clear();
+            }
 
-        for (const item of formattedInsert) {
-            this._overlay.set(item.id, {
-                item,
-                update_count: currentUpdateCount,
-                is_delete: false,
-                timestamp
-            });
-        }
+            for (const id of remove) {
+                this._overlay.set(id, {
+                    item: null,
+                    update_count: currentUpdateCount,
+                    is_delete: true,
+                    timestamp
+                });
+            }
 
-        // 0ms immediate local feedback to facade observers
-        const stateAfter = this._get_visible_state_map();
-        const effectiveChanges = this._compute_diff(stateBefore, stateAfter, { reset }, null);
+            for (const item of formattedInsert) {
+                this._overlay.set(item.id, {
+                    item,
+                    update_count: currentUpdateCount,
+                    is_delete: false,
+                    timestamp
+                });
+            }
 
-        if (effectiveChanges.reset || effectiveChanges.insert.length > 0 || effectiveChanges.remove.length > 0) {
-            this._notify_callbacks(effectiveChanges);
-        }
+            // Microtask local feedback to facade observers
+            const stateAfter = this._get_visible_state_map();
+            const effectiveChanges = this._compute_diff(stateBefore, stateAfter, { reset }, null);
 
-        // Delegate network batching & dispatch directly to ProxyCollection
-        return this._proxyCollection.update_items({ insert: formattedInsert, remove, reset }, options);
+            if (effectiveChanges.reset || effectiveChanges.insert.length > 0 || effectiveChanges.remove.length > 0) {
+                this._notify_callbacks(effectiveChanges);
+            }
+        });
+
+        return promise;
     }
 
     _get_visible_state_map() {

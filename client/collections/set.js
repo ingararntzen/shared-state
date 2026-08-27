@@ -30,16 +30,16 @@ export class SharedSet extends BaseCollection {
         return canonicalStringify(elem);
     }
 
-    add(elem) {
+    async add(elem) {
         const id = this._getId(elem);
         this._elemCache.set(id, elem);
         const record = { id, state: elem };
-        return this._proxyCollection.update_items({ insert: [record] });
+        return await this._proxyCollection.update_items({ insert: [record] });
     }
 
-    delete(elem) {
+    async delete(elem) {
         const id = this._getId(elem);
-        return this._proxyCollection.update_items({ remove: [id] });
+        return await this._proxyCollection.update_items({ remove: [id] });
     }
 
     has(elem) {

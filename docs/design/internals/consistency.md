@@ -73,7 +73,7 @@ Speculative local updates allow applications to provide **0ms instant UI feedbac
 
 ### Architecture: Overlay Facade Pattern
 
-Speculative execution wraps the server-authoritative `ProxyCollection` with a thin speculative facade (`SpeculativeProxyCollection`), opt-in via `local_update: true`, `immediate_update: true`, or `speculative: true`:
+Speculative execution wraps the server-authoritative `ProxyCollection` with a thin speculative facade (`SpeculativeProxyCollection`), active by default via `local_update: true`:
 
 ```
 +-------------------------------------------------------------------------+

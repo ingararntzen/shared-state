@@ -1,13 +1,13 @@
 import { BaseCollection } from "./base_collection.js";
 
 export class SharedMap extends BaseCollection {
-    set(key, value) {
+    async set(key, value) {
         const record = { id: key, state: value };
-        return this._proxyCollection.update_items({ insert: [record] });
+        return await this._proxyCollection.update_items({ insert: [record] });
     }
 
-    delete(key) {
-        return this._proxyCollection.update_items({ remove: [key] });
+    async delete(key) {
+        return await this._proxyCollection.update_items({ remove: [key] });
     }
 
     get(key) {
