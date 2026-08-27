@@ -7,23 +7,20 @@
 [ItemCollections]: #itemcollection
 [ItemStore]: /design/item_collections/server_stores
 [ItemStores]: /design/item_collections/server_stores
-[SharedState Client]: /design/overview#sharedstate-client
-[SharedState Server]: /design/overview#sharedstate-server
-
+[ProxyCollection]: /design/item_collections/client_proxies
+[ProxyCollections]: /design/item_collections/client_proxies
 
 # Item Collections
 
-> - The [SharedState Server] hosts [ItemCollections] identified by [Paths].
-> - The [SharedState Client] mirrors server-side [ItemCollections] locally. 
+> - The SharedState server hosts [ItemCollections] identified by [Paths].
+> - The SharedState client mirrors server-side [ItemCollections] locally. 
 
 ---
 
-The SharedState framework facilitates the sharing of application resources, such as `strings`, `numbers`, `booleans`, `objects`, `arrays`, or more advanced data structures like `Set`, `Map`, `List`, or `Tree`.
+The SharedState framework facilitates the sharing of application resources, such as `strings`, `numbers`, `booleans`, `objects`, `arrays`, or more advanced abstractions like `Set`, `Map`, `List`, or `Tree`.
 
-Importantly, the framework does not provide custom primitives for each of these data types. Instead, it provides a generic state sharing mechanism, **[ItemCollection]**, as a common basis for all these types (see [Replication Strategy](/concept/replication)).
+Importantly, the framework does not provide custom supprt for each of these data types, but rather provides a generic state sharing mechanism as a common basis for all these types (see [Replication Strategy](/concept/replication)).
 
-- The [SharedState Server] hosts [ItemCollections] identified by [Paths].
-- The [SharedState Client] mirrors server-side [ItemCollections] and makes them available on the client side as local proxy objects.
 
 ---
 
@@ -41,40 +38,54 @@ An [Item] is a thin wrapper around an element of application state:
 }
 ```
 
-- The `id` property (string) uniquely identifies an item within an [ItemCollection]. 
-- The `state` property must be a JSON-serializable object or value.
+- `id` (string) uniquely identifies an item within an [ItemCollection]. 
+- `state` must be a JSON-serializable object or value.
 
-The SharedState service is agnostic to the internal representation of `state`. The `id` property must be provided by the application. If the `state` element originates from a data model that already includes a unique identifier such as `_id`, `key`, or `uuid`, it may be convenient to reuse this identifier as `item.id`.
+The SharedState server is agnostic to the internal representation of `state`. The `id` property must be provided by the application. If the `state` element originates from a data model that already includes a unique identifier such as `_id`, `key`, or `uuid`, it may be convenient to reuse this identifier as `item.id`.
 
 ### ItemCollection
 <a id="itemcollection"></a>
 
-An [ItemCollection] is a collection of [Items] where the `id` of each [Item] is unique within the collection:
+An [ItemCollection] is an unordered collection of [Items] where the `id` of each [Item] is unique within the collection:
 
 ```
 ItemCollection: ({id_1, state_1}, {id_2, state_2}, ..., {id_n, state_n})
 ```
 
-The [ItemCollection] allows individual [Items] to be added, removed, or replaced. Batch updates allow multiple such operations to be performed atomically in a single operation.
+The [ItemCollection] allows individual [Items] to be added, removed, or replaced. Batch updates allow multiple removals and insertions to be performed in a single, atomic operation.
 
 ### Changes
 <a id="changes"></a>
 
-State mutations on an [ItemCollection] are expressed using a [Changes] object:
+State mutations on an [ItemCollection] are expressed using a [Changes] object with three optional fields:
 
 ```javascript
-const changes = { remove, insert, reset };
+const changes = {remove: [], insert: [], reset: false};
 ```
 
-* **`remove`**: An array containing the IDs of items to remove from the collection (`string[]`).
-* **`insert`**: An array containing new or updated items to insert or replace within the collection (`Item[]`).
-* **`reset`**: A boolean flag (default `false`). If `true`, deletes all existing items before performing insertions.
+#### Parameters
+* **`remove`**: Array of item IDs (`string[]`, default: `[]`) for items to be removed from the collection.
+* **`insert`**: Array of [Items] (`Item[]`, default: `[]`) to be inserted or replaced in the collection.
+* **`reset`**: Boolean (`boolean`, default: `false`). When `true`, clears all existing items in the collection prior to applying insertions (`remove` array is ignored).
 
-> **Note**:
-> * Removals are always executed before inserts.
-> * Updating with `{ insert: items, reset: true }` is functionally equivalent to replacing the entire collection state.
+#### Execution Rules
+1. **Ordering**: `remove` is processed ahead of `insert`.
+2. **Upsert Semantics**: `insert` automatically replaces any existing item with the same `id` (insert-or-replace).
+3. **Reset Semantics**: `reset` clears all items in the collection before applying `insert`, causing any `remove` array to be safely ignored.
 
-The design rationale for [Changes] is described as part of [Replication Strategy](/concept/replication#representation-of-state-change)
+#### Change Matrix
+
+The combination of `remove`, `insert`, and `reset` allows collection mutations to be expressed compactly:
+
+| State Changes | Effect |
+| :--- | :--- |
+| `{ remove: [], insert: [], reset: false }` | **No Changes** |
+| `{ remove: [], insert: [...], reset: false }` | **Insert or Replace Items** |
+| `{ remove: [...], insert: [], reset: false }` | **Delete Items** |
+| `{ remove: [...], insert: [...], reset: false }` | **Delete Items + Insert or Replace Items** |
+| `{ reset: true }` | **Clear all Items** |
+| `{ insert: [...], reset: true }` | **Clear all Items + Insert Items** |
+
 
 ### Path
 <a id="path"></a>
@@ -82,33 +93,32 @@ The design rationale for [Changes] is described as part of [Replication Strategy
 A server-side [ItemCollection] is uniquely identified by a 3-part [Path]:
 
 ```
-/app-name/store-name/resource-name
+/app/store/resource
 ```
 
-* **`app-name`**: The name of the application.
-* **`store-name`**: The name of the storage engine or store managing the resource.
-* **`resource-name`**: The name of the resource.
+* **`app`**: The name of the application, to which the resource belongs.
+* **`store`**: The name of the store which manages the resource.
+* **`resource`**: The name of the resource.
 
-While the 3-part [Path] structure is fixed, applications can define an application-specific namespace by introducing delimiters into the `resource-name` component of the [Path]:
+While the 3-part [Path] structure is fixed, applications can define an application-specific namespace by introducing delimiters into the `resource` component of the [Path]:
 
 ```
 /myapp/items/room1-chat
 /myapp/items/room1_whiteboard
 ```
 
-* **Forward slashes (`/`) are reserved** for the 3-part path hierarchy (`/app-name/store-name/resource-name`) and cannot be used as delimiters within `resource-name`.
+* **Forward slashes (`/`) are reserved** for the 3-part path hierarchy (`/app/store/resource`) and cannot be used as delimiters within `resource` name.
 * **Underscores (`_`) or hyphens (`-`) are recommended** as delimiters to avoid collisions with characters used by CSS class selectors (`.`), DOM element IDs (`#`), or pseudo-classes (`:`), making resource names safe to use directly in HTML attributes or CSS queries.
 
 ---
 
 ## Server-Side ItemCollections
 
-Server-side [ItemCollections] are stored and managed by [ItemStores].
+Server-side [ItemCollections] are managed by [ItemStores].
 
 ---
 
 ## Client-Side ItemCollections
 
-- Client-side [ItemCollections] are JavaScript objects that **mirror** the state of server-side [ItemCollections].
-- Application code may **query** the state of a client-side [ItemCollection] and **react** to state changes via callbacks.
-- Client-side [ItemCollections] also serve as **local proxies**, forwarding **update requests** to server-side [ItemCollections].
+Client-side [ItemCollections] are refered to as [ProxyCollections]. 
+

@@ -15,7 +15,7 @@ The SharedState server implements state management through the concept of [ItemS
 
 **Default Item Store**
 
-The SharedState server provides a default implementation of the [ItemStore] interface, called `ItemsStore` (`sharedstate.stores.items_store`). This module supports simple item collections indexed by item ID, and may be configured to support either persistent or in-memory storage. Persistent storage is implemented using MySQL, whereas the in-memory version is backed by SQLite.
+The SharedState server provides a default implementation of the [ItemStore] interface, called `ItemsStore` (`sharedstate.stores.items_store`). This module supports simple item collections indexed by ID, and may be configured to support either persistent or in-memory storage. Persistent storage is implemented using MySQL, whereas the in-memory version is backed by SQLite.
 
 **Custom Item Store**
 
@@ -24,11 +24,14 @@ Custom implementations may be realized by creating a Python module implementing 
 
 ---
 
-## Module Functions
+## Item Store Interface
+
+
+### Module Functions
 
 Python modules implementing the [ItemStore] interface must provide a module-level factory function for the creation of [ItemStore] objects. 
 
-### `get_store(config)`
+#### `get_store(config)`
 
 ```python
 def get_store(config: dict | None = None):
@@ -40,7 +43,7 @@ def get_store(config: dict | None = None):
 
 ---
 
-## ItemStore Namespace Methods
+### Namespace Methods
 
 [ItemStores] manage resources on behalf of multiple applications. Resources are identified by a 3-part [Path].
 
@@ -51,7 +54,7 @@ def get_store(config: dict | None = None):
 Namespace methods are used by the Admin UI of the SharedState server:
 
 
-### `apps()`
+#### `apps()`
 
 ```python
 async def apps(self):
@@ -61,7 +64,7 @@ async def apps(self):
 * Returns (asynchronously) a list of all application names currently managed by the [ItemStore].
 
 
-### `resources(app)`
+#### `resources(app)`
 
 ```python
 async def resources(self, app: str):
@@ -73,12 +76,12 @@ async def resources(self, app: str):
 
 ---
 
-## ItemStore Lifecycle Methods
+### Lifecycle Methods
 
 Lifecycle methods are used by the SharedState server during initialization to open an [ItemStore], and during termination to close it.
 
 
-### `open()`
+#### `open()`
 
 ```python
 async def open(self):
@@ -88,7 +91,7 @@ async def open(self):
 * Opens (asynchronously) database connections, initializes connection pools, or sets up file handles required for storage operations.
 
 
-### `close()`
+#### `close()`
 
 ```python
 async def close(self):
@@ -100,12 +103,12 @@ async def close(self):
 
 ---
 
-## ItemStore Resource Methods
+### Resource Methods
 
 Resource methods are used by the SharedState server to fetch or update resource state. Resources correspond to [ItemCollections].
 
 
-### `get(app, resource)`
+#### `get(app, resource)`
 
 ```python
 async def get(self, app: str, resource: str):
@@ -116,7 +119,7 @@ async def get(self, app: str, resource: str):
 * Used by the SharedState server to resolve the initial state whenever a client subscribes to a resource.
  
 
-### `update(app, resource, changes)`
+#### `update(app, resource, changes)`
 
 ```python
 async def update(self, app: str, resource: str, changes: dict):

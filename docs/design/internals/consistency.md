@@ -47,7 +47,9 @@ Sequences collection update operations (`update_items`) for detecting dropped ne
 
 ---
 
-## Conditional Updates (Optimistic Concurrency Control)
+## Conditional Updates 
+
+(Optimistic Concurrency Control)
 
 SharedState supports conditional updates to prevent lost updates when multiple clients concurrently mutate the same resource.
 
@@ -67,7 +69,15 @@ SharedState supports conditional updates to prevent lost updates when multiple c
 
 ---
 
-## Client-Side Speculative Local Updates
+## Speculative Updates
+
+
+
+**0ms immediate UI feedback**, SharedState provides `SpeculativeProxyCollection`, an overlay facade that wraps a base `ProxyCollection`:
+- **Default Configuration**: Enabled by default (`local_update: true`) in `SharedStateClient`. Can be toggled per collection via `client.acquire_collection(path, { local_update: true })` or `client.load()`.
+- **Overlay Interception**: Local writes (`update_items`) immediately update a local overlay map, invoking registered callback handlers instantly without waiting for network latency.
+- **$1 + N$ Sequence Eviction**: Overlay entries are stamped with `item.update_count`. When server notifications arrive carrying `tunnel.client_id == my_id`, overlay entries where `item.update_count <= facade._last_acked_update_count` are evicted, smoothly handing control over to the confirmed server state without UI flicker.
+
 
 Speculative local updates allow applications to provide **0ms instant UI feedback** by immediately overlaying local edits before server acknowledgments arrive.
 

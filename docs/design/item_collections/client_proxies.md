@@ -4,18 +4,21 @@
 [ProxyCollections]: /design/item_collections/client_proxies
 [Variables]: /design/abstractions/variables
 [Collections]: /design/abstractions/collections
+[Changes]: /design/item_collections/item_collection#changes
+[Conditional Updates]: /design/internals/consistency#conditional-updates
+
 
 # Proxy Collection
 
-> The SharedState framework mirrors server-side [ItemCollections] to client-side [ProxyCollections].
+> The SharedState client mirrors server-side [ItemCollections] as local [ProxyCollections].
 
 
-`ProxyCollection` represents a local, in-memory replica of a server-side [ItemCollection], continuously synchronized to the server-side state.
+`ProxyCollection` represents a local, in-memory replica of a server-side [ItemCollection], continuously synchronized with server-side state changes.
 
 
 ## Synchronous Queries
 
-`ProxyCollection` allows applications to synchronously query its state:
+`ProxyCollection` allows applications to query its state **synchronously**:
 
 - `size`: Returns total item count in local state.
 - `has_item(id)`: Returns boolean indicating whether item `id` exists.
@@ -23,26 +26,45 @@
 - `get_items()`: Returns an array snapshot of all stored items.
 
 
-> Note: `ProxyCollection` is not used directly by applications, but rather serve as a state provider for multiple programming abstractions, including [Variables] and [Collections].  
+> Note: `ProxyCollection` is not used directly by applications, but rather serve as a common backend for various programming abstractions, including [Variables] and [Collections].
 
 
 ## Asynchronous Updates
 
-- Applications may request updates to server-side [ItemCollections] by calling the `update_items(changes)` method on the `ProxyCollection`. 
-- The update operation is asynchronous as it requires network transfer and server processing. The effects of update operations are therefore not available locally until later, when change notifications have been received from the server.
-- If multiple update operations are invoked during the same microtask, they are aggregated into a single request.
+`ProxyCollection` allows application to request an **asynchronous** state update.
+
+```js
+update_items(changes, {conditional:false}) 
+```
+
+- Returns a `Promise` that is resolved when the corresponding change has become visible to a local `query` operation.
+- `changes`: [Changes] to be applied to [ItemCollection].
+- `options.conditional`: (`Boolean`, default: `false`). If true, the update is conditional, see [Conditional Updates].
 
 
-## Server Notifications
+::: warning Note
+Due to its asynchronous nature, the effects of `update` operations never become immediately visible, i.e. to a `query` operation within the same microtask. This is consistent with a reactive programming model, where reactive rendering is decoupled from update requests.
+```js
+// synchronous
+variable.set(42)
+console.log(variable.value) // value === 0
 
-The Shared client automatically updates the `ProxyCollection` in response to notifications of state change received from the server.
+// asynchronous
+variable.set(43).then(() => {
+    console.log(variable.value) // value === 43
+}) 
+```
+:::
 
 
-## Speculative Proxy Collection (`SpeculativeProxyCollection`)
+## Local Updates
 
-To support **0ms immediate UI feedback**, SharedState provides `SpeculativeProxyCollection`, an overlay facade that wraps a base `ProxyCollection`:
+The SharedStaate client supports **local updates**, implying that updates are recorded locally at the client, before being dispatched to the server. This ensures ***zero delay updates** for the client applications, thereby supporting highly responsive interactive state change. For details concering the technial approach, see [Speculative Updates](/design/internals/consistency#speculative-updates).
 
-- **Default Configuration**: Enabled by default (`local_update: true`) in `SharedStateClient`. Can be toggled per collection via `client.acquire_collection(path, { local_update: true })` or `client.load()`.
-- **Overlay Interception**: Local writes (`update_items`) immediately update a local overlay map, invoking registered callback handlers instantly without waiting for network latency.
-- **$1 + N$ Sequence Eviction**: Overlay entries are stamped with `item.update_count`. When server notifications arrive carrying `tunnel.client_id == my_id`, overlay entries where `item.update_count <= facade._last_acked_update_count` are evicted, smoothly handing control over to the confirmed server state without UI flicker.
+
+::: tip Note
+Even though `update` operations have **zero delay**, they are still **asychronous**. This is by design, ensuring that update semantics remain consistent across all update operations, whether performed locally or remotely. 
+:::
+
+
 

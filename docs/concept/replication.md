@@ -55,34 +55,16 @@ This approach implies that:
 ---
 
 ## Representation of State Change
+<a id="representation-of-state-change"></a>
 
-In line with this replication strategy, SharedState represents a **state change** as an object with three optional fields:
+To achieve domain-agnostic **delta-based passive replication**, state changes in SharedState are modeled as membership deltas over an [ItemCollection].
 
-```javascript
-{ remove: [], insert: [], reset: false }
-```
+Rather than defining custom, domain-specific mutation commands (e.g. `append`, `splice`, `update_field`), all state transitions are expressed as membership changes over [ItemCollections]:
 
-### Parameters
-* `remove`: Array of IDs (`string[]`, default: `[]`) for items to be removed from the collection.
-* `insert`: Array of [Items] (`Item[]`, default: `[]`) to be inserted into the collection.
-* `reset`: Boolean (`boolean`, default: `false`). When `true`, clears the collection prior to applying insertions. (`remove` is ignored).
+- `remove`: Remove items.
+- `insert`: Insert new items or replace existing items.
+- `reset`: Clear all items ahead of `insert`.
 
-### Execution Rules
-1. `remove` is executed ahead of `insert`.
-2. `insert` performs an automatic `replace` if an item with the same `id` already exists in the collection.
-3. `reset` clears all items in the collection before applying `insert`, causing any `remove` array to be safely ignored.
+Domain specific update function can be built on top of this basic machanism. 
 
-
----
-
-
-This design combines high expressiveness with efficient representation of state changes, resulting in reduced network overhead.
-
-| State Changes | Effect |
-| :--- | :--- |
-| `{ remove: [], insert: [], reset: false }` | **No Changes** |
-| `{ remove: [], insert: [...], reset: false }` | **Insert or Replace Items** |
-| `{ remove: [...], insert: [], reset: false }` | **Delete Items** |
-| `{ remove: [...], insert: [...], reset: false }` | **Delete Items + Insert or Replace Items** |
-| `{ reset: true }` | **Clear all Items** |
-| `{ insert: [...], reset: true }` | **Clear all Items + Insert Items** |
+> For a detailed specification of state change representation, see [Changes](/design/item_collections/item_collection#changes).
