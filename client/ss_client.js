@@ -167,6 +167,13 @@ export class SharedStateClient {
         }
     }
 
+    /** Triggers immediate WebSocket reconnection when a version discontinuity gap is detected. */
+    _handle_version_gap(path, localVer, incomingVer) {
+        if (this._connection) {
+            this._connection.reconnect(true);
+        }
+    }
+
     /**
      * Sends a WebSocket REQUEST message to the server.
      * @param {string} cmd - Request command (GET, PUT)

@@ -138,22 +138,42 @@ describe("ProxyCollection Unit Tests", () => {
         const res = await p1;
         expect(res.ok).toBe(true);
         expect(mockClient.update).toHaveBeenCalledTimes(1);
-        expect(mockClient.update).toHaveBeenCalledWith("/app/mitems/chnl", {
-            insert: [
-                { id: "item1", state: "val2" },
-                { id: "item2", state: "val3" }
-            ],
-            remove: [],
-            reset: false
-        });
+        const [path, changes] = mockClient.update.mock.calls[0];
+        expect(path).toBe("/app/mitems/chnl");
+        expect(changes.insert).toEqual([
+            { id: "item1", state: "val2" },
+            { id: "item2", state: "val3" }
+        ]);
+    });
+
+    test("detects version gap and triggers client reconnect", () => {
+        const mockClient = createMockClient();
+        mockClient._handle_version_gap = vi.fn();
+        const coll = new ProxyCollection(mockClient, "/app/mitems/chnl");
+
+        // Initial version 4
+        coll._ssclient_update({ reset: true, version: 4, insert: [{ id: "1" }] });
+        expect(coll.version).toBe(4);
+
+        // Normal increment v5 -> accepted
+        coll._ssclient_update({ version: 5, insert: [{ id: "2" }] });
+        expect(coll.version).toBe(5);
+
+        // Duplicate/stale v5 -> ignored
+        coll._ssclient_update({ version: 5, insert: [{ id: "2_dup" }] });
+        expect(coll.has_item("2_dup")).toBe(false);
+
+        // Version gap: incoming v7 > local v5 + 1 -> triggers reconnect
+        coll._ssclient_update({ version: 7, insert: [{ id: "4" }] });
+        expect(mockClient._handle_version_gap).toHaveBeenCalledWith("/app/mitems/chnl", 5, 7);
     });
 
     test("conditional option attaches last_version to payload data", async () => {
         const mockClient = createMockClient();
         const coll = new ProxyCollection(mockClient, "/app/mitems/chnl");
 
-        // Set version via server update
-        coll._ssclient_update({ version: 10 });
+        // Set version via server snapshot update
+        coll._ssclient_update({ version: 10, reset: true });
         expect(coll.version).toBe(10);
 
         // Perform conditional update

@@ -131,8 +131,25 @@ export class ProxyCollection {
             throw new Error("collection already terminated")
         }
 
-        if (changes && changes.version !== undefined) {
-            this._version = changes.version;
+        const incomingVersion = changes.version;
+
+        if (changes && changes.reset) {
+            if (incomingVersion !== undefined) {
+                this._version = incomingVersion;
+            }
+        } else if (incomingVersion !== undefined && this._version !== undefined) {
+            if (incomingVersion > this._version + 1) {
+                console.warn(`Version gap detected on '${this._path}': local version ${this._version}, incoming version ${incomingVersion}. Triggering immediate reconnect.`);
+                if (this._ssclient && typeof this._ssclient._handle_version_gap === "function") {
+                    this._ssclient._handle_version_gap(this._path, this._version, incomingVersion);
+                }
+                return;
+            }
+            if (incomingVersion <= this._version) {
+                // Stale or duplicate notification: no-op
+                return;
+            }
+            this._version = incomingVersion;
         }
 
         const {remove=[], insert=[], reset=false} = changes;

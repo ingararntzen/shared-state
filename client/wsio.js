@@ -132,4 +132,23 @@ export class WebSocketIO {
             this._ws.close();
         }
     }
+
+    reconnect(immediate = true) {
+        if (this._ws) {
+            this._ws.onopen = null;
+            this._ws.onmessage = null;
+            this._ws.onclose = null;
+            this._ws.onerror = null;
+            try { this._ws.close(); } catch (e) {}
+            this._ws = undefined;
+        }
+        this._state = ConnectionState.DISCONNECTED;
+        this._retries = 0;
+        this.on_disconnect({ reason: "reconnect" });
+        if (immediate) {
+            this.connect();
+        } else {
+            setTimeout(() => this.connect(), 1000);
+        }
+    }
 }
