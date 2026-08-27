@@ -174,7 +174,7 @@ export class SharedStateClient {
      * @param {*} reqData - Request payload data
      * @returns {Promise<{ok: boolean, path: string, data: *}>}
      */
-    async _request(cmd, path, reqData) {
+    _request(cmd, path, reqData) {
         const request_count = ++this._request_count;
         if (cmd === MsgCmd.PUT && path !== "/subs") {
             this._update_count++;
@@ -197,12 +197,13 @@ export class SharedStateClient {
         this._connection.send(JSON.stringify(msg));
         const [promise, resolver] = resolvablePromise();
         this._pending.set(request_count, resolver);
-        const { ok, data } = await promise;
 
-        if (cmd === MsgCmd.PUT && path === "/subs" && ok) {
-            this._subs_map = new Map(data);
-        }
-        return { ok, path, data };
+        return promise.then(({ ok, data }) => {
+            if (cmd === MsgCmd.PUT && path === "/subs" && ok) {
+                this._subs_map = new Map(data);
+            }
+            return { ok, path, data };
+        });
     }
 
     /** Schedules a subscription sync on the microtask tick. */
@@ -302,8 +303,8 @@ export class SharedStateClient {
      * Executes a raw GET request against the server.
      * @param {string} path
      */
-    async get(path) {
-        return await this._request(MsgCmd.GET, path);
+    get(path) {
+        return this._request(MsgCmd.GET, path);
     }
 
     /**
@@ -311,8 +312,8 @@ export class SharedStateClient {
      * @param {string} path
      * @param {*} changes
      */
-    async update(path, changes) {
-        return await this._request(MsgCmd.PUT, path, changes);
+    update(path, changes) {
+        return this._request(MsgCmd.PUT, path, changes);
     }
 
     /**
