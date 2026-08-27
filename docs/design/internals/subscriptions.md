@@ -7,18 +7,18 @@
 
 # Subscriptions
 
-> - Client subscriptions are maintained locally and synchronized with the server over a single WebSocket connection.
+> - Client subscriptions are maintained locally and synchronized with the server.
 > - The server broadcasts change notification to subscribing clients.
 
 ---
 
 ## Client-side Subscriptions
 
-The [SharedState Client] manages subscriptions to server resources identified by [Paths].
+The SharedState client manages subscriptions to server resources identified by [Paths].
 
-### 1. Internal Data Structure
+### Internal Data Structure
 
-The client maintains an in-memory `Map` associating resource [Paths] to `option` objects. 
+The client maintains an in-memory `Map` associating resource [Paths] to `subscription` objects. 
 
 ```javascript
 Map(2) {
@@ -27,52 +27,57 @@ Map(2) {
 }
 ```
 
-::: tip Future Extension 
-The `options` object is currently not in use, but is reserved for future support for **filters** or **range queries** (see [partial resource observation](/concept/architecture#partial-resource-observation)).
+::: tip Note 
+The `subscription` object is currently empty, but is intended to include **filters** or **range queries** (see [partial resource observation](/concept/architecture#partial-resource-observation)).
 :::
 
 
 
 
-### 2. Subscription Logic
+### Subscription Logic
 
-The client provides primitives for subscribing or unsubscribing to individual [Paths]:
+The SharedState client manages subscriptions internally (in `_subs_map`) and **resets** server-side subscriptions using the following method:
 
 ```javascript
-sub(path, options = {})
-unsub(path)
+_sync_subs() {
+    const subs = Array.from(this._subs_map.entries());
+    const payload = {
+        insert: subs,
+        reset: true
+    };
+    return this._request(MsgCmd.PUT, "/subs", payload);
+}
 ```
 
-* **`sub(path, options)`**: Adds or updates an entry for `path` in the local subscription `Map`, then sends a subscription reset request (`PUT /subs`) to the server with the updated local state.
-* **`unsub(path)`**: Removes the `path` entry from the local subscription `Map`, then sends a subscription reset request (`PUT /subs`) to the server with the updated local state.
+- The SharedState client automatically **resets** subscriptions whenever the network connection is established or re-established. 
+- If the `_subs_map` is empty, the client is no longer subscribed to any resources.
+- `_subs_map` is initalized when the client loads its resource configuration.
 
-::: tip Automatic resubscription 
-Client subscriptions are automatically reset on the server whenever the network connection is established or re-established.
-:::
+
 
 
 ---
 
 ## Server-side Subscriptions
 
-The [SharedState Server] maintains subscription state in a `Dictionary`, where active WebSocket client handles map to a `Dictionary` of client specific subscriptions. 
+The SharedState server maintains subscription state in its `Clients` class, which maps active WebSocket client connections to a `Dictionary` of client specific subscriptions.
  
 
-### 1. Internal Data Structure
+### Internal Data Structure
 
 ```python
-Dict({
-    <WebSocket client_1>: {
+dict({
+    <WebSocket client_1>: dict({
         "/myapp/items/room1-chat": {},
         "/myapp/items/config": {}
-    },
-    <WebSocket client_2>: {
+    }),
+    <WebSocket client_2>: dict({
         "/myapp/items/room1-chat": {}
-    }
+    })
 })
 ```
 
-### 2. Subscription Logic
+### Subscription Logic
 
 The server logic accesses and updates client subscriptions via the `Clients` class.
 

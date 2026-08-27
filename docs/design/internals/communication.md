@@ -18,30 +18,31 @@ The SharedState server defines an internal namespace across WebSocket channels, 
 
 ### WebSocket Protocol (`ws://host:port/*`)
 
-* **`/resources/*`**: Parent namespace for all resources. Individual resources are identified by appending the resource's [Path], e.g. `/resources/app/store/resource`.
+* **`/resources/*`**: Parent namespace for hosted resources (i.e., [ItemCollections]). Each resource is identified by a [Path], e.g. `/resources/app/store/resource`.
 * **`/subs`**: Path to client subscriptions.
 * **`/clock`**: Path to server clock.
 
-> - The original HTTP request path is ignored. Path information is instead provided in messages.
+::: tip Note
+The path given in the original HTTP request is ignored for WebSocket connections. Path information is instead provided as part  WebSocket communication.
+:::
 
-
-### HTTP Root Namespace (`http://host:port/*`)
-* **`/`** and **`/index.html`** redirect to `/files/adm/index.html`, 
+### HTTP (`http://host:port/*`)
+* **`/`** and **`/index.html`** redirect to `/files/adm/index.html`.
 
 
 ### HTTP REST API (`http://host:port/api/*`)
 
 * **`/api/config`**: Server configuration metadata.
-* **`/api/stores`**: Registered stores and resource counts (`/api/stores/{store}/{app}`).
-* **`/api/apps`**: Application trees and resource summary (`/api/apps/{app}/{store}`).
+* **`/api/stores`**: Registered stores and resource counts.
+* **`/api/apps`**: Application trees and resource summary.
 * **`/api/subs`**: Active subscriptions overview across all connected clients.
-* **`/api/clock`**: HTTP GET UTC timestamp endpoint.
-* **`/api/connections`**: Active client remote IP addresses.
+* **`/api/clock`**: UTC timestamp endpoint.
+* **`/api/connections`**: Connected clients.
 
 ### HTTP Static Assets (`http://host:port/files/*`)
 
-* **`/files/*`**: Static files served directly from `html/` (e.g. `/files/adm/index.html`, `/files/demo.html`, `/files/minimal.html`).
-* **`/dist/*`**: Client SDK distribution bundles served directly from `dist/` (e.g. `/dist/sharedstate.es.js`).
+* **`/files/*`**: Static files served from `html/`.
+* **`/dist/*`**: Client SDK distribution bundles served from `dist/`.
 
 
 ---
@@ -51,11 +52,11 @@ The SharedState server defines an internal namespace across WebSocket channels, 
 
 ### Message Types
 
-The SharedState server supports request-reply interaction across from the client, as well as one-way push messages from server to client. The message type is indicated by the `type` field.
+The SharedState server supports request-reply interactions initiated by clients, and one-way push messages from server to client. The message type is indicated by the `type` field.
 
 * **`REQUEST`**: Message sent by client to request an action with the server.
 * **`REPLY`**: Message sent by server in response to a specific `REQUEST`.
-* **`MESSAGE`**: Message sent by server to clients, to broadcast state changes.
+* **`MESSAGE`**: Message sent by server to client.
 
 ---
 
@@ -65,23 +66,26 @@ Messages also include a command field to indicate the action associated with the
 
 * **`GET`**: Fetching state from the server.
 * **`PUT`**: Updating state on the server. 
-* **`NOTIFY`**: Updating state on the client, after state change on server.
+* **`NOTIFY`**: Updating state on the client.
 
 
 ### Message Serialization
 
-Messages are serialized as stringified JSON objects, with the following fields:
+Messages are serialized as stringified JSON objects with the following fields:
 
-* **`type`**: `str` : message type (`"REQUEST"` | `"REPLY"` | `"MESSAGE"`)
-* **`path`**: `str`: server path (e.g., `/resources/app/store/resource`, `/subs`, `/clock`)
-* **`cmd`**: `str` : command (`"GET"` | `"PUT"` | `"NOTIFY"`)
-* **`data`**: `any` : message payload (e.g., [Changes] dict or return value)
-* **`tunnel`**: `int` : request / reply tracking identifier
+* **`type`**: `string` : Message type (`"REQUEST"` | `"REPLY"` | `"MESSAGE"`).
+* **`path`**: `string` : Target server path (e.g., `/resources/app/store/resource`, `/subs`, `/clock`).
+* **`cmd`**: `string` : Command action (`"GET"` | `"PUT"` | `"NOTIFY"`).
+* **`data`**: `any` : Payload data (e.g., [Changes] dictionary or response value). Includes a resource `version` (`number`) on `NOTIFY` updates and state snapshots.
+* **`tunnel`**: `object` : Metadata object for request/reply correlation and optimistic write eviction tracking:
+  * `client_id` (`string`): Unique identifier of the initiating client.
+  * `request_count` (`number`): Monotonically increasing request sequence number for matching replies to requests.
+  * `update_count` (`number`): Client-side local update sequence counter used by the $1 + N$ optimistic consistency engine.
 
 
 ### Example Messages
 
-**Subscribe**
+**Subscribe (REQUEST)**
 
 ```json
 {
@@ -95,17 +99,40 @@ Messages are serialized as stringified JSON objects, with the following fields:
     ],
     "reset": true
   },
-  "tunnel": 0
+  "tunnel": {
+    "client_id": "client_abc123",
+    "request_count": 1,
+    "update_count": 0
+  }
 }
 ```
 
-**Update**
+**Subscribe (REPLY)**
+
+```json
+{
+  "type": "REPLY",
+  "cmd": "PUT",
+  "path": "/subs",
+  "data": [
+    ["/resources/app/store/resource-1", {}],
+    ["/resources/app/store/resource-2", {}]
+  ],
+  "tunnel": {
+    "client_id": "client_abc123",
+    "request_count": 1,
+    "update_count": 0
+  }
+}
+```
+
+**Update (REQUEST)**
 
 ```json
 {
   "type": "REQUEST",
-  "path": "/resources/app/store/resource-1",
   "cmd": "PUT",
+  "path": "/resources/app/store/resource-1",
   "data": {
     "insert": [
       {
@@ -114,25 +141,34 @@ Messages are serialized as stringified JSON objects, with the following fields:
       }
     ]
   },
-  "tunnel": 1
+  "tunnel": {
+    "client_id": "client_abc123",
+    "request_count": 2,
+    "update_count": 5
+  }
 }
 ```
 
-
-**Notify**
+**Notify (MESSAGE / Push to Subscribers)**
 
 ```json
 {
   "type": "MESSAGE",
-  "path": "/resources/app/store/resource-1",
   "cmd": "NOTIFY",
+  "path": "/resources/app/store/resource-1",
   "data": {
+    "version": 42,
     "insert": [
       {
         "id": "item-1",
         "state": { "user": "alice", "text": "Hello world!" }
       }
     ]
+  },
+  "tunnel": {
+    "client_id": "client_abc123",
+    "request_count": 2,
+    "update_count": 5
   }
 }
 ````

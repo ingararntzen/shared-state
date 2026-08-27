@@ -59,11 +59,11 @@ variable.set(43).then(() => {
 
 ## Local Updates
 
-The SharedStaate client supports **local updates**, implying that updates are recorded locally at the client, before being dispatched to the server. This ensures ***zero delay updates** for the client applications, thereby supporting highly responsive interactive state change. For details concering the technial approach, see [Speculative Updates](/design/internals/consistency#speculative-updates).
+The SharedStaate client supports **local updates**, implying that updates are recorded locally at the client, before being dispatched to the server. This ensures **zero delay updates** for the client applications, thereby supporting highly responsive interactive state change. For details concering the technial approach, see [Speculative Updates](/design/internals/consistency#speculative-updates).
 
 
 ::: tip Note
-Even though `update` operations have **zero delay**, they are still **asychronous**. This is by design, ensuring that update semantics remain consistent across all update operations, whether performed locally or remotely. 
+Even though `update` operations have **zero delay**, they are still **asychronous**. This is by design, ensuring that update semantics remain consistent across all update operations, whether they target remote or local state. 
 :::
 
 

@@ -102,10 +102,6 @@ export class SharedStateClient {
         this._connection.connect();
     }
 
-    /** Connection state getter */
-    get state() {
-        return this._connection.state;
-    }
 
     /** WebSocketIO connection instance getter */
     get connection() {
@@ -125,7 +121,7 @@ export class SharedStateClient {
         this._pending.clear();
     }
 
-    _on_error(error) {}
+    _on_error(error) { }
 
     /** Parses incoming WebSocket messages and routes REPLY or NOTIFY. */
     _on_message(data) {
@@ -232,7 +228,7 @@ export class SharedStateClient {
             insert: items,
             reset: true
         };
-        return this._request(MsgCmd.PUT, "/subs", payload).catch(() => {});
+        return this._request(MsgCmd.PUT, "/subs", payload).catch(() => { });
     }
 
     /**
