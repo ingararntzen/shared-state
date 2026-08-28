@@ -1,8 +1,52 @@
-# Consistency & Sequencing Mechanisms
+# Consistency
 
 SharedState incorporates a set of client and server sequencing mechanisms designed to ensure deterministic state replication, optimistic concurrency control, and real-time consistency across multi-client environments.
 
 ---
+
+
+## Sequencing
+
+
+- goal 
+   - preserve integrity of update history for each resource (client perspective)
+   - eventual consistency
+
+- assumptions
+   - messages can be dropped, in transmision or by server
+   - high bound for procesing and network delay, basis for request timeout
+   - tcp transfer preserves message ordering - this my not be required for consistency, highly practical, in the sense that it significantly reduces the frequency of ordering issues compared to UDP for intance.
+
+- approach
+   - server state single-source of truth
+   - single-threaded processing of requests per resource (in terms of state mutations)
+   - which yields ordering of updates per resource, ordered by receipt
+
+
+- mechanism
+   - (version) incrementing version number per-resources
+   - (update_count) incrementing number per update request
+
+
+- detection and handling of integrity issues 
+  - duplication/old: notification version < expected - ignore
+  - confirmed missing - notification version > expected - reset connection - resume new session (even though technically only the integrity of one specific resource may be damaged)
+  - timeout for pending request -> (bump expected update_count)
+  - notification version == expected - receive, but do not apply if previously timed out (update_count < expected update_count).
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 ## Architecture Overview
 

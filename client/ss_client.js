@@ -76,7 +76,10 @@ export class SharedStateClient {
         this.id = random_string(12);
         this._request_count = 0;
         this._update_count = 0;
+        this._last_acked_update_count = 0;
         this._pending = new Map();
+        this._pending_updates = new Map(); // update_count -> { timestamp, path, changes }
+        this._ttlMs = options.ttlMs || options.ttl || 10000;
 
         // Subscriptions state: path -> {}
         this._subs_map = new Map();
@@ -88,37 +91,45 @@ export class SharedStateClient {
         // Bound Layer 2 objects: name -> Layer 2 instance (e.g. SharedMap)
         this.objects = {};
 
-        // Track registered paths for collision detection
+        // Collision detection tracking sets
         this._coll_paths = new Set();
         this._var_coll_paths = new Set();
 
-        this._server_clock = undefined;
-
-        this._connection.on_connect = () => this._on_connect();
-        this._connection.on_disconnect = (event) => this._on_disconnect(event);
-        this._connection.on_error = (error) => this._on_error(error);
-        this._connection.on_message = (data) => this._on_message(data);
-
+        this._setup_connection_handlers();
         this._connection.connect();
     }
 
-
-    /** WebSocketIO connection instance getter */
     get connection() {
         return this._connection;
     }
 
+    get state() {
+        return this._connection.state;
+    }
+
+    _setup_connection_handlers() {
+        this._connection.on_connect = () => this._on_connect();
+        this._connection.on_disconnect = (evt) => this._on_disconnect(evt);
+        this._connection.on_message = (data) => this._on_message(data);
+        this._connection.on_error = (err) => this._on_error(err);
+    }
+
+    connect() {
+        return this._connection.connect();
+    }
+
     /** Called automatically when WebSocket connects/reconnects. */
     _on_connect() {
-        this._sync_subs();
+        this._schedule_sub_sync();
     }
 
     /** Rejects pending request promises on disconnect. */
     _on_disconnect(event) {
-        for (const [seq, resolver] of this._pending.entries()) {
-            resolver({ ok: false, error: "WebSocket disconnected" });
+        for (const resolver of this._pending.values()) {
+            resolver({ ok: false, data: "connection disconnected" });
         }
         this._pending.clear();
+        this._pending_updates.clear();
     }
 
     _on_error(error) { }
@@ -148,6 +159,10 @@ export class SharedStateClient {
             const { ok, data } = msg;
             resolver({ ok, data });
         }
+
+        if (msg.tunnel && typeof msg.tunnel.update_count === "number" && msg.tunnel.update_count > 0) {
+            this._on_ack(msg.tunnel.update_count, msg.ok !== false, msg.path);
+        }
     }
 
     /** Normalizes path and passes server updates to target ProxyCollection. */
@@ -157,15 +172,73 @@ export class SharedStateClient {
         if (!path.startsWith("/resources/")) {
             path = "/resources" + path;
         }
+
+        if (msg.tunnel && typeof msg.tunnel.update_count === "number" && msg.tunnel.update_count > 0) {
+            this._on_ack(msg.tunnel.update_count, true, path);
+        }
+
         if (this._coll_map.has(path)) {
             const coll = this._coll_map.get(path);
             coll._ssclient_update(msg.data, msg.tunnel);
         }
     }
 
+    /** ACK handling for update_count confirming request processing or rejection. */
+    _on_ack(updateCount, ok, path) {
+        if (!updateCount || updateCount <= 0) return;
+
+        // Gap check: if updateCount jumps past un-ACKed pending updates, trigger reconnect
+        if (updateCount > this._last_acked_update_count + 1) {
+            for (const [count] of this._pending_updates.entries()) {
+                if (count < updateCount) {
+                    console.warn(`Unacked gap detected in pending_updates: count ${count} skipped by ack ${updateCount}. Triggering reconnect.`);
+                    this._handle_version_gap(path, 0, 0);
+                    break;
+                }
+            }
+        }
+
+        this._pending_updates.delete(updateCount);
+        this._last_acked_update_count = Math.max(this._last_acked_update_count, updateCount);
+
+        let normPath = path || "";
+        if (normPath && !normPath.startsWith("/")) normPath = "/" + normPath;
+        if (normPath && !normPath.startsWith("/resources/")) normPath = "/resources" + normPath;
+
+        if (normPath && this._coll_map.has(normPath)) {
+            const coll = this._coll_map.get(normPath);
+            if (typeof coll._ssclient_ack === "function") {
+                coll._ssclient_ack(updateCount, ok);
+            }
+        }
+
+        this._check_pending_timeouts();
+    }
+
+    /** Checks if the oldest pending update exceeds ttlMs, triggering reconnect if CONNECTED. */
+    _check_pending_timeouts() {
+        if (this._pending_updates.size === 0) return;
+
+        let oldestCount = null;
+        let oldestTs = Infinity;
+        for (const [count, entry] of this._pending_updates.entries()) {
+            if (entry.timestamp < oldestTs) {
+                oldestTs = entry.timestamp;
+                oldestCount = count;
+            }
+        }
+
+        if (oldestCount !== null && Date.now() - oldestTs > this._ttlMs) {
+            if (this._connection && this._connection.state === ConnectionState.CONNECTED) {
+                console.warn(`Unacked update ${oldestCount} timed out after ${this._ttlMs}ms. Triggering self-healing reconnect.`);
+                this._handle_version_gap("", 0, 0);
+            }
+        }
+    }
+
     /** Triggers immediate WebSocket reconnection when a version discontinuity gap is detected. */
     _handle_version_gap(path, localVer, incomingVer) {
-        if (this._connection) {
+        if (this._connection && this._connection.state === ConnectionState.CONNECTED) {
             this._connection.reconnect(true);
         }
     }
@@ -181,6 +254,11 @@ export class SharedStateClient {
         const request_count = ++this._request_count;
         if (cmd === MsgCmd.PUT && path !== "/subs") {
             this._update_count++;
+            this._pending_updates.set(this._update_count, {
+                timestamp: Date.now(),
+                path,
+                changes: reqData
+            });
         }
 
         const tunnel = {
@@ -228,7 +306,7 @@ export class SharedStateClient {
             insert: items,
             reset: true
         };
-        return this._request(MsgCmd.PUT, "/subs", payload).catch(() => { });
+        return this._request(MsgCmd.PUT, "/subs", payload);
     }
 
     /**

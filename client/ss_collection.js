@@ -122,6 +122,10 @@ export class ProxyCollection {
         this._handlers = [];
     }
 
+    _ssclient_ack(update_count, ok) {
+        // Base ProxyCollection does not maintain speculative overlay state
+    }
+
     /**
      * server update collection 
      */

@@ -85,6 +85,28 @@ export class SpeculativeProxyCollection {
         this._proxyCollection._ssclient_terminate();
     }
 
+    _ssclient_ack(update_count, ok) {
+        if (this._terminated) return;
+
+        const stateBefore = this._get_visible_state_map();
+
+        if (typeof update_count === "number" && update_count > 0) {
+            this._last_acked_update_count = Math.max(this._last_acked_update_count, update_count);
+            for (const [id, entry] of this._overlay.entries()) {
+                if (entry.update_count <= this._last_acked_update_count) {
+                    this._overlay.delete(id);
+                }
+            }
+        }
+
+        const stateAfter = this._get_visible_state_map();
+        const effectiveChanges = this._compute_diff(stateBefore, stateAfter, {}, null);
+
+        if (effectiveChanges.reset || effectiveChanges.insert.length > 0 || effectiveChanges.remove.length > 0) {
+            this._notify_callbacks(effectiveChanges);
+        }
+    }
+
     _ssclient_update(changes = {}, tunnel = null) {
         if (this._terminated) {
             throw new Error("collection already terminated");

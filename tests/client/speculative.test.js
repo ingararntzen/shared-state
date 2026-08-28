@@ -4,15 +4,25 @@ import { SpeculativeProxyCollection } from "../../client/ss_speculative_collecti
 import { SharedInteger } from "../../client/variables/variables.js";
 import { SharedMap } from "../../client/collections/map.js";
 
+import { SharedStateClient } from "../../client/ss_client.js";
+
 function createMockClient() {
     const client = {
         id: "client_test_spec_1",
         _update_count: 0,
-        _request: vi.fn()
+        _last_acked_update_count: 0,
+        _pending_updates: new Map(),
+        _coll_map: new Map(),
+        _ttlMs: 10000,
+        _request: vi.fn(),
+        _handle_version_gap: vi.fn(),
+        _on_ack: SharedStateClient.prototype._on_ack,
+        _check_pending_timeouts: SharedStateClient.prototype._check_pending_timeouts
     };
     client._request.mockImplementation(async (cmd, path, data) => {
         if (cmd === "PUT" && path !== "/subs") {
             client._update_count++;
+            client._pending_updates.set(client._update_count, { timestamp: Date.now(), path, changes: data });
         }
         return { ok: true, data: {} };
     });
@@ -166,5 +176,49 @@ describe("SpeculativeProxyCollection Unit Tests", () => {
         mapObj.set("theme", "dark");
         await Promise.resolve();
         expect(mapObj.get("theme")).toBe("dark");
+    });
+
+    test("REPLY(ok: false) evicts speculative overlay and reverts UI state immediately", async () => {
+        const mockClient = createMockClient();
+        const baseColl = new ProxyCollection(mockClient, "/resources/app/store/vars");
+        const specColl = new SpeculativeProxyCollection(mockClient, baseColl);
+        mockClient._coll_map.set("/resources/app/store/vars", specColl);
+
+        // Client performs speculative update
+        specColl.update_items({ insert: [{ id: "counter", state: 10 }] });
+        await Promise.resolve();
+        expect(specColl.get_item("counter")).toEqual({ id: "counter", state: 10 });
+
+        // Server sends REPLY(ok: false) for update_count 1
+        specColl._ssclient_ack(1, false);
+
+        // Speculative overlay is evicted and state reverts
+        expect(specColl.get_item("counter")).toBeUndefined();
+    });
+
+    test("detects un-ACKed gap in pending_updates and triggers reconnect", () => {
+        const mockClient = createMockClient();
+        mockClient._handle_version_gap = vi.fn();
+
+        mockClient._pending_updates.set(1, { timestamp: Date.now(), path: "/resources/app/store/res", changes: {} });
+        mockClient._pending_updates.set(2, { timestamp: Date.now(), path: "/resources/app/store/res", changes: {} });
+
+        // ACK for update 2 arrives while update 1 is still in pending_updates
+        mockClient._on_ack(2, true, "/resources/app/store/res");
+
+        expect(mockClient._handle_version_gap).toHaveBeenCalled();
+    });
+
+    test("triggers reconnect when pending update exceeds ttlMs and state is CONNECTED", () => {
+        const mockClient = createMockClient();
+        mockClient._connection = { state: "connected", reconnect: vi.fn() };
+        mockClient._handle_version_gap = vi.fn(() => mockClient._connection.reconnect(true));
+
+        // Insert pending update with timestamp in past (15 seconds ago)
+        mockClient._pending_updates.set(1, { timestamp: Date.now() - 15000, path: "/resources/app/store/res", changes: {} });
+
+        mockClient._check_pending_timeouts();
+
+        expect(mockClient._connection.reconnect).toHaveBeenCalledWith(true);
     });
 });
