@@ -1,38 +1,291 @@
 # Consistency
 
-SharedState incorporates a set of client and server sequencing mechanisms designed to ensure deterministic state replication, optimistic concurrency control, and real-time consistency across multi-client environments.
+
+> The SharedState framework provides eventual consistency, with optimistic consistency for zero-latency UI updates. 
+
+
+---
+
+## Goals 
+The SharedState framework is designed with the following main goals:
+
+1. **Eventual Consistency**: 
+- The server is the single authoritative source of truth for state.
+- Clients may view different versions of the state, at any given time, but will eventually converge on the latest version once update operations cease.
+
+2. **Zero Visible Update Latency**: Updates are applied locally and optimistically, with UI immediately reflecting the change. 
+
+---
+
+## State Update Protocol
+
+- **Client**: `REQUEST UPDATES`:
+    - may dispatch updates to the server, without blocking on the completion of earlier updates (*streaming*). 
+- **Server**: `PROCESS UPDATES`:
+    - processes a stream of interleaved updates originating from different clients.
+    - may either accept the update *(ok: true)* or reject it (`ok: false`).
+    - sends reply to the client that sent the update request, with the resulting status (`ok: true | false`).
+    - sends notify to all subscribed clients, with the new state.
+- **Client**: `RECEIVE UPDATES`:
+   - receives reply and notify messages, in that order.
+
+---
+
+## Assumptions
+
+The SharedState framework makes the following assumptions: 
+
+- **Sequential Update Processing**: The server processes update requests sequentially, in the order they are received.
+- **Ordered Network Transfer**: Message order is preserved over the commounication channel.
+- **Bounded Network Latency**: An upper time limit can be assumed for network latency.
+- **Bounded Processing Delay**: An upper time limit can be assumed for update processing on the server.
+- **Failure Context**: Failures may occur at any time.
+- **Failure Event**: Failures include server failure and communication failures.
+- **Failure Detection**: Failures may be detected by client, eventually, recongnized either as **connection loss** or as **message loss**.
+- **Message loss**: Failures may occur either before processing (`loss of update request`), or after (`loss of reply or notify`).
+
+
+::: tip Note
+The server may **reject** an `UPDATE REQUEST` as part of normal operation (see [State Update Protocol](#state-update-protocol)). This is **not** considered a **failure event**.
+:::
+
 
 ---
 
 
-## Sequencing
+## Operational Scenarios
+
+Given [State Update Protocol](#state-update-protocol) and [Theoretical Assumptions](#theoretical-assumptions), 5 operational scenenarios need to be considered:
 
 
-- goal 
-   - preserve integrity of update history for each resource (client perspective)
-   - eventual consistency
+| Scenario | REQUEST | SERVER | REPLY | Client |
+| :---  | :--- | :---   | :--- | :--- |
+| **A** |  OK  | Accept | OK  | REPLY and NOTIFY received |
+| **B** |  OK  | Reject | OK   | REPLY received |
+| **C** |  OK  | Accept | LOST | REPLY and NOTIFY not received |
+| **D** |  OK  | Reject | LOST | REPLY not received |
+| **E** | LOST | N/A      | N/A  | REPLY and NOTIFY not received |
 
-- assumptions
-   - messages can be dropped, in transmision or by server
-   - high bound for procesing and network delay, basis for request timeout
-   - tcp transfer preserves message ordering - this my not be required for consistency, highly practical, in the sense that it significantly reduces the frequency of ordering issues compared to UDP for intance.
-
-- approach
-   - server state single-source of truth
-   - single-threaded processing of requests per resource (in terms of state mutations)
-   - which yields ordering of updates per resource, ordered by receipt
+::: tip Note
+Scenario (**A, B**) represent normal operation. Scenario (**C, D, E**) represent failure.
+:::
 
 
-- mechanism
-   - (version) incrementing version number per-resources
-   - (update_count) incrementing number per update request
+
+## Approach
+
+There is a conflict between the two goals of the SharedState framework: **Eventual Consistency** (authoritative server truth) and **Zero Visible Latency** (instant local feedback). Optimistic local updates provide zero-latency UI rendering, but may lead to inconsistency when updates are rejected by the server, or lost on the network.
+
+To address both goals SharedState adopts a three-part approach:
+
+### 1. Optimistic Overlay
+Speculative local edits are not applied to the client view of server state (`ProxyCollection`), but instead layered on top, as an
+**optimistic overlay** (`SpeculativeProxyCollection`). Queries then target the overlay first, but will fall back on the underlying `ProxyCollection` if no speculative state has been defined for the queried item. This ensures zero-latency Query latency, combined with easy rollback of local edit when needed.
+
+### 2. Detecting Integrity Threats
+The client monitors outgoing update requests and incoming replies/notifications. Three distinct integrity failure conditions are detected:
+
+- **Missing Notification**: Gap in the sequence of notifitions.
+- **Missing Reply**: Gap in the sequence of replies.
+- **Timeout Reply**: Reply not received in time.
+
+### 3. Resolving Integrity Threats
+Upon detecting any integrity threat, the client concludes that its states notifiction stream, or update request stream, is compromised. It resolves the threat by triggering an **immediate self-healing reconnection** (`reconnect(true)`). This re-establishes the WebSocket connection and resets subscriptions, triggering a fresh initialization of client state.
 
 
-- detection and handling of integrity issues 
-  - duplication/old: notification version < expected - ignore
-  - confirmed missing - notification version > expected - reset connection - resume new session (even though technically only the integrity of one specific resource may be damaged)
-  - timeout for pending request -> (bump expected update_count)
-  - notification version == expected - receive, but do not apply if previously timed out (update_count < expected update_count).
+---
+
+## Mechanism
+
+SharedState realizes this approach through a suite of state counters and associated logical checks which evaluate the integrity of the client state. 
+
+### Server Counters
+
+The server maintains one counter for each [ItemCollection].
+
+- **`version`**: The server maintains a version counter which is incremented on every accepted server mutation. This counter is included in replies and notifications sent to clients.
+
+### Client Counters
+
+The client maintains three counters, for each `ProxyCollection`.
+
+- **`last_version`**: The counter tracks the latest version counter received in a notification from the server.
+- **`last_update_request_count`**: The counter tracks the update requests dispatched by the client. The counter is incremented for each new update request, and its value is included in the update request. Upon receipt, the server echoes the counter back to the client by including it in the corresponding reply and notification.
+- **`last_acked_update_count`**: The counter tracks the latest update request counter received from the server, as part of a reply or notification.
+
+### Failure Conditions
+
+- **Missing Notification**: Gap in the sequence of notifitions.
+
+```js
+if (notification.version > last_version + 1) {
+   handle_failure();
+}
+```
+
+- **Missing Reply**: Gap in the sequence of replies.
+
+```js
+if (reply.update_count > last_acked_update_count + 1) {
+   handle_failure();
+}
+```
+
+- **Timeout Reply**: Reply not received in time.
+
+```js
+if (Date.now() - oldest_pending_timestamp) > ttlMs) {
+   handle_failure();
+}
+```
+
+
+## Overlay
+
+### Overlay Write Rule
+
+An item is added to the overlay when it is updated locally, replacing any previous item with the same id. 
+
+### Overlay Eviction Rule
+An optimistic overlay entry is **evicted (rolled back)** when its update count is acknowledged by the server:
+
+```js
+for (item in overlay_items) {
+   if (item.update_count <= last_acked_update_count) {
+      evict_item(item.id);
+   }
+}
+```
+
+
+
+---
+
+## The Rest
+
+
+### Protocol Engine Execution Rules
+
+#### 1. ACK Handling (`_on_ack(update_count, ok, path)`)
+
+Maintains a sliding-window `pending_updates` Map (`update_count -> { timestamp, path, changes }`) for all outgoing update requests.
+
+Executed on `REPLY` messages (and idempotently on `NOTIFY` broadcasts):
+
+1. **Un-ACKed Gap Check**:
+   If `update_count > _last_acked_update_count + 1` while earlier updates remain pending in `pending_updates`:
+   An un-ACKed gap is detected -> Trigger `reconnect(true)` (if CONNECTED).
+2. **Pending Update Removal**: Remove `update_count` from `pending_updates`.
+3. **High-Water Mark Advance**: Update `_last_acked_update_count = Math.max(_last_acked_update_count, update_count)`.
+4. **Overlay Eviction & Reversion**: Evict overlay entries where `entry.update_count <= _last_acked_update_count`. If `ok == false`, the speculative entry is cleared and UI state immediately reverts to server truth.
+5. **Timeout Re-evaluation**: Re-evaluate the oldest remaining timestamp in `pending_updates`.
+
+#### 2. NOTIFY Handling (`_on_notify(msg)`)
+
+Executed when a server `NOTIFY` broadcast arrives:
+
+1. **Resource Version Evaluation**:
+   - `incoming_version < expected_version`: **Stale/Duplicate** -> Ignore.
+   - `incoming_version > expected_version`: **Version Gap Discontinuity** -> Trigger `reconnect(true)` (if CONNECTED).
+   - `incoming_version == expected_version`: **Valid Update** -> Proceed to apply.
+2. **Idempotent ACK Fallback**: Invoke `_on_ack(msg.tunnel.update_count, ok: true)` to ensure `pending_updates` is cleaned up even if a `REPLY` packet was dropped.
+3. **State Application**: Apply server changes to base collection. Evict overlay entries where `entry.update_count <= _last_acked_update_count`.
+
+#### 3. Timeout Check & Self-Healing (`_check_pending_timeouts()`)
+
+If a network packet is silently dropped (Scenario C, D, or E), `pending_updates` preserves the oldest un-ACKed update timestamp:
+
+1. Retrieve the entry in `pending_updates` with the lowest `timestamp`.
+2. If `Date.now() - lowestTimestamp > ttlMs`:
+   - If `connection.state === ConnectionState.CONNECTED`:
+     Unconfirmed Update Timeout -> Trigger `reconnect(true)`.
+   - If `connection.state !== ConnectionState.CONNECTED`:
+     Skip reconnect call (client is already in disconnected/reconnecting state).
+
+Upon `reconnect(true)`, the WebSocket tears down with 0ms delay and reconnects. On reconnect, `_on_connect()` dispatches `PUT /subs` with `reset: true`, fetching fresh authoritative snapshots for all resources.
+
+---
+
+## Protocol Pseudocode Overview
+
+```javascript
+// =================================================================
+// 1. OUTGOING UPDATE REQUEST
+// =================================================================
+function on_update_request(path, changes):
+    update_count = ++client._update_count
+    pending_updates.set(update_count, { timestamp: Date.now(), path, changes })
+    overlay.set(item_id, { item: changes, update_count, timestamp: Date.now() })
+    send_websocket_request("PUT", path, changes, tunnel: { client_id, request_count, update_count })
+
+// =================================================================
+// 2. REPLY HANDLING
+// =================================================================
+function on_websocket_reply(msg):
+    if msg.tunnel.update_count > 0:
+        on_ack(msg.tunnel.update_count, ok: msg.ok, path: msg.path)
+
+// =================================================================
+// 3. NOTIFY HANDLING
+// =================================================================
+function on_websocket_notify(msg):
+    incoming_version = msg.data.version
+    expected_version = collection.version + 1
+
+    if incoming_version < expected_version:
+        return // Stale/duplicate notification
+
+    if incoming_version > expected_version:
+        trigger_self_healing_reconnect("VERSION_GAP")
+        return
+
+    // Valid in-sequence notification
+    if msg.tunnel.update_count > 0:
+        on_ack(msg.tunnel.update_count, ok: true, path: msg.path) // Idempotent fallback
+
+    collection.version = incoming_version
+    collection.apply_server_changes(msg.data)
+    collection.evict_overlay(upto: client._last_acked_update_count)
+
+// =================================================================
+// 4. ACK HANDLING & GAP CHECK
+// =================================================================
+function on_ack(update_count, ok, path):
+    if update_count > client._last_acked_update_count + 1:
+        if has_unacked_earlier_updates(before: update_count):
+            trigger_self_healing_reconnect("UNACKED_UPDATE_GAP")
+            return
+
+    pending_updates.delete(update_count)
+    client._last_acked_update_count = max(client._last_acked_update_count, update_count)
+
+    collection = get_collection(path)
+    collection.evict_overlay(upto: client._last_acked_update_count)
+    if not ok:
+        collection.revert_speculative_state()
+
+    check_pending_timeouts()
+
+// =================================================================
+// 5. TIMEOUT CHECK
+// =================================================================
+function check_pending_timeouts():
+    if pending_updates.is_empty():
+        return
+
+    oldest_entry = pending_updates.get_oldest_by_timestamp()
+    if (Date.now() - oldest_entry.timestamp) > ttlMs:
+        if websocket.state == CONNECTED:
+            trigger_self_healing_reconnect("UNACKED_UPDATE_TIMEOUT")
+
+// =================================================================
+// 6. SELF-HEALING RECONNECT
+// =================================================================
+function trigger_self_healing_reconnect(reason):
+    websocket.reconnect(immediate = true)
+    // On socket reconnect: _on_connect() sends PUT /subs reset: true
+    // Server returns fresh full snapshots, cleanly clearing all pending state.
+```
 
 
 
