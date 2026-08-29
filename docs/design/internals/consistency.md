@@ -2,6 +2,8 @@
 [Items]: /design/item_collections/item_collection#item
 [ItemCollection]: /design/item_collections/item_collection#itemcollection
 [ItemCollections]: /design/item_collections/item_collection#itemcollection
+[ProxyCollection]: /design/item_collections/client_proxies
+[ProxyCollections]: /design/item_collections/client_proxies
 
 # Consistency
 
@@ -34,56 +36,68 @@ This outlines how the SharedState framework maintains consistency with respect t
 ---
 ## Part 1: Replica Consistency
 
-The SharedState client maintains local **replicas** for server-side resources.
+> The SharedState framework provides Strong Eventual Consistency (SEC) for client-side **replicas**.
 
----
-### Goal
-**Strong Eventual Consistency (SEC)**: 
+### Strong Eventual Consistency (SEC)
+
+In distributed systems, **Strong Eventual Consistency (SEC)** guarantees that any two replicas that have processed the same set of updates will **immediately** hold **identical state**. Here, **immediate** means that **identical state** is reached right away, without requiring an additional reconciliation phase of conflict resolution and consensus.
+
+In the SharedState framework, SEC is supported on a per-resource basis: 
+
 - The server is the single authoritative source of truth for state.
-- Because the server assigns a deterministic, monotonic `version` sequence to every committed mutation, any two clients that have received updates up to version $V$ are guaranteed to hold byte-for-byte identical state immediately.
+- The server processes update operations sequentially.
+- Operation ordering is preserved through communication to clients.
+- Updates are deterministic, as SharedState implements [Passive Replication](/concept/replication).
 
-
-::: tip What Strong Eventual Consistency (SEC) Means in SharedState
-In distributed systems, **Strong Eventual Consistency (SEC)** guarantees that any two replicas that have processed the same set of updates will immediately hold **identical state**, without requiring complex client-side conflict resolution, vector clocks, or consensus rounds.
-
-SharedState achieves SEC for its base server state (`ProxyCollection`) through **total ordering on the server**: the server processes mutations sequentially per resource and tags each committed edit with a monotonic `version` counter ($1, 2, 3 \dots$). Any two clients at version $V$ hold byte-for-byte identical state. Local speculative overlays (`SpeculativeProxyCollection`) provide instant 0ms UI updates on top of this foundation, temporarily masking server state for speculatively edited items until confirmed or evicted.
-:::
-
----
-### Operation Assumptions
-
-- **Sequential Update Processing**: The server processes update requests sequentially, in the order they are received.
-- **Ordered Network Transfer**: Message order is preserved over the communication channel.
 
 ---
 ### State Update Protocol
 
+The following defines the replication protocol implemented by the SharedState framework.
+
 - **Client**: `REQUEST UPDATES`:
-    - may dispatch updates to the server, without blocking on the completion of earlier updates (*streaming*). 
+   - Clients may dispatch update requests to the server without blocking on the completion of earlier updates (*streaming*). 
 - **Server**: `PROCESS UPDATES`:
-    - processes a stream of interleaved updates originating from different clients.
-    - may either accept the update *(ok: true)* or reject it (`ok: false`).
-    - sends reply to the client that sent the update request, with the resulting status (`ok: true | false`).
-    - sends notify to all subscribed clients, with the new state.
+   - The server processes a stream of interleaved updates originating from different clients.
+   - The server may either accept the update *(ok: true)* or reject it (`ok: false`).
+   - The server sends a reply to the client that sent the update request, with the resulting status (`ok: true | false`).
+   - The server sends a notification to all subscribed clients, with the new state.
 - **Client**: `RECEIVE UPDATES`:
-   - receives reply and notify messages, in that order.
+   - Each client receives a reply and a notification message, in that order.
+   - Each client updates its local `replica` with the new state.
 
 
 ---
-### Mechanism
+### Detecting Consistency Threats
 
-SharedState realizes this approach through a suite of state counters and associated logical checks that evaluate the integrity of the client state. 
+In order to maintain the consistency of `replicas`, the client must be protected against unordered message delivery. The SharedState framework achieves this by assigning a version number to each state change.
 
-The server maintains one counter for each `ItemCollection`:
+The server maintains one version counter for each [ItemCollection]:
 
-- **`version`**: The server maintains a version counter which is incremented on every accepted server mutation. This counter is included in replies and notifications sent to clients.
+- **`version`**: The server increments the version counter on every state mutation to the [ItemCollection]. This version counter is then included in notifications sent to clients.
 
-The client maintains corresponding counter for each `ProxyCollection`:
+The client maintains a corresponding counter for each [ProxyCollection]:
 
-- **`last_version`**: Tracks the latest version counter received in a notification from the server.
+- **`last_version`**: The client maintains a `last_version` counter for each [ProxyCollection]. This counter tracks the latest version counter received in a notification from the server.
 
 
+This allows the client to ignore outdated or duplicated notification, and to treat missing notifications as a failure condition.
 
+```js
+if (notification.version > last_version + 1) {
+   this.handle_failure();
+}
+```
+
+### Resolving Failure Conditions
+
+Upon detecting a failure condition, the client recovers by terminating the connection and initiating a new session. As the SharedState client is designed to mask temporary network disconnects, this can be achieved without disrupting the application.
+
+```js
+handle_failure() {
+   this.client.reconnect(true);
+}
+```
 
 
 
@@ -159,24 +173,11 @@ The client monitors outgoing update requests and incoming replies/notifications.
 - **Missing Reply**: Gap in the sequence of replies.
 - **Timeout Reply**: Reply not received within the expected time limit.
 
-#### 2. Resolving Integrity Threats
-Upon detecting any integrity threat, the client concludes that its notification stream or update request stream is compromised. It resolves the threat by triggering an **immediate self-healing reconnection** (`reconnect(true)`). This re-establishes the WebSocket connection and resets subscriptions, triggering a fresh initialization of client state.
 
-
-- the basic protocol
-- strong eventual consistency
-- mechanism
 
 ---
 ### Failure Conditions
 
-- **Missing Notification**: Gap in the sequence of notifications.
-
-```js
-if (notification.version > last_version + 1) {
-    handle_failure();
-}
-```
 
 - **Missing Reply**: Gap in the sequence of replies.
 
