@@ -8,38 +8,39 @@
 
 > The SharedState framework delivers Strong Eventual Consistency (SEC) paired with zero delay interactivity, through optimistic local updates.
 
----
 
+---
 ## In a Nutshell
 
-Local updates are speculative in nature, and thereby a source of temporary in-consistency. SharedState combines local updates with strong eventual consistency in the following manner:
+This outlines how the SharedState framework maintains consistency with respect to replicas, sessions, and optimistic client-side updates.
 
 
 1. State changes are expressed in terms of individual [Items] within [ItemCollections]. Consistency in SharedState can therefore be discussed in terms of a single item.
 
-2. A client maintains a local `replica` for a server item. The `replica` represents the client's **current view** of server state for that item. 
+2. A client maintains a local `replica` for a server item. Updates for this item do **not affect** the `replica` directly. Instead, an update request is sent to the server, where the update is carried out. Only when the update is acknowledged by server notification, is the client `replica` updated. This ensures that the `replica` always reflects the server-side truth.
 
-3. Local updates for this item do **not** alter the `replica`, but are instead applied optimistically to an isolated state `overlay`. The `overlay` takes **precedence** over the `replica` in queries, implying that the effects of the update become visible to the application, **before** the update is dispatched to the server. 
+3. However, updates are also applied optimistically to an isolated state `overlay` on the client. This `overlay` takes **precedence** over the client's `replica`, implying that the effects of the update immediately become visible to the application, **before** being dispatched to the server.
 
 4. Under normal operation, the update will be acknowledged through server notification within fractions of a second, and the effects will immediately be committed to the client's `replica`. At this point, the `overlay` and the `replica` both reflect the **same** state for the item, and the optimistic update may therefore safely be removed from the `overlay`.
 
-5. In the (rare) event of message loss or server failure, optimistic updates to the `overlay` will **not neccessarily** be undone quickly by server notification, as is the case under normal operation. Instead, the client is left in an ambiguous state, where it can **not with certainty** conclude whether a fail has occurred. Consequenly, the optimistic update to the `overlay` will continue to obscure the `replica` until this situation is resolved, even if the `replica` is subsequently updated by by other clients.
+5. In the (rare) event of message loss or server failure, optimistic updates to the `overlay` will **not necessarily** be undone quickly by server notification, as is the case under normal operation. Instead, the client is left in an ambiguous state, where it **cannot with certainty** conclude whether a failure has occurred. Consequently, the optimistic update to the `overlay` will continue to obscure the `replica` until this situation is resolved, even if the `replica` is subsequently updated by other clients.
 
-6. The client recovers from this situation in one of two ways. If the client does not remain inactive, but continues to issue updates to the server, a subsequent, successful update will confirm the failure situation with certainty. Otherwise, the situation is resolved with a timeout (10s). In either case, the session is deemed to have failed, and recovery is achieved by seamlessly diconnecting and initializing a new session.
+6. The client recovers from this situation in one of two ways. If the client does not remain inactive, but continues to issue updates to the server, a subsequent, successful update will confirm the failure situation with certainty. Otherwise, the situation is resolved with a timeout (10s). In either case, the session is deemed to have failed, and recovery is achieved by seamlessly disconnecting and initializing a new session.
+
+
 
 
 
 ---
+## Part 1: Replica Consistency
 
-## Goals 
-The SharedState framework is designed with the following main goals:
+The SharedState client maintains local **replicas** for server-side resources.
 
-1. **Strong Eventual Consistency (SEC)**: 
+---
+### Goal
+**Strong Eventual Consistency (SEC)**: 
 - The server is the single authoritative source of truth for state.
 - Because the server assigns a deterministic, monotonic `version` sequence to every committed mutation, any two clients that have received updates up to version $V$ are guaranteed to hold byte-for-byte identical state immediately.
-
-2. **Zero Visible Update Latency**: Updates are applied locally and optimistically, with UI immediately reflecting the change. 
-
 
 
 ::: tip What Strong Eventual Consistency (SEC) Means in SharedState
@@ -48,12 +49,14 @@ In distributed systems, **Strong Eventual Consistency (SEC)** guarantees that an
 SharedState achieves SEC for its base server state (`ProxyCollection`) through **total ordering on the server**: the server processes mutations sequentially per resource and tags each committed edit with a monotonic `version` counter ($1, 2, 3 \dots$). Any two clients at version $V$ hold byte-for-byte identical state. Local speculative overlays (`SpeculativeProxyCollection`) provide instant 0ms UI updates on top of this foundation, temporarily masking server state for speculatively edited items until confirmed or evicted.
 :::
 
+---
+### Operation Assumptions
 
-
+- **Sequential Update Processing**: The server processes update requests sequentially, in the order they are received.
+- **Ordered Network Transfer**: Message order is preserved over the communication channel.
 
 ---
-
-## State Update Protocol
+### State Update Protocol
 
 - **Client**: `REQUEST UPDATES`:
     - may dispatch updates to the server, without blocking on the completion of earlier updates (*streaming*). 
@@ -65,17 +68,59 @@ SharedState achieves SEC for its base server state (`ProxyCollection`) through *
 - **Client**: `RECEIVE UPDATES`:
    - receives reply and notify messages, in that order.
 
----
 
-## Assumptions
+---
+### Mechanism
+
+SharedState realizes this approach through a suite of state counters and associated logical checks that evaluate the integrity of the client state. 
+
+The server maintains one counter for each `ItemCollection`:
+
+- **`version`**: The server maintains a version counter which is incremented on every accepted server mutation. This counter is included in replies and notifications sent to clients.
+
+The client maintains corresponding counter for each `ProxyCollection`:
+
+- **`last_version`**: Tracks the latest version counter received in a notification from the server.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+---
+## Part 2: Session Consistency
+
+- Consistency at the **session** level concerns the integrity of the **communication stream** (update requests, replies, and notifications) between a single client and the server.
+
+
+
+---
+### Failure Model Assumptions
 
 The SharedState framework makes the following assumptions: 
 
-- **Sequential Update Processing**: The server processes update requests sequentially, in the order they are received.
-- **Ordered Network Transfer**: Message order is preserved over the communication channel.
+
 - **Bounded Network Latency**: An upper time limit can be assumed for network latency.
 - **Bounded Processing Delay**: An upper time limit can be assumed for update processing on the server.
-- **Failure Context**: Failures may occur at any time.
 - **Failure Event**: Failures include server failure and communication failures.
 - **Failure Detection**: Failures may be detected by client, eventually, recognized either as **connection loss** or as **message loss**.
 - **Message loss**: Failures may occur either before processing (`loss of update request`), or after (`loss of reply or notify`).
@@ -87,9 +132,7 @@ The server may **reject** an `UPDATE REQUEST` as part of normal operation (see [
 
 
 ---
-
-
-## Operational Scenarios
+### Operational Scenarios
 
 Given [State Update Protocol](#state-update-protocol) and [Assumptions](#assumptions), 4 operational scenarios need to be considered:
 
@@ -107,48 +150,24 @@ Scenarios (**A, B**) represent normal operation. Scenarios (**C, D**) represent 
 
 
 ---
+### Approach
 
-
-## Approach
-
-There is a conflict between the two goals of the SharedState framework: **Strong Eventual Consistency (SEC)** (authoritative server truth) and **Zero Visible Latency** (instant local feedback). Optimistic local updates provide zero-latency UI rendering, but may lead to inconsistency when updates are rejected by the server or lost on the network.
-
-To address both goals, SharedState adopts a three-part approach:
-
-### 1. Optimistic Overlay
-Speculative local edits are not applied directly to the client's view of server state (`ProxyCollection`), but are instead layered on top as an **optimistic overlay** (`SpeculativeProxyCollection`). Queries target the overlay first, falling back to the underlying `ProxyCollection` if no speculative state exists for the queried item. This ensures zero-latency UI updates combined with effortless rollback of local edits when needed.
-
-### 2. Detecting Integrity Threats
+#### 1. Detecting Integrity Threats
 The client monitors outgoing update requests and incoming replies/notifications. Three distinct integrity failure conditions are detected:
 
 - **Missing Notification**: Gap in the sequence of notifications.
 - **Missing Reply**: Gap in the sequence of replies.
 - **Timeout Reply**: Reply not received within the expected time limit.
 
-### 3. Resolving Integrity Threats
+#### 2. Resolving Integrity Threats
 Upon detecting any integrity threat, the client concludes that its notification stream or update request stream is compromised. It resolves the threat by triggering an **immediate self-healing reconnection** (`reconnect(true)`). This re-establishes the WebSocket connection and resets subscriptions, triggering a fresh initialization of client state.
 
 
+- the basic protocol
+- strong eventual consistency
+- mechanism
+
 ---
-
-## Mechanism
-
-SharedState realizes this approach through a suite of state counters and associated logical checks that evaluate the integrity of the client state. 
-
-### Server Counters
-
-The server maintains one counter for each `ItemCollection`:
-
-- **`version`**: The server maintains a version counter which is incremented on every accepted server mutation. This counter is included in replies and notifications sent to clients.
-
-### Client Counters
-
-The client maintains three counters for each `ProxyCollection`:
-
-- **`last_version`**: Tracks the latest version counter received in a notification from the server.
-- **`last_update_count`**: Tracks update requests dispatched by the client. This counter is incremented for each new update request, and its value is included in the request metadata (`tunnel`). Upon receipt, the server echoes the counter back to the client in the corresponding reply and notification.
-- **`last_acked_update_count`**: Tracks the latest update request counter confirmed by the server as part of a reply or notification.
-
 ### Failure Conditions
 
 - **Missing Notification**: Gap in the sequence of notifications.
@@ -176,18 +195,68 @@ if (Date.now() - oldest_pending_timestamp > ttlMs) {
 ```
 
 
----
 
-## Overlay
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+---
+## Part 3: Optimistic Consistency
+
+---
+### Goal
+
+**Zero Visible Update Latency**: Updates are applied locally and optimistically, with UI immediately reflecting the change. 
+
+
+---
+### Approach
+
+#### Optimistic Overlay
+
+Speculative local edits are not applied directly to the client's view of server state (`ProxyCollection`), but are instead layered on top as an **optimistic overlay** (`SpeculativeProxyCollection`). Queries target the overlay first, falling back to the underlying `ProxyCollection` if no speculative state exists for the queried item. This ensures zero-latency UI updates combined with effortless rollback of local edits when needed.
+
+#### Reply Eviction
+- on normal operation, evict speculative items from the overlay on reply.
+
+
+---
+### Mechanism
+
+SharedState realizes this approach through a suite of state counters and associated logical checks that evaluate the integrity of the client state. 
+
+#### Client Counters
+
+The client maintains three counters for each `ProxyCollection`:
+
+- **`last_update_count`**: Tracks update requests dispatched by the client. This counter is incremented for each new update request, and its value is included in the request metadata (`tunnel`). Upon receipt, the server echoes the counter back to the client in the corresponding reply and notification.
+- **`last_acked_update_count`**: Tracks the latest update request counter confirmed by the server as part of a reply or notification.
+
+
 
 The optimistic overlay (`SpeculativeProxyCollection`) supports local updates without tampering with the client's view of server state (`ProxyCollection`):
 
-### Read & Write Rules
+#### Read & Write Rules
 
 - **Write**: When an item is updated locally, it is inserted into the overlay and tagged with the appropriate update count: `update_count = last_update_count + 1`. The item replaces any pre-existing entry with the same item `id`.
 - **Read**: Item lookups query the overlay first. If an item exists in the overlay, it is returned immediately. Otherwise, no speculative state exists for the item and the lookup falls back to the server-authoritative `ProxyCollection`.
 
-### Eviction Rule
+#### Eviction Rule
 
 An optimistic overlay entry is **evicted (reconciled with server truth)** as soon as its update count has been acknowledged by the server (`update_count <= last_acked_update_count`):
 
@@ -203,9 +272,14 @@ for (const [id, item] of overlay.entries()) {
 - **Rejected Update (`ok: false`)**: The overlay entry is evicted, immediately reverting the item to its un-edited server state.
 
 
----
 
-## Life of a Speculative Item
+
+
+
+
+
+
+## Part 5: Life of a Speculative Item
 
 When a client mutates an item locally, the item enters a speculative lifecycle until it is eventually reconciled (evicted) back to server truth:
 
