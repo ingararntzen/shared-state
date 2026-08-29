@@ -25,7 +25,7 @@ This outlines how the SharedState framework maintains consistency with respect t
 
 4. Under normal operation, the update will be acknowledged through server notification within fractions of a second, and the effects will immediately be committed to the client's `replica`. At this point, the `overlay` and the `replica` both reflect the **same** state for the item, and the optimistic update may therefore safely be removed from the `overlay`.
 
-5. In the (rare) event of message loss or server failure, optimistic updates to the `overlay` will **not necessarily** be undone quickly by server notification, as is the case under normal operation. Instead, the client is left in an ambiguous state, where it **cannot with certainty** conclude whether a failure has occurred. Consequently, the optimistic update to the `overlay` will continue to obscure the `replica` until this situation is resolved, even if the `replica` is subsequently updated by other clients.
+5. In the (rare) case of message loss or server failure, optimistic updates to the `overlay` will **not necessarily** be undone quickly by server notification, as is the case under normal operation. Instead, the client may be left in an ambiguous state, where it **cannot with certainty** conclude whether a failure has occurred or not. As a consequence, the optimistic update in the `overlay` will continue to override the `replica` until this ambiguity is resolved, even if the `replica` is subsequently updated by other clients.
 
 6. The client recovers from this situation in one of two ways. If the client does not remain inactive, but continues to issue updates to the server, a subsequent, successful update will confirm the failure situation with certainty. Otherwise, the situation is resolved with a timeout (10s). In either case, the session is deemed to have failed, and recovery is achieved by seamlessly disconnecting and initializing a new session.
 
@@ -288,40 +288,42 @@ In both scenario **A** and **B**, the optimistic `item` is evicted immediately u
 
 
 
-## Part 5: Life of a Speculative Item
 
-When a client mutates an item locally, the item enters a speculative lifecycle until it is eventually reconciled (evicted) back to server truth:
 
-### 1. Speculative Creation
+
+
+## Part 4: Life of an optimistic update
+
+This presents a walkthrough of the protocol, focussing on the different outcomes for a single update in the event of failures.
+
+
+## 1. Local Update
 - A new update request is assigned `update_count = last_update_count + 1`.
-- The item is inserted into the local optimistic overlay (`_overlay`), stamped with `update_count`.
-- Queries and UI callbacks immediately reflect the speculative item (0ms latency), masking any underlying base state for that item.
+- The new item is inserted into the local `overlay`, stamped with `update_count`.
+- Queries to the client state immediately returns the new item (0 ms latency).
 
-### 2. Reconciliation Paths
+## Scenario A: Normal Operation
+- The server accepts the update and returns `REPLY(ok: true)` and `NOTIFY`.
+- `last_acked_update_count = item.update_count`.
+- The new item is silently evicted from the `overlay`. 
 
-A speculative item transitions back to confirmed server state via one of 4 scenario paths:
+## Scenario B: Server Rejection
+- The server rejects the update and returns `REPLY(ok: false)`.
+- `last_acked_update_count = item.update_count`.
+- The new item is evicted from the `overlay`, resulting in a synthetic state state change locally, back to the state of the underlying [ProxyCollection].
 
-#### Path A: Normal Success (Scenario A)
-- Server accepts the update and returns `REPLY(ok: true)` and/or `NOTIFY`.
-- `last_acked_update_count` advances to $\ge \text{item.update\_count}$.
-- The overlay item is **evicted**, smoothly transferring visual rendering to the updated `ProxyCollection` base state without UI flicker.
+## Scenario C: Accepted Update, Response Lost
+- The server accepts the update `u1`, but the reply was lost on the network.
+- The new item remains in the `overlay`.
+- **Alternative Resolutions**:
+  - **On Next External Update**: An external client updates the same resource, triggering notifications of state change. If no external update were processed before before `u1`, the client will detect a gap in the version sequence `version > last_version + 1` and triggers `reconnect(true)`. If not, the situation is inconclusive.
+  - **On Next Self Update**: The client itself dispatches a new update `u2`. The server reply betrays a gap in the sequence of replies (`update_count > last_acked_update_count + 1`), prompting the client to `reconnec(true)`.
+  - **On Timeout**: If no further updates occur, `u1` times out after 10 seconds (`ttlMs`), triggering `reconnect(true)`.
 
-#### Path B: Server Rejection (Scenario B)
-- Server rejects the update and returns `REPLY(ok: false)`.
-- `last_acked_update_count` advances to $\ge \text{item.update\_count}$.
-- The overlay item is **evicted**, immediately reverting the item back to its un-edited server-authoritative state.
-
-#### Path C: Accepted Update, Response Lost (Scenario C)
-- Server accepted the update, but the response was lost on the network.
-- The item remains speculative in the local overlay.
+## Scenario D: Lost Request / Response
+- The update request `u1` was lost before processing, or rejected but with a lost reply.
+- The new item remains in the `overlay`.
 - **Resolution**:
-  - **On Next Remote Update**: A remote client updates the resource, triggering `NOTIFY(version)`. The client observes `version > last_version + 1` (Missing Notification) and triggers an immediate self-healing reconnection (`reconnect(true)`).
-  - **On Next Local Update**: The client dispatches a new update $N + 1$. The server's reply betrays that update $N$ was un-ACKed (`N + 1 > last_acked + 1`), triggering `reconnect(true)`.
-  - **On Timeout**: If no further updates occur, the unconfirmed update times out after 10 seconds (`ttlMs`), triggering `reconnect(true)`.
-
-#### Path D: Lost Request / Response (Scenario D)
-- Request was lost on the network before reaching the server (or rejected without reply).
-- The speculative item remains in the overlay, masking server state locally for that item while allowing unmodified items to update normally.
-- **Resolution**:
-  - **On Next Local Update**: When the client dispatches update $N + 1$, the server's reply carries `update_count = N + 1`. The client detects `N + 1 > last_acked + 1` (Missing Reply) and triggers an immediate self-healing reconnection (`reconnect(true)`).
-  - **On Timeout**: If the user stops editing, update $N$ sits unconfirmed past 10 seconds (`ttlMs`). The client detects a Timeout Reply and triggers `reconnect(true)`, tearing down the socket, purging the speculative overlay, and restoring clean server state.
+  - **On Next External Update**: An external client updates the same resources. The situation is inconclusive. 
+  - **On Next Local Update**: The client itself dispatches a new update `u2`. The server reply betrays a gap in the sequence of replies (`update_count > last_acked_update_count + 1`), prompting the client to `reconnec(true)`.
+  - **On Timeout**: If no further updates occur, `u1` times out after 10 seconds (`ttlMs`), triggering `reconnect(true)`.
