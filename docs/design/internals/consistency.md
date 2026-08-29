@@ -294,36 +294,36 @@ In both scenario **A** and **B**, the optimistic `item` is evicted immediately u
 
 ## Part 4: Life of an optimistic update
 
-This presents a walkthrough of the protocol, focussing on the different outcomes for a single update in the event of failures.
+This presents a walkthrough of the protocol, focusing on the different outcomes for a single update in the event of failures.
 
 
-## 1. Local Update
+### Local Update
 - A new update request is assigned `update_count = last_update_count + 1`.
 - The new item is inserted into the local `overlay`, stamped with `update_count`.
-- Queries to the client state immediately returns the new item (0 ms latency).
+- Queries to the client state immediately return the new item (0 ms latency).
 
-## Scenario A: Normal Operation
+### Scenario A: Normal Operation
 - The server accepts the update and returns `REPLY(ok: true)` and `NOTIFY`.
 - `last_acked_update_count = item.update_count`.
 - The new item is silently evicted from the `overlay`. 
 
-## Scenario B: Server Rejection
+### Scenario B: Server Rejection
 - The server rejects the update and returns `REPLY(ok: false)`.
 - `last_acked_update_count = item.update_count`.
-- The new item is evicted from the `overlay`, resulting in a synthetic state state change locally, back to the state of the underlying [ProxyCollection].
+- The new item is evicted from the `overlay`, resulting in a synthetic state change locally, back to the state of the underlying [ProxyCollection].
 
-## Scenario C: Accepted Update, Response Lost
+### Scenario C: Accepted Update, Response Lost
 - The server accepts the update `u1`, but the reply was lost on the network.
 - The new item remains in the `overlay`.
 - **Alternative Resolutions**:
-  - **On Next External Update**: An external client updates the same resource, triggering notifications of state change. If no external update were processed before before `u1`, the client will detect a gap in the version sequence `version > last_version + 1` and triggers `reconnect(true)`. If not, the situation is inconclusive.
-  - **On Next Self Update**: The client itself dispatches a new update `u2`. The server reply betrays a gap in the sequence of replies (`update_count > last_acked_update_count + 1`), prompting the client to `reconnec(true)`.
+  - **On Next External Update**: An external client updates the same resource, triggering notifications of state change. If no external update were processed before `u1`, the client will detect a gap in the version sequence `version > last_version + 1` and triggers `reconnect(true)`. If not, the situation is inconclusive.
+  - **On Next Self Update**: The client itself dispatches a new update `u2`. The server reply betrays a gap in the sequence of replies (`update_count > last_acked_update_count + 1`), prompting the client to `reconnect(true)`.
   - **On Timeout**: If no further updates occur, `u1` times out after 10 seconds (`ttlMs`), triggering `reconnect(true)`.
 
-## Scenario D: Lost Request / Response
+### Scenario D: Lost Request / Response
 - The update request `u1` was lost before processing, or rejected but with a lost reply.
 - The new item remains in the `overlay`.
 - **Resolution**:
-  - **On Next External Update**: An external client updates the same resources. The situation is inconclusive. 
-  - **On Next Local Update**: The client itself dispatches a new update `u2`. The server reply betrays a gap in the sequence of replies (`update_count > last_acked_update_count + 1`), prompting the client to `reconnec(true)`.
+  - **On Next External Update**: An external client updates the same resource. The situation is inconclusive. 
+  - **On Next Local Update**: The client itself dispatches a new update `u2`. The server reply betrays a gap in the sequence of replies (`update_count > last_acked_update_count + 1`), prompting the client to `reconnect(true)`.
   - **On Timeout**: If no further updates occur, `u1` times out after 10 seconds (`ttlMs`), triggering `reconnect(true)`.
