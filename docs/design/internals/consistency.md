@@ -1,19 +1,32 @@
+[Item]: /design/item_collections/item_collection#item
+[Items]: /design/item_collections/item_collection#item
 [ItemCollection]: /design/item_collections/item_collection#itemcollection
 [ItemCollections]: /design/item_collections/item_collection#itemcollection
 
 # Consistency
 
 
-> The SharedState framework delivers **Strong Eventual Consistency (SEC)** paired with **optimistic 0ms UI responsiveness**.
+> The SharedState framework delivers Strong Eventual Consistency (SEC) paired with zero delay interactivity, through optimistic local updates.
+
+---
+
+## In a Nutshell
+
+Local updates are speculative in nature, and thereby a source of temporary in-consistency. SharedState combines local updates with strong eventual consistency in the following manner:
 
 
-Local speculative edits immediately update an isolated client-side **overlay**, taking local UI precedence. Under normal operation, server acknowledgments arrive within milliseconds, smoothly evicting the overlay and handing visual state over to confirmed server state. If an update is lost due to network or server failure, local edits temporarily obscure external changes to preserve editing fluidity until resolved—either immediately by a subsequent local update (sequence gap resync) or after a 10-second timeout (self-healing resync).
+1. State changes are expressed in terms of individual [Items] within [ItemCollections]. Consistency in SharedState can therefore be discussed in terms of a single item.
 
-::: tip What Strong Eventual Consistency (SEC) Means in SharedState
-In distributed systems, **Strong Eventual Consistency (SEC)** guarantees that any two replicas that have processed the same set of updates will immediately hold **identical state**, without requiring complex client-side conflict resolution, vector clocks, or consensus rounds.
+2. A client maintains a local `replica` for a server item. The `replica` represents the client's **current view** of server state for that item. 
 
-SharedState achieves SEC for its base server state (`ProxyCollection`) through **total ordering on the server**: the server processes mutations sequentially per resource and tags each committed edit with a monotonic `version` counter ($1, 2, 3 \dots$). Any two clients at version $V$ hold byte-for-byte identical state. Local speculative overlays (`SpeculativeProxyCollection`) provide instant 0ms UI updates on top of this foundation, temporarily masking server state for speculatively edited items until confirmed or evicted.
-:::
+3. Local updates for this item do **not** alter the `replica`, but are instead applied optimistically to an isolated state `overlay`. The `overlay` takes **precedence** over the `replica` in queries, implying that the effects of the update become visible to the application, **before** the update is dispatched to the server. 
+
+4. Under normal operation, the update will be acknowledged through server notification within fractions of a second, and the effects will immediately be committed to the client's `replica`. At this point, the `overlay` and the `replica` both reflect the **same** state for the item, and the optimistic update may therefore safely be removed from the `overlay`.
+
+5. In the (rare) event of message loss or server failure, optimistic updates to the `overlay` will **not neccessarily** be undone quickly by server notification, as is the case under normal operation. Instead, the client is left in an ambiguous state, where it can **not with certainty** conclude whether a fail has occurred. Consequenly, the optimistic update to the `overlay` will continue to obscure the `replica` until this situation is resolved, even if the `replica` is subsequently updated by by other clients.
+
+6. The client recovers from this situation in one of two ways. If the client does not remain inactive, but continues to issue updates to the server, a subsequent, successful update will confirm the failure situation with certainty. Otherwise, the situation is resolved with a timeout (10s). In either case, the session is deemed to have failed, and recovery is achieved by seamlessly diconnecting and initializing a new session.
+
 
 
 ---
@@ -26,6 +39,17 @@ The SharedState framework is designed with the following main goals:
 - Because the server assigns a deterministic, monotonic `version` sequence to every committed mutation, any two clients that have received updates up to version $V$ are guaranteed to hold byte-for-byte identical state immediately.
 
 2. **Zero Visible Update Latency**: Updates are applied locally and optimistically, with UI immediately reflecting the change. 
+
+
+
+::: tip What Strong Eventual Consistency (SEC) Means in SharedState
+In distributed systems, **Strong Eventual Consistency (SEC)** guarantees that any two replicas that have processed the same set of updates will immediately hold **identical state**, without requiring complex client-side conflict resolution, vector clocks, or consensus rounds.
+
+SharedState achieves SEC for its base server state (`ProxyCollection`) through **total ordering on the server**: the server processes mutations sequentially per resource and tags each committed edit with a monotonic `version` counter ($1, 2, 3 \dots$). Any two clients at version $V$ hold byte-for-byte identical state. Local speculative overlays (`SpeculativeProxyCollection`) provide instant 0ms UI updates on top of this foundation, temporarily masking server state for speculatively edited items until confirmed or evicted.
+:::
+
+
+
 
 ---
 
