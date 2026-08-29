@@ -89,6 +89,7 @@ if (notification.version > last_version + 1) {
 }
 ```
 
+---
 ### Recovery from Consistency Failures
 
 Upon detecting a consistency failure, the client recovers by terminating the connection, and resetting the session with a fresh copy of server state. Moreover, as the SharedState client is designed to mask temporary network disconnects, this session reconnect is achieved without disrupting the application.
@@ -147,7 +148,7 @@ This implies that session consistency must be discussed in terms of three distin
 The server may **reject** an update request as part of normal operation (see [State Update Protocol](#state-update-protocol)). This is **not** a failure event. 
 :::
 
-
+---
 ### Failure Recovery
 
 Upon detecting a failure condition, the client recovers by resetting the session, therby tearing down a possibly compromised socket connection.  
@@ -195,6 +196,7 @@ if (reply.update_count > last_acked_update_count + 1) {
 }
 ```
 
+---
 ### Timeout-Based Failure Recovery
 
 Not all failures can be detected through message inspection. For example, if a message is lost (scenarios **C** and **D**), and the client does not dispatch any more update requests after this event, there is no way to detect the loss, except to rely on the assumption of **bounded processing delays** and **bounded network latency** (see [Failure Model Assumptions](#failure-model-assumptions)). By setting a timeout according to this assumption, the client may eventually conclude that the session has failed, and initiate recovery procedures.
@@ -229,51 +231,54 @@ if (Date.now() - oldest_pending_timestamp > ttlMs) {
 ---
 ## Part 3: Optimistic Consistency
 
----
-### Goal
+> The SharedState framework combines consistency with zero delay interactivity, through optimistic local updates.
 
-**Zero Visible Update Latency**: Updates are applied locally and optimistically, with UI immediately reflecting the change. 
+Zero update delays are achieved by optimistically applying updates locally, before dispatching update requests to the server. 
+However, local updates represent a source of inconsistency, particularly in the event that update requests are lost or rejected by the server. The SharedState client addresses this by rolling back the effects of optimistic updates, when needed.
 
+### Optimistic State Overlay
 
----
-### Approach
-
-#### Optimistic Overlay
-
-Speculative local edits are not applied directly to the client's view of server state (`ProxyCollection`), but are instead layered on top as an **optimistic overlay** (`SpeculativeProxyCollection`). Queries target the overlay first, falling back to the underlying `ProxyCollection` if no speculative state exists for the queried item. This ensures zero-latency UI updates combined with effortless rollback of local edits when needed.
-
-#### Reply Eviction
-- on normal operation, evict speculative items from the overlay on reply.
-
+Consistency in the SharedState framework can be discussed in terms of individual [Items] within an [ItemCollection]. The 
+client maintains a client-side `replica` for items, represented by a [ProxyCollection]. Moreover, in order to protect the integrity of this `replica`, the client does not alter its state directly, but rather applies item updates to an `overlay`, layered on top of the `replica`. Queries targets the `overlay` first, falling back to the underlying `replica`. This provides zero-latency for state updates, while also ensuring that optimistic changes can be easily undone when needed.
 
 ---
-### Mechanism
+### Overlay Update & Query Rules
 
-SharedState realizes this approach through a suite of state counters and associated logical checks that evaluate the integrity of the client state. 
-
-
-
-The optimistic overlay (`SpeculativeProxyCollection`) supports local updates without tampering with the client's view of server state (`ProxyCollection`):
-
-#### Read & Write Rules
-
-- **Write**: When an item is updated locally, it is inserted into the overlay and tagged with the appropriate update count: `update_count = last_update_count + 1`. The item replaces any pre-existing entry with the same item `id`.
-- **Read**: Item lookups query the overlay first. If an item exists in the overlay, it is returned immediately. Otherwise, no speculative state exists for the item and the lookup falls back to the server-authoritative `ProxyCollection`.
-
-#### Eviction Rule
-
-An optimistic overlay entry is **evicted (reconciled with server truth)** as soon as its update count has been acknowledged by the server (`update_count <= last_acked_update_count`):
+- **Update**: Item updates replace any previous entries in the overlay for the same `id`, and are tagged with the current `update_count`.
 
 ```js
-for (const [id, item] of overlay.entries()) {
-    if (item.update_count <= last_acked_update_count) {
-        evict_item(id);
-    }
+last_update_count++;
+for (let item of update_items) {
+   overlay.set(item.id, item);
+   item.update_count = last_update_count;
 }
 ```
 
-- **Accepted Update (`ok: true`)**: The item in the overlay is now backed by the underlying `ProxyCollection`, and may therefore safely be removed from the overlay.
-- **Rejected Update (`ok: false`)**: The overlay entry is evicted, immediately reverting the item to its un-edited server state.
+- **Query**: Item queries are resolved against the `overlay` first, immediately returning the optimistic state, if such state exists. If not, the query is resolved from the underlying `replica` (i.e., [ProxyCollection]).
+
+```js
+get_item(id) {
+   return overlay.get_item(id) || replica.get_item(id);
+}
+```
+
+---
+### Overlay Eviction Rule
+
+When update requests have been acknowledged by the server and committed to the client `replica`, corresponding `items` in the `overlay` are no longer speculative, and may therefore be safely evicted.
+
+
+```js
+for (const [id, item] of overlay.entries()) {
+   if (item.update_count <= last_acked_update_count) {
+      overlay.delete(id);
+   }
+}
+```
+
+::: tip Note
+In both scenario **A** and **B**, the optimistic `item` is evicted immediately upon receipt of the reply message. In scenario **A**, this will not be noticeable, as the reply essentially confirms the correctness of the current state. However, in scenario **B**, the eviction of the `item` from the `overlay` materializes as a state transition, back to the truth of the `replica`. 
+:::
 
 
 
