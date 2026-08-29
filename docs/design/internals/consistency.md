@@ -89,9 +89,9 @@ if (notification.version > last_version + 1) {
 }
 ```
 
-### Resolving Failure Conditions
+### Recovery from Consistency Failures
 
-Upon detecting a failure condition, the client recovers by terminating the connection and initiating a new session. As the SharedState client is designed to mask temporary network disconnects, this can be achieved without disrupting the application.
+Upon detecting a consistency failure, the client recovers by terminating the connection and initiating a new session. As the SharedState client is designed to mask temporary network disconnects, this can be achieved without disrupting the application.
 
 ```js
 handle_failure() {
@@ -123,63 +123,72 @@ handle_failure() {
 ---
 ## Part 2: Session Consistency
 
-- Consistency at the **session** level concerns the integrity of the **communication stream** (update requests, replies, and notifications) between a single client and the server.
-
+> The SharedState framework maintains the consistency of a client **session** in the event of failures.
 
 
 ---
 ### Failure Model Assumptions
 
-The SharedState framework makes the following assumptions: 
+The failure model is defined by the following assumptions: 
 
+- **Bounded Network Latency**: An upper time bound is assumed for network latency.
+- **Bounded Processing Delay**: An upper time bound is assumed for update processing on the server.
+- **Failure Events**: Failures include server failures and communication failures.
+- **Server Failures**: Server failures are assumed to be *fail-stop* and are detectable by clients as connections are lost.
+- **Communication Failures**: Message loss may occur either before server processing, or after.
 
-- **Bounded Network Latency**: An upper time limit can be assumed for network latency.
-- **Bounded Processing Delay**: An upper time limit can be assumed for update processing on the server.
-- **Failure Event**: Failures include server failure and communication failures.
-- **Failure Detection**: Failures may be detected by client, eventually, recognized either as **connection loss** or as **message loss**.
-- **Message loss**: Failures may occur either before processing (`loss of update request`), or after (`loss of reply or notify`).
+The implies that session consistency must be discussed in terms of three distinct failure types:
+- `loss of connection`
+- `loss of request`
+- `loss of reply/notification`
 
 
 ::: tip Note
-The server may **reject** an `UPDATE REQUEST` as part of normal operation (see [State Update Protocol](#state-update-protocol)). This is **not** considered a **failure event**.
+The server may **reject** an update request as part of normal operation (see [State Update Protocol](#state-update-protocol)). This is **not** a failure event. 
 :::
+
+
+### Failure Recovery
+
+Upon detecting a failure condition, the client recovers by terminating the connection and initiating a new session. As the SharedState client is designed to mask temporary network disconnects, this can be achieved without disrupting the application.
+
+```js
+handle_failure() {
+   this.client.reconnect(true);
+}
+```
 
 
 ---
 ### Operational Scenarios
 
-Given [State Update Protocol](#state-update-protocol) and [Assumptions](#assumptions), 4 operational scenarios need to be considered:
-
+In order to detect failures, the following operational scenarios are condidered:
 
 | Scenario | REQUEST | SERVER | REPLY | Client Observation |
 | :---  | :--- | :---   | :--- | :--- |
-| **A** |  OK  | Accept | OK  | `REPLY(ok: true)` and `NOTIFY` received |
-| **B** |  OK  | Reject | OK   | `REPLY(ok: false)` received |
-| **C** |  OK  | Accept | LOST | `REPLY` and `NOTIFY` not received (Server mutated state) |
-| **D** | LOST / Rejected | N/A | LOST | `REPLY` and `NOTIFY` not received (Server state unchanged) |
+| **A** |  OK  | ACCEPT | OK  | `REPLY(ok: true)`, `NOTIFY` received |
+| **B** |  OK  | REJECT | OK   | `REPLY(ok: false)` received |
+| **C** |  OK  | ACCEPT | LOST | `REPLY`, `NOTIFY` **NOT** received |
+| **D_1** | LOST | N/A | LOST | `REPLY`, `NOTIFY` **NOT** received |
+| **D_2** | OK | REJECTED | LOST | `REPLY`,`NOTIFY` **NOT** received |
 
 ::: tip Note
-Scenarios (**A, B**) represent normal operation. Scenarios (**C, D**) represent failure.
+- Scenarios (**A, B**) represent normal operation. Scenarios (**C, D**) represent failure.
+- Scenarios (**D_1, D_2**) are indisinguashable for the client, and is therefor treates as a single scenario (**D**).
 :::
 
 
 ---
-### Approach
+### Detecting Failures
 
-#### 1. Detecting Integrity Threats
-The client monitors outgoing update requests and incoming replies/notifications. Three distinct integrity failure conditions are detected:
+In order to detect consistency failures, the client maintains two counters for each `ProxyCollection`:
 
-- **Missing Notification**: Gap in the sequence of notifications.
-- **Missing Reply**: Gap in the sequence of replies.
-- **Timeout Reply**: Reply not received within the expected time limit.
+- **`last_update_count`**: This counter is incremented for each update request sent by the client, and its value is included in the request message. Upon receipt, the server echoes the value of this counter back to the client, by including it in the corresponding reply and notification messages.
+- **`last_acked_update_count`**: This counter tracks the letest update message that has been acknowledged by the server, and is updated on the receipt of every reply message.
 
 
+This allows for the detection of gaps in the sequence of acknowledged replies, serving as confirmation of message loss. The client must then initiate recovery procedures.
 
----
-### Failure Conditions
-
-
-- **Missing Reply**: Gap in the sequence of replies.
 
 ```js
 if (reply.update_count > last_acked_update_count + 1) {
@@ -187,7 +196,9 @@ if (reply.update_count > last_acked_update_count + 1) {
 }
 ```
 
-- **Timeout Reply**: Reply not received within the expected time limit.
+### Timeout-Based Failure Recovery
+
+Not all failures can be detected through message inspection. For example, if a message is lost (scenarios **C** and **D**), and the client does not dispatch any more update requests after this event, there is no way to detect the loss, except to rely on the assumption of **bounded processing delays** and **bounded network latency** (see [Failure Model Assumptions](#failure-model-assumptions)). By setting a timeout according to this assumption, the client may eventually conclude that the session has failed, and initiate recovery procedures.
 
 ```js
 if (Date.now() - oldest_pending_timestamp > ttlMs) {
@@ -240,13 +251,6 @@ Speculative local edits are not applied directly to the client's view of server 
 ### Mechanism
 
 SharedState realizes this approach through a suite of state counters and associated logical checks that evaluate the integrity of the client state. 
-
-#### Client Counters
-
-The client maintains three counters for each `ProxyCollection`:
-
-- **`last_update_count`**: Tracks update requests dispatched by the client. This counter is incremented for each new update request, and its value is included in the request metadata (`tunnel`). Upon receipt, the server echoes the counter back to the client in the corresponding reply and notification.
-- **`last_acked_update_count`**: Tracks the latest update request counter confirmed by the server as part of a reply or notification.
 
 
 
