@@ -70,7 +70,7 @@ The following defines the replication protocol implemented by the SharedState fr
 ---
 ### Detecting Consistency Threats
 
-In order to maintain the consistency of `replicas`, the client must be protected against unordered message delivery. The SharedState framework achieves this by assigning a version number to each state change.
+In order to maintain `replicas` in a state of strong consistency, the client must be protected against unordered message delivery. The SharedState framework achieves this by assigning a version number to each state change.
 
 The server maintains one version counter for each [ItemCollection]:
 
@@ -81,7 +81,7 @@ The client maintains a corresponding counter for each [ProxyCollection]:
 - **`last_version`**: The client maintains a `last_version` counter for each [ProxyCollection]. This counter tracks the latest version counter received in a notification from the server.
 
 
-This allows the client to ignore outdated or duplicated notification, and to treat missing notifications as a failure condition.
+This allows the client to ignore outdated or duplicated notifications, and to treat missing notifications as a failure condition.
 
 ```js
 if (notification.version > last_version + 1) {
@@ -91,7 +91,7 @@ if (notification.version > last_version + 1) {
 
 ### Recovery from Consistency Failures
 
-Upon detecting a consistency failure, the client recovers by terminating the connection and initiating a new session. As the SharedState client is designed to mask temporary network disconnects, this can be achieved without disrupting the application.
+Upon detecting a consistency failure, the client recovers by terminating the connection, and resetting the session with a fresh copy of server state. Moreover, as the SharedState client is designed to mask temporary network disconnects, this session reconnect is achieved without disrupting the application.
 
 ```js
 handle_failure() {
@@ -137,7 +137,7 @@ The failure model is defined by the following assumptions:
 - **Server Failures**: Server failures are assumed to be *fail-stop* and are detectable by clients as connections are lost.
 - **Communication Failures**: Message loss may occur either before server processing, or after.
 
-The implies that session consistency must be discussed in terms of three distinct failure types:
+This implies that session consistency must be discussed in terms of three distinct failure types:
 - `loss of connection`
 - `loss of request`
 - `loss of reply/notification`
@@ -150,14 +150,13 @@ The server may **reject** an update request as part of normal operation (see [St
 
 ### Failure Recovery
 
-Upon detecting a failure condition, the client recovers by terminating the connection and initiating a new session. As the SharedState client is designed to mask temporary network disconnects, this can be achieved without disrupting the application.
+Upon detecting a failure condition, the client recovers by resetting the session, therby tearing down a possibly compromised socket connection.  
 
 ```js
 handle_failure() {
    this.client.reconnect(true);
 }
 ```
-
 
 ---
 ### Operational Scenarios
@@ -174,7 +173,7 @@ In order to detect failures, the following operational scenarios are condidered:
 
 ::: tip Note
 - Scenarios (**A, B**) represent normal operation. Scenarios (**C, D**) represent failure.
-- Scenarios (**D_1, D_2**) are indisinguashable for the client, and is therefor treates as a single scenario (**D**).
+- Scenarios (**D_1, D_2**) are indistinguishable for the client, and are therefore treated as a single scenario (**D**).
 :::
 
 
@@ -184,7 +183,7 @@ In order to detect failures, the following operational scenarios are condidered:
 In order to detect consistency failures, the client maintains two counters for each `ProxyCollection`:
 
 - **`last_update_count`**: This counter is incremented for each update request sent by the client, and its value is included in the request message. Upon receipt, the server echoes the value of this counter back to the client, by including it in the corresponding reply and notification messages.
-- **`last_acked_update_count`**: This counter tracks the letest update message that has been acknowledged by the server, and is updated on the receipt of every reply message.
+- **`last_acked_update_count`**: This counter tracks the latest update message that has been acknowledged by the server, and is updated on the receipt of every reply message.
 
 
 This allows for the detection of gaps in the sequence of acknowledged replies, serving as confirmation of message loss. The client must then initiate recovery procedures.
