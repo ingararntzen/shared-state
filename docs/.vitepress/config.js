@@ -15,7 +15,9 @@ export default defineConfig({
         items: [
           { text: 'Paradigm', link: '/concept/paradigm' },
           { text: 'Architecture', link: '/concept/architecture' },
-          { text: 'Replication Strategy', link: '/concept/replication' }
+          { text: 'Replication', link: '/concept/replication' },
+          { text: 'Consistency', link: '/concept/consistency' },
+          { text: 'Semantics', link: '/concept/semantics' }
         ]
       },
       {
