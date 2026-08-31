@@ -27,7 +27,7 @@ In distributed systems literature, a core distinction exists between **passive**
 - **Passive Replication**: The client transmits the desired **state** (or **state delta**) to the primary server, which then forwards a copy of this state to all replicas.
 - **Active Replication**: The client transmits a **deterministic command** to the primary server, which then forwards the same command to all replicas. The **new state** is computed independently on each replica by executing the command against local state.
 
-SharedState is an instance of **passive replication**. This aligns directly with the framework's core design goal of providing a domain-agnostic, generic mechanism for state sharing (see [Dumb Server Approach](/concept/introduction#dumb-server-approach)). Importantly, this passive replication strategy allows application-specific business logic and commands to be implemented on top of the framework, without requiring modifications to framework.
+SharedState is an instance of **passive replication**. This aligns directly with the framework's core design goal of providing a domain-agnostic, generic mechanism for state sharing (see [Domain-Agnostic Server](/concept/introduction#domain-agnostic-server)). Importantly, this passive replication strategy allows application-specific business logic and commands to be implemented on top of the framework, without requiring modifications to framework.
 
 ---
 

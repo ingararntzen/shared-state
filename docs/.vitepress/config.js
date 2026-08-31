@@ -16,8 +16,7 @@ export default defineConfig({
           { text: 'Introduction', link: '/concept/introduction' },
           { text: 'Architecture', link: '/concept/architecture' },
           { text: 'Replication', link: '/concept/replication' },
-          { text: 'Consistency', link: '/concept/consistency' },
-          { text: 'Semantics', link: '/concept/semantics' }
+          { text: 'Consistency', link: '/concept/consistency' }
         ]
       },
       {
