@@ -1,12 +1,12 @@
-[Path]: /design/item_collections/item_collection#path
-[Paths]: /design/item_collections/item_collection#path
-[ItemCollection]: /design/item_collections/item_collection#itemcollection
-[ItemCollections]: /design/item_collections/item_collection#itemcollection
-[Changes]: /design/item_collections/item_collection#changes
-[Item]: /design/item_collections/item_collection#item
-[ItemStore]: /design/item_collections/server_stores#itemstore
-[ItemStores]: /design/item_collections/server_stores#itemstores
-[ItemsStore]: /design/item_collections/server_stores#default-item-store
+[Path]: /design/representation/item_collection#path
+[Paths]: /design/representation/item_collection#path
+[ItemCollection]: /design/representation/item_collection#itemcollection
+[ItemCollections]: /design/representation/item_collection#itemcollection
+[Changes]: /design/representation/item_collection#changes
+[Item]: /design/representation/item_collection#item
+[ItemStore]: /design/representation/item_store#itemstore
+[ItemStores]: /design/representation/item_store#itemstores
+[ItemsStore]: /design/representation/item_store#default-item-store
 
 # Item Store
 

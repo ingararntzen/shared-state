@@ -1,9 +1,9 @@
-[Item]: /design/item_collections/item_collection#item
-[Items]: /design/item_collections/item_collection#item
-[ItemCollection]: /design/item_collections/item_collection#itemcollection
-[ItemCollections]: /design/item_collections/item_collection#itemcollection
-[ProxyCollection]: /design/item_collections/client_proxies
-[ProxyCollections]: /design/item_collections/client_proxies
+[Item]: /design/representation/item_collection#item
+[Items]: /design/representation/item_collection#item
+[ItemCollection]: /design/representation/item_collection#itemcollection
+[ItemCollections]: /design/representation/item_collection#itemcollection
+[ProxyCollection]: /design/representation/proxy_collection
+[ProxyCollections]: /design/representation/proxy_collection
 
 # Consistency
 

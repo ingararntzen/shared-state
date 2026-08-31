@@ -1,11 +1,11 @@
-[ItemCollection]: /design/item_collections/item_collection
-[ItemCollections]: /design/item_collections/item_collection
-[ProxyCollection]: /design/item_collections/client_proxies
-[ProxyCollections]: /design/item_collections/client_proxies
-[Variables]: /design/abstractions/variables
-[Collections]: /design/abstractions/collections
-[Changes]: /design/item_collections/item_collection#changes
-[Conditional Updates]: /design/internals/consistency#conditional-updates
+[ItemCollection]: /design/representation/item_collection
+[ItemCollections]: /design/representation/item_collection
+[ProxyCollection]: /design/representation/proxy_collection
+[ProxyCollections]: /design/representation/proxy_collection
+[Variables]: /design/abstraction/variables
+[Collections]: /design/abstraction/collections
+[Changes]: /design/representation/item_collection#changes
+[Conditional Updates]: /design/mechanism/consistency#conditional-updates
 
 
 # Proxy Collection
@@ -59,7 +59,7 @@ variable.set(43).then(() => {
 
 ## Local Updates
 
-The SharedStaate client supports **local updates**, implying that updates are recorded locally at the client, before being dispatched to the server. This ensures **zero delay updates** for the client applications, thereby supporting highly responsive interactive state change. For details concering the technial approach, see [Speculative Updates](/design/internals/consistency#speculative-updates).
+The SharedStaate client supports **local updates**, implying that updates are recorded locally at the client, before being dispatched to the server. This ensures **zero delay updates** for the client applications, thereby supporting highly responsive interactive state change. For details concering the technial approach, see [Speculative Updates](/design/mechanism/consistency#speculative-updates).
 
 
 ::: tip Note

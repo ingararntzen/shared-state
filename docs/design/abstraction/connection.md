@@ -1,4 +1,4 @@
-[Connection]: /design/abstractions/connection 
+[Connection]: /design/abstraction/connection 
 
 # Connection
 

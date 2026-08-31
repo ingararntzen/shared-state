@@ -1,7 +1,7 @@
-[Item]: /design/item_collections/item_collection#item
-[Items]: /design/item_collections/item_collection#item
-[ItemCollection]: /design/item_collections/item_collection#itemcollection
-[ItemCollections]: /design/item_collections/item_collection#itemcollection
+[Item]: /design/representation/item_collection#item
+[Items]: /design/representation/item_collection#item
+[ItemCollection]: /design/representation/item_collection#itemcollection
+[ItemCollections]: /design/representation/item_collection#itemcollection
 
 # Replication Strategy
 
@@ -67,4 +67,4 @@ Rather than defining custom, domain-specific mutation commands (e.g. `append`, `
 
 Domain specific update function can be built on top of this basic machanism. 
 
-> For a detailed specification of state change representation, see [Changes](/design/item_collections/item_collection#changes).
+> For a detailed specification of state change representation, see [Changes](/design/representation/item_collection#changes).

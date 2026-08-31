@@ -1,5 +1,5 @@
-[ItemCollection]: /design/item_collections/item_collection
-[ItemCollections]: /design/item_collections/item_collection
+[ItemCollection]: /design/representation/item_collection
+[ItemCollections]: /design/representation/item_collection
 
 # SharedState Architecture
 

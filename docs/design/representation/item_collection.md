@@ -5,10 +5,10 @@
 [Changes]: #changes
 [ItemCollection]: #itemcollection
 [ItemCollections]: #itemcollection
-[ItemStore]: /design/item_collections/server_stores
-[ItemStores]: /design/item_collections/server_stores
-[ProxyCollection]: /design/item_collections/client_proxies
-[ProxyCollections]: /design/item_collections/client_proxies
+[ItemStore]: /design/representation/item_store
+[ItemStores]: /design/representation/item_store
+[ProxyCollection]: /design/representation/proxy_collection
+[ProxyCollections]: /design/representation/proxy_collection
 
 # Item Collections
 

@@ -1,13 +1,13 @@
-[Item]: /design/item_collections/item_collection#item
-[Items]: /design/item_collections/item_collection#item
-[ItemCollection]: /design/item_collections/item_collection#itemcollection
-[ItemCollections]: /design/item_collections/item_collection#itemcollection
-[Path]: /design/item_collections/item_collection#path
-[Paths]: /design/item_collections/item_collection#path
-[ItemStore]: /design/item_collections/server_stores
-[ProxyCollection]: /design/item_collections/client_proxies
-[ProxyCollections]: /design/item_collections/client_proxies
-[ProxyItemCollections]: /design/item_collections/client_proxies
+[Item]: /design/representation/item_collection#item
+[Items]: /design/representation/item_collection#item
+[ItemCollection]: /design/representation/item_collection#itemcollection
+[ItemCollections]: /design/representation/item_collection#itemcollection
+[Path]: /design/representation/item_collection#path
+[Paths]: /design/representation/item_collection#path
+[ItemStore]: /design/representation/item_store
+[ProxyCollection]: /design/representation/proxy_collection
+[ProxyCollections]: /design/representation/proxy_collection
+[ProxyItemCollections]: /design/representation/proxy_collection
 
 
 # Design Overview
@@ -66,4 +66,4 @@ The SharedState Server allows connected clients to **observe** and **modify** sh
   2. **State Management**: Handling client requests for state initialization, state modification, and change notification. This is performed in accordance with active subscription states and involves both read and write operations on [ItemStores].
   3. **Clock Estimation**: Handling client requests for sampling the server clock.
 
-- **HTTP Server** (right box): The HTTP server serves static files and provides access to server status through a [REST API](/design/internals/communication#server-namespace).
+- **HTTP Server** (right box): The HTTP server serves static files and provides access to server status through a [REST API](/design/mechanism/communication#server-namespace).

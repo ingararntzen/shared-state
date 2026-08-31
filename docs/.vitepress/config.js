@@ -24,31 +24,31 @@ export default defineConfig({
         items: [
           { text: 'Overview', link: '/design/overview' },
           {
-            text: 'Item Collections',
+            text: 'Representation',
             collapsed: false,
             items: [
-              { text: 'Item Collection', link: '/design/item_collections/item_collection' },
-              { text: 'Server Stores', link: '/design/item_collections/server_stores' },
-              { text: 'Client Proxies', link: '/design/item_collections/client_proxies' }
+              { text: 'Item Collection', link: '/design/representation/item_collection' },
+              { text: 'Item Store', link: '/design/representation/item_store' },
+              { text: 'Proxy Collection', link: '/design/representation/proxy_collection' }
             ]
           },
           {
-            text: 'Internals',
+            text: 'Mechanism',
             collapsed: false,
             items: [
-              { text: 'Communication', link: '/design/internals/communication' },
-              { text: 'Subscriptions', link: '/design/internals/subscriptions' },
-              { text: 'Consistency', link: '/design/internals/consistency' }
+              { text: 'Communication', link: '/design/mechanism/communication' },
+              { text: 'Subscriptions', link: '/design/mechanism/subscriptions' },
+              { text: 'Consistency', link: '/design/mechanism/consistency' }
             ]
           },
           {
-            text: 'Abstractions',
+            text: 'Abstraction',
             collapsed: false,
             items: [
-              { text: 'Connection', link: '/design/abstractions/connection' },
-              { text: 'Shared Variables', link: '/design/abstractions/variables' },
-              { text: 'Shared Collections', link: '/design/abstractions/collections' },
-              { text: 'Shared Clock', link: '/design/abstractions/clock' }
+              { text: 'Connection', link: '/design/abstraction/connection' },
+              { text: 'Shared Variables', link: '/design/abstraction/variables' },
+              { text: 'Shared Collections', link: '/design/abstraction/collections' },
+              { text: 'Shared Clock', link: '/design/abstraction/clock' }
             ]
           }
         ]

@@ -1,8 +1,8 @@
-[Path]: /design/item_collections/item_collection#path
-[Paths]: /design/item_collections/item_collection#path
-[ItemCollection]: /design/item_collections/item_collection#itemcollection
-[ItemCollections]: /design/item_collections/item_collection#itemcollection
-[Changes]: /design/item_collections/item_collection#changes
+[Path]: /design/representation/item_collection#path
+[Paths]: /design/representation/item_collection#path
+[ItemCollection]: /design/representation/item_collection#itemcollection
+[ItemCollections]: /design/representation/item_collection#itemcollection
+[Changes]: /design/representation/item_collection#changes
 
 # Communication
 

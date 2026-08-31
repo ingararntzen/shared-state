@@ -1,6 +1,6 @@
-[Items]: /design/item_collections/item_collection#item
-[ItemCollections]: /design/item_collections/item_collection#itemcollection
-[ProxyCollection]: /design/item_collections/client_proxies
+[Items]: /design/representation/item_collection#item
+[ItemCollections]: /design/representation/item_collection#itemcollection
+[ProxyCollection]: /design/representation/proxy_collection
 
 # Consistency Model
 
@@ -59,4 +59,4 @@ To mask network latency in the user experience, update requests are applied opti
 ---
 ## 4. Consistency Specification
 
-For a deeper discussion of failure model, operational scenarios, protocol walkthroughs, and implementation details, see [Consistency Specification](/design/internals/consistency).
+For a deeper discussion of failure model, operational scenarios, protocol walkthroughs, and implementation details, see [Consistency Specification](/design/mechanism/consistency).
