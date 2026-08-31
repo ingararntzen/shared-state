@@ -2,7 +2,10 @@
 
 # Connection
 
-The SharedState client exposes a [Connection] object (`client.connection`), enabling applications to monitor changes in the connection status. Internally the connection object is a wrapper around a raw WebSocket object, encapsulating support for automated reconnection under intermittent network disruptions.
+> The [Connection] object automatically reconnects to mask intermittent network failures.
+
+
+The [Connection] of the SharedState client encapsulates support for automated reconnection, and allows applications to monitor changes in the connection status. The connection object is a thin wrapper around a raw WebSocket object.
 
 ---
 

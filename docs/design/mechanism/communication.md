@@ -6,7 +6,7 @@
 
 # Communication
 
-> - The SharedState client communicates with the server over HTTP and the WebSocket Protocol.
+> The SharedState framework uses the WebSocket Protocol for client-server communication.
 
 ---
 

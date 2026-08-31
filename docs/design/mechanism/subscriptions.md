@@ -7,8 +7,7 @@
 
 # Subscriptions
 
-> - Client subscriptions are maintained locally and synchronized with the server.
-> - The server broadcasts change notification to subscribing clients.
+> Client subscriptions are maintained by the client, and synchronized with the server when connected and after updates.
 
 ---
 

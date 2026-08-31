@@ -3,7 +3,7 @@
 
 # Clock
 
-> - [SharedState Client] provides a local clock synchronized with the system clock of the [SharedState Server].
+> The SharedState client provides a local clock synchronized with the system clock of the SharedState server.
 
 
 ---

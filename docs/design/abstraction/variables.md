@@ -1,6 +1,7 @@
 # Variables
 
-**Variables** are developer-facing Layer 2 abstractions representing single reactive values.
+> Variables are programming abstractions representing a single value or object. 
+
 
 ---
 

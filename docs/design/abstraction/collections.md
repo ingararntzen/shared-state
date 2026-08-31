@@ -1,6 +1,7 @@
 # Collection Types & Data Structures
 
-Developer-facing Layer 2 collection types provide higher-level data structure abstractions built on top of Layer 1 item collections.
+> Collections are programming abstractions representing a collection of elements.  
+
 
 ---
 

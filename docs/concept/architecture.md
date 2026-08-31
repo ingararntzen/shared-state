@@ -3,7 +3,7 @@
 
 # SharedState Architecture
 
-The SharedState framework implements state sharing within a client-server architecture, as shown in [Figure 1](#fig-1). 
+> The SharedState framework implements state sharing within a client-server architecture. 
 
 <figure id="fig-1" style="text-align: center; margin: 2rem 0;">
   <img src="/images/SharedStateService.png" alt="SharedState Architecture Diagram" style="max-width: 100%; height: auto; margin: 0 auto; display: block;" />

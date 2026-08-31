@@ -5,8 +5,8 @@
 
 # Replication Strategy
 
-> - The SharedState framework adopts a **passive**, **delta-based** replication strategy.
-> - **State changes** are expressed as membership changes (`remove`, `insert`, `reset`) over **collections of immutable items**.
+> The SharedState framework adopts a **passive**, **delta-based** replication strategy.
+
 
 ---
 

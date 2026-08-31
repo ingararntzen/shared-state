@@ -25,9 +25,9 @@
 - `get_item(id)`: Returns stored item object or `undefined`.
 - `get_items()`: Returns an array snapshot of all stored items.
 
-
-> Note: `ProxyCollection` is not used directly by applications, but rather serve as a common backend for various programming abstractions, including [Variables] and [Collections].
-
+::: tip Note 
+`ProxyCollection` is not used directly by applications, but rather serve as a common basis for various higher-level programming abstractions, both [Variables] and [Collections].
+:::
 
 ## Asynchronous Updates
 
@@ -42,7 +42,7 @@ update_items(changes, {conditional:false})
 - `options.conditional`: (`Boolean`, default: `false`). If true, the update is conditional, see [Conditional Updates].
 
 
-::: warning Note
+::: tip Note
 Due to its asynchronous nature, the effects of `update` operations never become immediately visible, i.e. to a `query` operation within the same microtask. This is consistent with a reactive programming model, where reactive rendering is decoupled from update requests.
 ```js
 // synchronous

@@ -12,8 +12,7 @@
 
 # Item Collections
 
-> - The SharedState server hosts [ItemCollections] identified by [Paths].
-> - The SharedState client mirrors server-side [ItemCollections] locally. 
+> The SharedState framework organizes replication around [ItemCollections].
 
 ---
 
