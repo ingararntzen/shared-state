@@ -6,42 +6,19 @@
 
 > The SharedState framework provides a uniform, reactive programming model where abstractions represent remote resources, but are made accessible to the programmer as local objects.
 
+---
+
+## Overview
+
+As introduced in [Introduction](/concept/introduction), SharedState adapts general-purpose programming abstractions (`SharedVariable`, `SharedMap`, `SharedList`) to the online world by treating all resources as remote.
+
+This section defines the precise operational contracts, timing guarantees, and developer options governing state updates and queries.
 
 ---
 
-## Introduction
-
-
-In **single-process programming**, application-specific logic is defined through **assignment** and **mutation** of general purpose programming abstractions, such as:
-
-- **Variable types**: `boolean`, `integer`, `string`, `float`.
-- **Collection types**: `List`, `Map`, `Set`, `Tree`, `Graph`.
-
-> The core philosophy of SharedState is to adapt this model to the online world. This means that programming is still based on similar abstractions, but, importantly, that the abstractions live externally to the process, and may therefore be shared across multiple processes.
-
-This idea immediately inspires a new set of programming abstractions:
-- **Variable types**: `SharedBoolean`, `SharedInteger`, `SharedString`, `SharedFloat`.
-- **Collection types**: `SharedList`, `SharedMap`, `SharedSet`, `SharedTree`, `SharedGraph`.
-
-These new abstractions closely mirror their single-process counterparts, but with the important difference that they are proxies to remote resources, and that their state mutation is therefore principally an **asynchronous** operation.
-
-
-
-Two immediate takeaways:
-
-- This represents a programming model which is familiar, in the sense that application logic is still defined in terms of general purpose programming abstractions, but different, in the sense that these objects do not behave exactly as their single-process counterparts. 
-
-- This represents a shift away from the typical way of organizing distributed applications, where state is often centralized in a monolithic date model. By contrast, the ShareState model 
-
-
-
-
-
-
 ## 1. Remote-First Reactive Contract
 
-
-- **all resources are treated as remote**, even when backed by low-latency client-side memory replicas. 
+The core design philosophy of SharedState is that **all resources are treated as remote**, even when backed by low-latency client-side memory replicas. 
 
 To maintain consistency and predictability across distributed networks, SharedState separates reads and writes into two distinct operational contracts:
 

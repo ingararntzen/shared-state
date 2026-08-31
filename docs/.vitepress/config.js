@@ -13,7 +13,7 @@ export default defineConfig({
       {
         text: 'Concept',
         items: [
-          { text: 'Paradigm', link: '/concept/paradigm' },
+          { text: 'Introduction', link: '/concept/introduction' },
           { text: 'Architecture', link: '/concept/architecture' },
           { text: 'Replication', link: '/concept/replication' },
           { text: 'Consistency', link: '/concept/consistency' },
