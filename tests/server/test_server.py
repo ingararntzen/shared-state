@@ -317,3 +317,31 @@ async def test_server_versioning_and_conditional_updates(server):
         assert reply_fail["ok"] is False
         assert reply_fail["data"]["error"] == "VERSION_MISMATCH"
         assert reply_fail["data"]["current_version"] == 2
+
+
+@pytest.mark.asyncio
+async def test_monotonic_wall_clock_behavior():
+    from sharedstate.ss_clock import MonotonicWallClock
+    from unittest.mock import patch
+    import time
+
+    clock = MonotonicWallClock(max_slew_rate=0.10, sync_threshold=0.001)
+    t1 = clock.now()
+    await asyncio.sleep(0.05)
+    t2 = clock.now()
+
+    assert isinstance(t1, float)
+    assert isinstance(t2, float)
+    assert t2 > t1
+    assert t1 > 1_700_000_000  # Reasonable timestamp in seconds since epoch
+
+    # Test backward system time jump simulation: system clock drops by 10s
+    with patch("time.time", return_value=t2 - 10.0):
+        t3 = clock.now()
+        assert t3 >= t2  # Monotonicity invariant: MUST NOT jump backward!
+
+    # Test forward system time jump simulation: system clock jumps ahead by 10s
+    with patch("time.time", return_value=t2 + 10.0):
+        t4 = clock.now()
+        assert t4 > t3  # Advances smoothly forward
+

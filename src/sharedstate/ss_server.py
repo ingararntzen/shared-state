@@ -9,6 +9,7 @@ import mimetypes
 from pathlib import Path, PurePosixPath
 from urllib.parse import urlparse, unquote
 from datetime import datetime, timezone
+from sharedstate.ss_clock import MonotonicWallClock
 
 
 def normalize(path):
@@ -141,6 +142,9 @@ class SharedStateServer:
         # Setup loggers
         self.http_logger = setup_logger("sharedstate_http", self._http_log_path)
         self.ws_logger = setup_logger("sharedstate_ws", self._ws_log_path)
+
+        # server monotonic wall clock
+        self._clock = MonotonicWallClock()
 
         # client subscriptions
         self._clients = Clients()
@@ -275,7 +279,7 @@ class SharedStateServer:
             return True, self._clients.get_subs(ws)
 
         if n_path == PurePosixPath("/clock"):
-            return True, datetime.now(timezone.utc).timestamp()
+            return True, self._clock.now()
 
         # /resources/app/store/resource OR /app/store/resource
         parts = n_path.parts[1:]
@@ -381,7 +385,7 @@ class SharedStateServer:
                 return 200, "application/json; charset=utf-8", json.dumps({"ok": True, "data": cfg_data}).encode('utf-8'), []
 
             if api_parts == ['clock']:
-                now_ts = datetime.now(timezone.utc).timestamp()
+                now_ts = self._clock.now()
                 return 200, "application/json; charset=utf-8", json.dumps({"ok": True, "data": now_ts}).encode('utf-8'), []
 
             if api_parts == ['stores']:

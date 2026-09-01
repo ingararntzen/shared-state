@@ -5,13 +5,7 @@
 > The [Connection] object automatically reconnects to mask intermittent network failures.
 
 
-The [Connection] of the SharedState client encapsulates support for automated reconnection, and allows applications to monitor changes in the connection status. The connection object is a thin wrapper around a raw WebSocket object.
-
----
-
-## Developer Abstraction (`client.connection`)
-
-Application code accesses the connection abstraction via `client.connection` (or `client.state`):
+The [Connection] of the SharedState client encapsulates support for automated reconnection, and allows applications to monitor the connection status. The connection object is a thin wrapper around a raw WebSocket object.
 
 ```javascript
 const client = new SharedStateClient("ws://localhost:9000");
@@ -27,25 +21,20 @@ console.log("Client is connected to server!");
 ### Connection States
 
 - **`DISCONNECTED`** (`"disconnected"`): Disconnected, but automated reconnect attempts are active or pending. (Initial state)
-- **`CONNECTING`** (`"connecting"`): Establishing connection or completing WebSocket handshake.
-- **`CONNECTED`** (`"connected"`): The WebSocket handshake is complete and active.
-- **`TERMINATED`** (`"terminated"`): Disconnected and max reconnect attempts reached. (Termination state)
+- **`CONNECTING`** (`"connecting"`): Establishing connection and completing WebSocket handshake.
+- **`CONNECTED`** (`"connected"`): The connection is active and ready to use.
+- **`TERMINATED`** (`"terminated"`): Disconnected and max reconnect attempts has been reached. (Termination state)
 
 ---
 
-## Internal Reconnect Mechanics
-
-Underneath the developer-facing `client.connection` interface, automated reconnecting is managed internally.
-
-### Automated Reconnect Strategy
+## Reconnect Mechanics
 
 When network drops or server restart occurs:
-- Attempt to reconnect, up to **3 consecutive attempts**.
-- Reconnect delays increase linearly: **1s** before the 1st attempt, **2s** before the 2nd attempt, and **3s** before the 3rd attempt.
-- If re-established successfully, the attempt counter resets to zero.
+- Up to **3 consecutive** reconnect attempts.
+- Reconnect delays: **1s** before the 1st attempt, **2s** before the 2nd attempt, and **3s** before the 3rd attempt.
+- If connection isr successfully re-established, the attempt counter resets to zero.
 - If all 3 attempts fail, max attempts is reached, and the connection state transitions to **`TERMINATED`**.  
 
-### State Machine Logic
 
 ```javascript
 retryCount = 0;
