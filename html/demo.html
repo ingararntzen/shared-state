@@ -246,7 +246,7 @@
     </div>
 
     <script type="module">
-        import { SharedStateClient } from "../dist/sharedstate.es.js";
+        import { SharedStateClient, load } from "../dist/sharedstate.es.js";
 
         function getRandomInt(max) {
             return Math.floor(Math.random() * max);
@@ -255,8 +255,8 @@
         const wsUrl = `ws://${location.hostname || "127.0.0.1"}:${location.port || 9000}`;
         const client = new SharedStateClient(wsUrl);
 
-        // Load SharedMap via client.load() with optimistic enabled for 0ms optimistic updates
-        const { demoMap } = client.load({
+        // Load SharedMap via load(client, config) with optimistic enabled for 0ms optimistic updates
+        const { demoMap } = load(client, {
             demoMap: { type: "Map", path: "/app/mitems/chnl", optimistic: true }
         });
 

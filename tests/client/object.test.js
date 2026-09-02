@@ -20,7 +20,7 @@ describe("Layer 2 Domain Abstractions Unit Tests", () => {
             _subs_map: new Map(),
             _coll_paths: new Set(),
             _var_coll_paths: new Set(),
-            update: vi.fn().mockResolvedValue({ ok: true }),
+            _update: vi.fn().mockResolvedValue({ ok: true }),
             _get_weak_object(path) {
                 const ref = this._weakObjects.get(path);
                 return ref ? ref.deref() || null : null;
@@ -94,14 +94,14 @@ describe("Layer 2 Domain Abstractions Unit Tests", () => {
 
         // Test inc / dec / set
         await num.inc(5);
-        expect(mockClient.update).toHaveBeenCalledWith("/app/store/vars2", {
+        expect(mockClient._update).toHaveBeenCalledWith("/app/store/vars2", {
             insert: [{ id: "score", state: 47 }],
             remove: [],
             reset: false
         });
 
         await num.set(100);
-        expect(mockClient.update).toHaveBeenCalledWith("/app/store/vars2", {
+        expect(mockClient._update).toHaveBeenCalledWith("/app/store/vars2", {
             insert: [{ id: "score", state: 100 }],
             remove: [],
             reset: false
@@ -141,7 +141,7 @@ describe("Layer 2 Domain Abstractions Unit Tests", () => {
         const setObj = new SharedSet(mockClient, "/app/store/members");
 
         await setObj.add("alice");
-        expect(mockClient.update).toHaveBeenCalledWith("/app/store/members", {
+        expect(mockClient._update).toHaveBeenCalledWith("/app/store/members", {
             insert: [{ id: '"alice"', state: "alice" }],
             remove: [],
             reset: false
@@ -150,7 +150,7 @@ describe("Layer 2 Domain Abstractions Unit Tests", () => {
         // Test object hashing and equality
         const setObj2 = new SharedSet(mockClient, "/app/store/members2");
         await setObj2.add({ b: 2, a: 1 });
-        expect(mockClient.update).toHaveBeenCalledWith("/app/store/members2", {
+        expect(mockClient._update).toHaveBeenCalledWith("/app/store/members2", {
             insert: [{ id: '{"a":1,"b":2}', state: { b: 2, a: 1 } }],
             remove: [],
             reset: false
@@ -160,7 +160,7 @@ describe("Layer 2 Domain Abstractions Unit Tests", () => {
         const customSet = new SharedSet(mockClient, "/app/store/custom", { key: (item) => item.sku });
 
         await customSet.add({ sku: "PROD-123", name: "Widget" });
-        expect(mockClient.update).toHaveBeenCalledWith("/app/store/custom", {
+        expect(mockClient._update).toHaveBeenCalledWith("/app/store/custom", {
             insert: [{ id: "PROD-123", state: { sku: "PROD-123", name: "Widget" } }],
             remove: [],
             reset: false
@@ -169,7 +169,7 @@ describe("Layer 2 Domain Abstractions Unit Tests", () => {
         const mapObj = new SharedMap(mockClient, "/app/store/config");
 
         await mapObj.set("theme", "dark");
-        expect(mockClient.update).toHaveBeenCalledWith("/app/store/config", {
+        expect(mockClient._update).toHaveBeenCalledWith("/app/store/config", {
             insert: [{ id: "theme", state: "dark" }],
             remove: [],
             reset: false

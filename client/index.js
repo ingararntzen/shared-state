@@ -1,5 +1,6 @@
 export { SharedStateClient } from "./ss_client.js";
-export { MsgType, MsgCmd, TYPE_REGISTRY, validatePath, normalizePath } from "./common.js";
+export { load, TYPE_REGISTRY } from "./load.js";
+export { MsgType, MsgCmd, validatePath, normalizePath } from "./common.js";
 export { ConnectionState } from "./wsio.js";
 export { ProxyCollection } from "./ss_collection.js";
 export { OptimisticProxyCollection } from "./ss_optimistic_collection.js";

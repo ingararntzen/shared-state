@@ -1,6 +1,7 @@
 import { describe, test, expect, beforeAll, afterAll } from "vitest";
 import { spawn } from "node:child_process";
 import { SharedStateClient } from "../../client/ss_client.js";
+import { load } from "../../client/load.js";
 
 const PORT = 9099;
 const SERVER_URL = `ws://127.0.0.1:${PORT}`;
@@ -42,12 +43,12 @@ describe("Client-Server Integration Tests", () => {
         await client.connection.connectedPromise();
 
         // GET / (services)
-        const servicesRes = await client.get("/");
+        const servicesRes = await client._get("/");
         expect(servicesRes.ok).toBe(true);
         expect(servicesRes.data).toContain("mitems");
 
         // GET /clock
-        const clockRes = await client.get("/clock");
+        const clockRes = await client._get("/clock");
         expect(clockRes.ok).toBe(true);
         expect(typeof clockRes.data).toBe("number");
         expect(clockRes.data).toBeGreaterThan(0);
@@ -55,11 +56,11 @@ describe("Client-Server Integration Tests", () => {
         client.terminate();
     });
 
-    test("client.load() with SharedMap: update_items (insert, remove, reset), and querying", async () => {
+    test("load(client, config) with SharedMap: update_items (insert, remove, reset), and querying", async () => {
         const client = new SharedStateClient(SERVER_URL);
         await client.connection.connectedPromise();
 
-        const { itemsMap } = client.load({
+        const { itemsMap } = load(client, {
             itemsMap: { type: "Map", path: "/app/mitems/chnl" }
         });
         const coll = itemsMap._proxyCollection;
@@ -101,11 +102,11 @@ describe("Client-Server Integration Tests", () => {
         client.terminate();
     });
 
-    test("client.load() with SharedInteger and SharedMap", async () => {
+    test("load(client, config) with SharedInteger and SharedMap", async () => {
         const client = new SharedStateClient(SERVER_URL);
         await client.connection.connectedPromise();
 
-        const { counter, settings } = client.load({
+        const { counter, settings } = load(client, {
             counter: { type: "Integer", path: "/app/mitems/counter_chnl" },
             settings: { type: "Map", path: "/app/mitems/settings_chnl" }
         });
@@ -134,10 +135,10 @@ describe("Client-Server Integration Tests", () => {
 
         await Promise.all([clientA.connection.connectedPromise(), clientB.connection.connectedPromise()]);
 
-        const { mapA } = clientA.load({
+        const { mapA } = load(clientA, {
             mapA: { type: "Map", path: "/app/mitems/sync_chnl" }
         });
-        const { mapB } = clientB.load({
+        const { mapB } = load(clientB, {
             mapB: { type: "Map", path: "/app/mitems/sync_chnl" }
         });
 

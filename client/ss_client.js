@@ -1,23 +1,8 @@
 import { WebSocketIO, ConnectionState } from "./wsio.js";
 import { ProxyCollection } from "./ss_collection.js";
 import { OptimisticProxyCollection } from "./ss_optimistic_collection.js";
-import {
-    MsgType,
-    MsgCmd,
-    TYPE_REGISTRY,
-    validatePath,
-    resolvablePromise,
-    random_string
-} from "./common.js";
-import {
-    SharedBool,
-    SharedString,
-    SharedInteger,
-    SharedFloat,
-    SharedObject,
-    SharedArray,
-    Variable
-} from "./variables/variables.js";
+import { MsgType, MsgCmd, validatePath } from "./common.js";
+import { random_string, resolvablePromise } from "./util/util.js";
 
 /**
  * SharedStateClient manages logical network connections, microtask subscription batching,
@@ -30,62 +15,99 @@ export class SharedStateClient {
      * @param {Object} [options] - Configuration options
      */
     constructor(url, options = {}) {
+        // options
         this._options = options;
-        this._connection = new WebSocketIO(url, options);
 
-        this.id = random_string(12);
+        // consistency
+        this._client_id = random_string(12);
         this._request_count = 0;
         this._update_count = 0;
         this._last_acked_update_count = 0;
-        this._pending = new Map();
-        this._pending_updates = new Map(); // update_count -> { timestamp, path, changes }
+        this._pending_requests = new Map();
+        this._pending_updates = new Map();
         this._ttlMs = options.ttlMs || options.ttl || 10000;
 
-        // Subscriptions state: path -> {}
+        // subscriptions
         this._subs_map = new Map();
         this._sub_scheduled = false;
 
-        // Cached proxy collections: path -> ProxyCollection / SpeculativeProxyCollection
+        // proxy collections
         this._coll_map = new Map();
-
-        // Bound Layer 2 objects: name -> Layer 2 instance (e.g. SharedMap)
-        this.objects = {};
-
-        // WeakRef caching for Layer 2 object identity: path -> WeakRef(instance)
-        this._weakObjects = new Map();
-
-        // Collision detection tracking sets
         this._coll_paths = new Set();
         this._var_coll_paths = new Set();
 
+        // application objects
+        this._weakObjects = new Map();
+        this._app_objects = {};
+
+        // connection
+        this._connection = new WebSocketIO(url, options);
         this._setup_connection_handlers();
         this._connection.connect();
     }
 
-    _get_weak_object(path) {
-        if (!path) return null;
-        const ref = this._weakObjects.get(path);
-        if (ref) {
-            const obj = ref.deref();
-            if (obj) return obj;
-            this._weakObjects.delete(path);
-        }
-        return null;
-    }
 
-    _set_weak_object(path, obj) {
-        if (path && obj) {
-            this._weakObjects.set(path, new WeakRef(obj));
-        }
+    /************************************************
+     *  PUBLIC API
+     ************************************************/
+    get id() {
+        return this._client_id;
     }
 
     get connection() {
         return this._connection;
     }
 
-    get state() {
-        return this._connection.state;
+    /**
+     * Initializes or retrieves an existing ProxyCollection instance for a given path.
+     * @param {string} rawPath - Target path (e.g. "/app/store/res")
+     * @param {Object} [options={}] - Options (e.g. { optimistic: true })
+     * @returns {ProxyCollection} The initialized or cached ProxyCollection
+     */
+    collection(rawPath, options = {}) {
+        const path = validatePath(rawPath);
+
+        // set up proxy collection
+        if (!this._coll_map.has(path)) {
+            const baseColl = new ProxyCollection(this, path, options);
+            const coll = (options.optimistic ?? true)
+                ? new OptimisticProxyCollection(this, baseColl, options)
+                : baseColl;
+            this._coll_map.set(path, coll);
+        }
+
+        // register subscriptions
+        this._subs_map.set(path, {});
+        this._schedule_sub_sync();
+
+        return this._coll_map.get(path);
     }
+
+    /**
+     * Terminates the client: releases all collections and closes the network connection.
+     */
+    terminate() {
+        for (const [path, ds] of this._coll_map.entries()) {
+            this._subs_map.delete(path);
+            this._coll_paths.delete(path);
+            this._var_coll_paths.delete(path);
+            if (ds !== undefined) {
+                ds._ssclient_terminate();
+            }
+        }
+        this._coll_map.clear();
+        this._weakObjects.clear();
+        this._app_objects = {};
+        this._schedule_sub_sync();
+        if (this._connection) {
+            this._connection.close();
+        }
+    }
+
+
+    /************************************************
+     *  CONNECTION
+     ************************************************/
 
     _setup_connection_handlers() {
         this._connection.on_connect = () => this._on_connect();
@@ -94,9 +116,6 @@ export class SharedStateClient {
         this._connection.on_error = (err) => this._on_error(err);
     }
 
-    connect() {
-        return this._connection.connect();
-    }
 
     /** Called automatically when WebSocket connects/reconnects. */
     _on_connect() {
@@ -105,14 +124,19 @@ export class SharedStateClient {
 
     /** Rejects pending request promises on disconnect. */
     _on_disconnect(event) {
-        for (const resolver of this._pending.values()) {
+        for (const resolver of this._pending_requests.values()) {
             resolver({ ok: false, data: "connection disconnected" });
         }
-        this._pending.clear();
+        this._pending_requests.clear();
         this._pending_updates.clear();
     }
 
     _on_error(error) { }
+
+
+    /************************************************
+     *  COMMUNICATION
+     ************************************************/
 
     /** Parses incoming WebSocket messages and routes REPLY or NOTIFY. */
     _on_message(data) {
@@ -133,9 +157,9 @@ export class SharedStateClient {
     /** Resolves pending request promise matching request_count. */
     _handle_reply(msg) {
         const seq = msg.tunnel ? msg.tunnel.request_count : undefined;
-        if (seq !== undefined && this._pending.has(seq)) {
-            const resolver = this._pending.get(seq);
-            this._pending.delete(seq);
+        if (seq !== undefined && this._pending_requests.has(seq)) {
+            const resolver = this._pending_requests.get(seq);
+            this._pending_requests.delete(seq);
             const { ok, data } = msg;
             resolver({ ok, data });
         }
@@ -161,6 +185,99 @@ export class SharedStateClient {
             coll._ssclient_update(msg.data, msg.tunnel);
         }
     }
+
+    /**
+     * Sends a WebSocket REQUEST message to the server.
+     * @param {string} cmd - Request command (GET, PUT)
+     * @param {string} path - Target path
+     * @param {*} reqData - Request payload data
+     * @returns {Promise<{ok: boolean, path: string, data: *}>}
+     */
+    _request(cmd, path, reqData) {
+        const request_count = ++this._request_count;
+        if (cmd === MsgCmd.PUT && path !== "/subs") {
+            this._update_count++;
+            this._pending_updates.set(this._update_count, {
+                timestamp: Date.now(),
+                path,
+                changes: reqData
+            });
+        }
+
+        const tunnel = {
+            client_id: this._client_id,
+            request_count: request_count,
+            update_count: this._update_count
+        };
+
+        const msg = {
+            type: MsgType.REQUEST,
+            cmd: cmd,
+            path: path,
+            data: reqData,
+            tunnel: tunnel
+        };
+
+        this._connection.send(JSON.stringify(msg));
+        const [promise, resolver] = resolvablePromise();
+        this._pending_requests.set(request_count, resolver);
+
+        return promise.then(({ ok, data }) => {
+            if (cmd === MsgCmd.PUT && path === "/subs" && ok) {
+                this._subs_map = new Map(data);
+            }
+            return { ok, path, data };
+        });
+    }
+
+    /**
+     * Executes a GET request against the server.
+     * @param {string} path
+     */
+    _get(path) {
+        return this._request(MsgCmd.GET, path);
+    }
+
+    /**
+     * Executes a PUT request against the server.
+     * @param {string} path
+     * @param {*} changes
+     */
+    _update(path, changes) {
+        return this._request(MsgCmd.PUT, path, changes);
+    }
+
+
+    /************************************************
+     *  SUBSCRIPTIONS
+     ************************************************/
+
+    /** Schedules a subscription sync on the microtask tick. */
+    _schedule_sub_sync() {
+        if (!this._sub_scheduled) {
+            this._sub_scheduled = true;
+            queueMicrotask(() => this._sync_subs());
+        }
+    }
+
+    /** Flushes active subscriptions (_subs_map) to the server in a single PUT /subs request. */
+    _sync_subs() {
+        this._sub_scheduled = false;
+        if (this._connection.state !== ConnectionState.CONNECTED) {
+            return;
+        }
+        const items = Array.from(this._subs_map.entries());
+        const payload = {
+            insert: items,
+            reset: true
+        };
+        return this._request(MsgCmd.PUT, "/subs", payload);
+    }
+
+
+    /************************************************
+     *  CONSISTENCY
+     ************************************************/
 
     /** ACK handling for update_count confirming request processing or rejection. */
     _on_ack(updateCount, ok, path) {
@@ -221,202 +338,26 @@ export class SharedStateClient {
         }
     }
 
-    /**
-     * Sends a WebSocket REQUEST message to the server.
-     * @param {string} cmd - Request command (GET, PUT)
-     * @param {string} path - Target path
-     * @param {*} reqData - Request payload data
-     * @returns {Promise<{ok: boolean, path: string, data: *}>}
-     */
-    _request(cmd, path, reqData) {
-        const request_count = ++this._request_count;
-        if (cmd === MsgCmd.PUT && path !== "/subs") {
-            this._update_count++;
-            this._pending_updates.set(this._update_count, {
-                timestamp: Date.now(),
-                path,
-                changes: reqData
-            });
+
+    /************************************************
+     *  APP OBJECTS
+     ************************************************/
+
+    _get_weak_object(path) {
+        if (!path) return null;
+        const ref = this._weakObjects.get(path);
+        if (ref) {
+            const obj = ref.deref();
+            if (obj) return obj;
+            this._weakObjects.delete(path);
         }
-
-        const tunnel = {
-            client_id: this.id,
-            request_count: request_count,
-            update_count: this._update_count
-        };
-
-        const msg = {
-            type: MsgType.REQUEST,
-            cmd: cmd,
-            path: path,
-            data: reqData,
-            tunnel: tunnel
-        };
-
-        this._connection.send(JSON.stringify(msg));
-        const [promise, resolver] = resolvablePromise();
-        this._pending.set(request_count, resolver);
-
-        return promise.then(({ ok, data }) => {
-            if (cmd === MsgCmd.PUT && path === "/subs" && ok) {
-                this._subs_map = new Map(data);
-            }
-            return { ok, path, data };
-        });
+        return null;
     }
 
-    /** Schedules a subscription sync on the microtask tick. */
-    _schedule_sub_sync() {
-        if (!this._sub_scheduled) {
-            this._sub_scheduled = true;
-            queueMicrotask(() => this._sync_subs());
+    _set_weak_object(path, obj) {
+        if (path && obj) {
+            this._weakObjects.set(path, new WeakRef(obj));
         }
     }
 
-    /** Flushes active subscriptions (_subs_map) to the server in a single PUT /subs request. */
-    _sync_subs() {
-        this._sub_scheduled = false;
-        if (this.state !== ConnectionState.CONNECTED) {
-            return;
-        }
-        const items = Array.from(this._subs_map.entries());
-        const payload = {
-            insert: items,
-            reset: true
-        };
-        return this._request(MsgCmd.PUT, "/subs", payload);
-    }
-
-    /**
-     * Initializes or retrieves an existing ProxyCollection instance for a given path.
-     * @param {string} rawPath - Target path (e.g. "/app/store/res")
-     * @param {Object} [options={}] - Options (e.g. { optimistic: true })
-     * @returns {ProxyCollection} The initialized or cached ProxyCollection
-     */
-    collection(rawPath, options = {}) {
-        const path = validatePath(rawPath);
-
-        // set up proxy collection
-        if (!this._coll_map.has(path)) {
-            const baseColl = new ProxyCollection(this, path, options);
-            const coll = (options.optimistic ?? true)
-                ? new OptimisticProxyCollection(this, baseColl, options)
-                : baseColl;
-            this._coll_map.set(path, coll);
-        }
-
-        // register subscriptions
-        this._subs_map.set(path, {});
-        this._schedule_sub_sync();
-
-        return this._coll_map.get(path);
-    }
-
-    /*********************************************************************
-        PUBLIC API
-    *********************************************************************/
-
-    /**
-     * Executes a raw GET request against the server.
-     * @param {string} path
-     */
-    get(path) {
-        return this._request(MsgCmd.GET, path);
-    }
-
-    /**
-     * Executes a raw PUT update request against the server.
-     * @param {string} path
-     * @param {*} changes
-     */
-    update(path, changes) {
-        return this._request(MsgCmd.PUT, path, changes);
-    }
-
-    /**
-     * Configures and loads Layer-2 abstraction objects (SharedMap, SharedInteger, etc.).
-     * @param {Object<string, {type: string, path: string, options?: Object, optimistic?: boolean}>} config
-     * @returns {Object<string, *>} Map of bound abstraction instances
-     */
-    load(config) {
-        if (!config || typeof config !== "object") {
-            throw new Error("client.load() expects a configuration object.");
-        }
-
-        const newObjects = {};
-        const itemsToInstantiate = [];
-
-        for (const [name, def] of Object.entries(config)) {
-            if (!def || typeof def !== "object") {
-                throw new Error(`Invalid configuration for '${name}'. Expected object format: { type: "...", path: "..." }`);
-            }
-
-            const typeName = def.type;
-            const rawPath = def.path;
-            const options = def.options || {};
-            if (def.optimistic !== undefined) {
-                options.optimistic = def.optimistic;
-            }
-
-            if (!typeName || !TYPE_REGISTRY[typeName]) {
-                throw new Error(`Unknown or missing type '${typeName}' for '${name}'. Supported types: ${Object.keys(TYPE_REGISTRY).join(", ")}`);
-            }
-
-            const normPath = validatePath(rawPath);
-            const ClassCtor = TYPE_REGISTRY[typeName];
-
-            const isVariable = [
-                SharedBool,
-                SharedString,
-                SharedInteger,
-                SharedFloat,
-                SharedObject,
-                SharedArray,
-                Variable
-            ].some(ctor => ClassCtor === ctor || ClassCtor.prototype instanceof Variable);
-
-            if (isVariable) {
-                const varName = def.name || name;
-                itemsToInstantiate.push({ name, ClassCtor, path: normPath, varName, isVariable: true, options });
-            } else {
-                itemsToInstantiate.push({ name, ClassCtor, path: normPath, isVariable: false, options });
-            }
-        }
-
-        for (const item of itemsToInstantiate) {
-            let obj;
-            if (item.isVariable) {
-                obj = new item.ClassCtor(this, item.path, item.varName, item.options);
-            } else {
-                obj = new item.ClassCtor(this, item.path, item.options);
-            }
-            this.objects[item.name] = obj;
-            newObjects[item.name] = obj;
-        }
-
-        return newObjects;
-    }
-
-    /**
-     * Terminates the client session: releases all collections and closes the network connection.
-     */
-    terminate() {
-        for (const [path, ds] of this._coll_map.entries()) {
-            this._subs_map.delete(path);
-            this._coll_paths.delete(path);
-            this._var_coll_paths.delete(path);
-            if (ds !== undefined) {
-                ds._ssclient_terminate();
-            }
-        }
-        this._coll_map.clear();
-        this._weakObjects.clear();
-        this.objects = {};
-
-        this._schedule_sub_sync();
-
-        if (this._connection) {
-            this._connection.close();
-        }
-    }
 }

@@ -1,4 +1,4 @@
-import { random_string, resolvablePromise } from "./common.js";
+import { random_string, resolvablePromise } from "./util/util.js";
 
 export class UpdateBuilder {
     constructor(proxyCollection) {
@@ -81,7 +81,7 @@ export class UpdateBuilder {
         }
 
         try {
-            const res = await this._proxyCollection._ssclient.update(this._proxyCollection._path, payload);
+            const res = await this._proxyCollection._ssclient._update(this._proxyCollection._path, payload);
             resolver(res);
         } catch (err) {
             resolver({ ok: false, error: err });

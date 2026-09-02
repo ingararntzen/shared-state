@@ -4,7 +4,7 @@ import { ProxyCollection } from "../../client/ss_collection.js";
 describe("ProxyCollection Unit Tests", () => {
     function createMockClient() {
         return {
-            update: vi.fn().mockResolvedValue({ ok: true })
+            _update: vi.fn().mockResolvedValue({ ok: true })
         };
     }
 
@@ -101,8 +101,8 @@ describe("ProxyCollection Unit Tests", () => {
         const p = coll.update_items({ insert: [{ data: "no_id" }] });
         await p;
 
-        expect(mockClient.update).toHaveBeenCalledTimes(1);
-        const [path, changes] = mockClient.update.mock.calls[0];
+        expect(mockClient._update).toHaveBeenCalledTimes(1);
+        const [path, changes] = mockClient._update.mock.calls[0];
         expect(path).toBe("/app/mitems/chnl");
         expect(changes.insert[0].id).toBeDefined();
         expect(typeof changes.insert[0].id).toBe("string");
@@ -137,8 +137,8 @@ describe("ProxyCollection Unit Tests", () => {
 
         const res = await p1;
         expect(res.ok).toBe(true);
-        expect(mockClient.update).toHaveBeenCalledTimes(1);
-        const [path, changes] = mockClient.update.mock.calls[0];
+        expect(mockClient._update).toHaveBeenCalledTimes(1);
+        const [path, changes] = mockClient._update.mock.calls[0];
         expect(path).toBe("/app/mitems/chnl");
         expect(changes.insert).toEqual([
             { id: "item1", state: "val2" },
@@ -179,7 +179,7 @@ describe("ProxyCollection Unit Tests", () => {
         // Perform conditional update
         await coll.update_items({ insert: [{ id: "i1", state: "v1" }] }, { conditional: true });
 
-        expect(mockClient.update).toHaveBeenCalledWith("/app/mitems/chnl", {
+        expect(mockClient._update).toHaveBeenCalledWith("/app/mitems/chnl", {
             insert: [{ id: "i1", state: "v1" }],
             remove: [],
             reset: false,
