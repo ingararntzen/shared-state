@@ -1,6 +1,6 @@
 import { describe, test, expect, beforeAll, afterAll } from "vitest";
 import { spawn } from "node:child_process";
-import { SharedStateClient } from "../../client/ss_client.js";
+import { SharedStateClient } from "../../client/client.js";
 import { load } from "../../client/load.js";
 
 const PORT = 9099;

@@ -1,5 +1,5 @@
 import { describe, test, expect, vi } from "vitest";
-import { ServerClock } from "../../client/ss_clock.js";
+import { ServerClock } from "../../client/server_clock.js";
 
 describe("ServerClock Unit Tests", () => {
     function createMockClient() {

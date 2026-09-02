@@ -1,5 +1,5 @@
 import { describe, test, expect, vi } from "vitest";
-import { ProxyCollection } from "../../client/ss_collection.js";
+import { ProxyCollection } from "../../client/provider.js";
 import {
     Variable,
     SharedBool,
@@ -82,7 +82,7 @@ describe("Layer 2 Domain Abstractions Unit Tests", () => {
 
         // Server sends valid state for iInit
         const coll = mockClient.provider("/app/store/vars");
-        coll._ssclient_update({
+        coll._client_update({
             insert: [{ id: "iInit", state: 99 }]
         });
 
@@ -101,7 +101,7 @@ describe("Layer 2 Domain Abstractions Unit Tests", () => {
         num.on("change", changeHandler);
 
         // Simulate server update for score
-        coll._ssclient_update({
+        coll._client_update({
             insert: [{ id: "score", state: 42 }]
         });
 
@@ -131,7 +131,7 @@ describe("Layer 2 Domain Abstractions Unit Tests", () => {
         const arr = new SharedArray(mockClient, "/app/store/types", "tags");
         const coll = mockClient.provider("/app/store/types");
 
-        coll._ssclient_update({
+        coll._client_update({
             insert: [
                 { id: "status", state: "active" },
                 { id: "temp", state: 98.6 },

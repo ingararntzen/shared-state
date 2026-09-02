@@ -1,9 +1,10 @@
-export { SharedStateClient } from "./ss_client.js";
+export { SharedStateClient } from "./client.js";
+export { ServerClock } from "./server_clock.js";
 export { load, TYPE_REGISTRY } from "./load.js";
 export { MsgType, MsgCmd, validatePath, normalizePath } from "./common.js";
 export { ConnectionState } from "./wsio.js";
-export { ProxyCollection } from "./ss_collection.js";
-export { OptimisticProxyCollection } from "./ss_optimistic_collection.js";
+export { ProxyCollection } from "./provider.js";
+export { OptimisticProxyCollection } from "./opt_provider.js";
 export { BaseVariable } from "./variables/base_variable.js";
 export {
     Variable,
