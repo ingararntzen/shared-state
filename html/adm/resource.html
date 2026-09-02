@@ -162,7 +162,7 @@
 
         function connectResource(path) {
             try {
-                activeCollection = client.acquire_collection(path);
+                activeCollection = client.provider(path);
                 updateItems(activeCollection.get_items());
 
                 activeCollection.add_callback(() => {

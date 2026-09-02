@@ -36,8 +36,8 @@ const client = new SharedStateClient("ws://localhost:9000");
 // Connect to server
 const client = new SharedStateClient("ws://localhost:9000");
 
-// Acquire proxy collection for path /myapp/items/todo
-const todos = client.acquire_collection("/myapp/items/todo");
+// Acquire state provider for path /myapp/items/todo
+const todos = client.provider("/myapp/items/todo");
 
 // Listen for updates
 todos.add_callback((diffs) => {

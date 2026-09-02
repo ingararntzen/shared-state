@@ -23,7 +23,7 @@ export class Variable extends BaseVariable {
     }
 
     set(val) {
-        return this._proxyCollection.update_items({
+        return this._provider.update_items({
             insert: [{ id: this._itemId, state: val }]
         });
     }

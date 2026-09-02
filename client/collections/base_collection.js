@@ -3,58 +3,56 @@ import { validatePath } from "../common.js";
 
 export class BaseCollection {
     constructor(client, path, options = {}) {
-        if (!client || typeof client.collection !== "function") {
+        if (!client || typeof client.provider !== "function") {
             throw new Error("Collection constructor expects a SharedStateClient instance as first argument.");
         }
 
         const normPath = validatePath(path);
 
-        if (client._var_coll_paths && client._var_coll_paths.has(normPath)) {
+        if (client._variables && client._variables.has(normPath)) {
             throw new Error(`Conflict: Cannot register Collection at '${path}'. Path is already reserved for Variables.`);
         }
 
-        const cached = client._get_weak_object(normPath);
+        const cached = client._get_collection ? client._get_collection(normPath) : null;
         if (cached) {
             return cached;
         }
 
-        if (client._coll_paths) {
-            client._coll_paths.add(normPath);
-        }
-
-        this._proxyCollection = client.collection(normPath, options);
+        this._provider = client.provider(normPath, options);
         this._options = options;
 
-        client._set_weak_object(normPath, this);
+        if (client._set_collection) {
+            client._set_collection(normPath, this);
+        }
 
-        this._proxyCollection.add_callback((changes) => {
+        this._provider.add_callback((changes) => {
             const formatted = this._formatChanges ? this._formatChanges(changes) : changes;
             this.emit("change", formatted);
         });
     }
 
     get path() {
-        return this._proxyCollection.path;
+        return this._provider.path;
     }
 
     get provider() {
-        return this._proxyCollection;
+        return this._provider;
     }
 
     get_state(name) {
         if (name === "change") {
-            const items = this._proxyCollection.get_items();
+            const items = this._provider.get_items();
             return { remove: [], insert: items, reset: true };
         }
         return null;
     }
 
     get size() {
-        return this._proxyCollection.size;
+        return this._provider.size;
     }
 
     get_items() {
-        return this._proxyCollection.get_items();
+        return this._provider.get_items();
     }
 }
 

@@ -33,21 +33,21 @@ export class SharedSet extends BaseCollection {
         const id = this._getId(elem);
         this._elemCache.set(id, elem);
         const record = { id, state: elem };
-        return await this._proxyCollection.update_items({ insert: [record] });
+        return await this._provider.update_items({ insert: [record] });
     }
 
     async delete(elem) {
         const id = this._getId(elem);
-        return await this._proxyCollection.update_items({ remove: [id] });
+        return await this._provider.update_items({ remove: [id] });
     }
 
     has(elem) {
         const id = this._getId(elem);
-        return this._proxyCollection.has_item(id);
+        return this._provider.has_item(id);
     }
 
     values() {
-        return this._proxyCollection.get_items().map(item =>
+        return this._provider.get_items().map(item =>
             item.state !== undefined ? item.state : item.value
         );
     }

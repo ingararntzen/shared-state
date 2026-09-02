@@ -12,30 +12,45 @@ function createMockClient() {
         _update_count: 0,
         _last_acked_update_count: 0,
         _pending_updates: new Map(),
-        _coll_map: new Map(),
-        _weakObjects: new Map(),
-        _coll_paths: new Set(),
-        _var_coll_paths: new Set(),
+        _providers: new Map(),
+        _collections: new Map(),
+        _variables: new Map(),
         _ttlMs: 10000,
         _request: vi.fn(),
-        _handle_version_gap: vi.fn(),
+        _reconnect: vi.fn(),
         _on_ack: SharedStateClient.prototype._on_ack,
         _check_pending_timeouts: SharedStateClient.prototype._check_pending_timeouts,
-        _get_weak_object(path) {
-            const ref = this._weakObjects.get(path);
+        _get_collection(path) {
+            const ref = this._collections.get(path);
             return ref ? ref.deref() || null : null;
         },
-        _set_weak_object(path, obj) {
-            this._weakObjects.set(path, new WeakRef(obj));
+        _set_collection(path, coll) {
+            this._collections.set(path, new WeakRef(coll));
         },
-        collection(collPath, options = {}) {
-            if (!this._coll_map.has(collPath)) {
+        _get_variable(path, name) {
+            const varMap = this._variables.get(path);
+            if (varMap) {
+                const ref = varMap.get(name);
+                return ref ? ref.deref() || null : null;
+            }
+            return null;
+        },
+        _set_variable(path, name, variable) {
+            let varMap = this._variables.get(path);
+            if (!varMap) {
+                varMap = new Map();
+                this._variables.set(path, varMap);
+            }
+            varMap.set(name, new WeakRef(variable));
+        },
+        provider(collPath, options = {}) {
+            if (!this._providers.has(collPath)) {
                 const baseColl = new ProxyCollection(this, collPath, options);
                 const isOptimistic = options.optimistic ?? true;
                 const coll = isOptimistic ? new OptimisticProxyCollection(this, baseColl, options) : baseColl;
-                this._coll_map.set(collPath, coll);
+                this._providers.set(collPath, coll);
             }
-            return this._coll_map.get(collPath);
+            return this._providers.get(collPath);
         }
     };
     client._request.mockImplementation(async (cmd, path, data) => {
@@ -200,7 +215,7 @@ describe("OptimisticProxyCollection Unit Tests", () => {
         const mockClient = createMockClient();
         const baseColl = new ProxyCollection(mockClient, "/resources/app/store/vars");
         const specColl = new OptimisticProxyCollection(mockClient, baseColl);
-        mockClient._coll_map.set("/resources/app/store/vars", specColl);
+        mockClient._providers.set("/resources/app/store/vars", specColl);
 
         // Client performs speculative update
         specColl.update_items({ insert: [{ id: "counter", state: 10 }] });
@@ -216,7 +231,7 @@ describe("OptimisticProxyCollection Unit Tests", () => {
 
     test("detects un-ACKed gap in pending_updates and triggers reconnect", () => {
         const mockClient = createMockClient();
-        mockClient._handle_version_gap = vi.fn();
+        mockClient._reconnect = vi.fn();
 
         mockClient._pending_updates.set(1, { timestamp: Date.now(), path: "/resources/app/store/res", changes: {} });
         mockClient._pending_updates.set(2, { timestamp: Date.now(), path: "/resources/app/store/res", changes: {} });
@@ -224,13 +239,13 @@ describe("OptimisticProxyCollection Unit Tests", () => {
         // ACK for update 2 arrives while update 1 is still in pending_updates
         mockClient._on_ack(2, true, "/resources/app/store/res");
 
-        expect(mockClient._handle_version_gap).toHaveBeenCalled();
+        expect(mockClient._reconnect).toHaveBeenCalled();
     });
 
     test("triggers reconnect when pending update exceeds ttlMs and state is CONNECTED", () => {
         const mockClient = createMockClient();
         mockClient._connection = { state: "connected", reconnect: vi.fn() };
-        mockClient._handle_version_gap = vi.fn(() => mockClient._connection.reconnect(true));
+        mockClient._reconnect = vi.fn(() => mockClient._connection.reconnect(true));
 
         // Insert pending update with timestamp in past (15 seconds ago)
         mockClient._pending_updates.set(1, { timestamp: Date.now() - 15000, path: "/resources/app/store/res", changes: {} });

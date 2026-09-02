@@ -91,7 +91,7 @@ export class UpdateBuilder {
 
 export class ProxyCollection {
 
-    constructor(ssclient, path, options={}) {
+    constructor(ssclient, path, options = {}) {
         this._options = options;
         this._terminated = false;
         // sharedstate client
@@ -133,7 +133,7 @@ export class ProxyCollection {
     /**
      * server update collection 
      */
-    _ssclient_update (changes={}, tunnel=null) {
+    _ssclient_update(changes = {}, tunnel = null) {
 
         if (this._terminated) {
             throw new Error("collection already terminated")
@@ -148,9 +148,7 @@ export class ProxyCollection {
         } else if (incomingVersion !== undefined && this._version !== undefined) {
             if (incomingVersion > this._version + 1) {
                 console.warn(`Version gap detected on '${this._path}': local version ${this._version}, incoming version ${incomingVersion}. Triggering immediate reconnect.`);
-                if (this._ssclient && typeof this._ssclient._handle_version_gap === "function") {
-                    this._ssclient._handle_version_gap(this._path, this._version, incomingVersion);
-                }
+                this._ssclient._reconnect("version_gap");
                 return;
             }
             if (incomingVersion <= this._version) {
@@ -160,7 +158,7 @@ export class ProxyCollection {
             this._version = incomingVersion;
         }
 
-        const {remove=[], insert=[], reset=false} = changes;
+        const { remove = [], insert = [], reset = false } = changes;
         const eff_remove = [];
         const eff_insert = [];
 
@@ -191,8 +189,8 @@ export class ProxyCollection {
         this._notify_callbacks(effective_changes);
     }
 
-    _notify_callbacks (eArg) {
-        this._handlers.forEach(function(handle) {
+    _notify_callbacks(eArg) {
+        this._handlers.forEach(function (handle) {
             handle.handler(eArg);
         });
     };
@@ -201,22 +199,22 @@ export class ProxyCollection {
         APPLICATION API
     **********************************************************/
 
-    get size() {return this._map.size}
-    get optimistic() {return false}
-    has_item(id) {return this._map.has(id)}
-    get_item(id) {return this._map.get(id)}
-    get_items() {return [...this._map.values()]}
-    get version() {return this._version}
+    get size() { return this._map.size }
+    get optimistic() { return false }
+    has_item(id) { return this._map.has(id) }
+    get_item(id) { return this._map.get(id) }
+    get_items() { return [...this._map.values()] }
+    get version() { return this._version }
 
     /**
      * application dispatching update to server
      */
-    update_items (changes={}, options={}) {
+    update_items(changes = {}, options = {}) {
         if (this._terminated) {
             throw new Error("collection already terminated")
         }
         // ensure that inserted items have ids
-        const {insert=[]} = changes;
+        const { insert = [] } = changes;
         changes.insert = insert.map((item) => {
             item.id = item.id || random_string(10);
             return item;
@@ -227,12 +225,12 @@ export class ProxyCollection {
     /**
      * application register callback
     */
-    add_callback (handler) {
-        const handle = {handler};
+    add_callback(handler) {
+        const handle = { handler };
         this._handlers.push(handle);
         return handle;
-    };    
-    remove_callback (handle) {
+    };
+    remove_callback(handle) {
         const index = this._handlers.indexOf(handle);
         if (index > -1) {
             this._handlers.splice(index, 1);

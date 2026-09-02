@@ -15,24 +15,39 @@ import { SharedMap } from "../../client/collections/map.js";
 describe("Layer 2 Domain Abstractions Unit Tests", () => {
     function createMockClient() {
         const client = {
-            _weakObjects: new Map(),
-            _coll_map: new Map(),
-            _subs_map: new Map(),
-            _coll_paths: new Set(),
-            _var_coll_paths: new Set(),
+            _providers: new Map(),
+            _collections: new Map(),
+            _variables: new Map(),
+            _subscriptions: new Map(),
             _update: vi.fn().mockResolvedValue({ ok: true }),
-            _get_weak_object(path) {
-                const ref = this._weakObjects.get(path);
+            _get_collection(path) {
+                const ref = this._collections.get(path);
                 return ref ? ref.deref() || null : null;
             },
-            _set_weak_object(path, obj) {
-                this._weakObjects.set(path, new WeakRef(obj));
+            _set_collection(path, coll) {
+                this._collections.set(path, new WeakRef(coll));
             },
-            collection(collPath) {
-                if (!this._coll_map.has(collPath)) {
-                    this._coll_map.set(collPath, new ProxyCollection(this, collPath));
+            _get_variable(path, name) {
+                const varMap = this._variables.get(path);
+                if (varMap) {
+                    const ref = varMap.get(name);
+                    return ref ? ref.deref() || null : null;
                 }
-                return this._coll_map.get(collPath);
+                return null;
+            },
+            _set_variable(path, name, variable) {
+                let varMap = this._variables.get(path);
+                if (!varMap) {
+                    varMap = new Map();
+                    this._variables.set(path, varMap);
+                }
+                varMap.set(name, new WeakRef(variable));
+            },
+            provider(collPath) {
+                if (!this._providers.has(collPath)) {
+                    this._providers.set(collPath, new ProxyCollection(this, collPath));
+                }
+                return this._providers.get(collPath);
             }
         };
         return client;
@@ -66,7 +81,7 @@ describe("Layer 2 Domain Abstractions Unit Tests", () => {
         expect(iInit.value).toBe(42);
 
         // Server sends valid state for iInit
-        const coll = mockClient.collection("/app/store/vars");
+        const coll = mockClient.provider("/app/store/vars");
         coll._ssclient_update({
             insert: [{ id: "iInit", state: 99 }]
         });
@@ -77,7 +92,7 @@ describe("Layer 2 Domain Abstractions Unit Tests", () => {
     test("SharedInteger operations and eventify notifications", async () => {
         const mockClient = createMockClient();
         const num = new SharedInteger(mockClient, "/app/store/vars2", "score");
-        const coll = mockClient.collection("/app/store/vars2");
+        const coll = mockClient.provider("/app/store/vars2");
 
         expect(num.provider).toBe(coll);
         expect(num.value).toBe(0);
@@ -114,7 +129,7 @@ describe("Layer 2 Domain Abstractions Unit Tests", () => {
         const flt = new SharedFloat(mockClient, "/app/store/types", "temp");
         const obj = new SharedObject(mockClient, "/app/store/types", "settings");
         const arr = new SharedArray(mockClient, "/app/store/types", "tags");
-        const coll = mockClient.collection("/app/store/types");
+        const coll = mockClient.provider("/app/store/types");
 
         coll._ssclient_update({
             insert: [

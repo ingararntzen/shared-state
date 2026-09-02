@@ -148,7 +148,7 @@ describe("ProxyCollection Unit Tests", () => {
 
     test("detects version gap and triggers client reconnect", () => {
         const mockClient = createMockClient();
-        mockClient._handle_version_gap = vi.fn();
+        mockClient._reconnect = vi.fn();
         const coll = new ProxyCollection(mockClient, "/app/mitems/chnl");
 
         // Initial version 4
@@ -165,7 +165,7 @@ describe("ProxyCollection Unit Tests", () => {
 
         // Version gap: incoming v7 > local v5 + 1 -> triggers reconnect
         coll._ssclient_update({ version: 7, insert: [{ id: "4" }] });
-        expect(mockClient._handle_version_gap).toHaveBeenCalledWith("/app/mitems/chnl", 5, 7);
+        expect(mockClient._reconnect).toHaveBeenCalledWith("version_gap");
     });
 
     test("conditional option attaches last_version to payload data", async () => {

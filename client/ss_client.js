@@ -1,12 +1,12 @@
 import { WebSocketIO, ConnectionState } from "./wsio.js";
 import { ProxyCollection } from "./ss_collection.js";
 import { OptimisticProxyCollection } from "./ss_optimistic_collection.js";
-import { MsgType, MsgCmd, validatePath } from "./common.js";
+import { MsgType, MsgCmd, normalizePath, validatePath } from "./common.js";
 import { random_string, resolvablePromise } from "./util/util.js";
 
 /**
- * SharedStateClient manages logical network connections, microtask subscription batching,
- * and high-level object binding (SharedMap, SharedInteger, etc.).
+ * SharedStateClient manages logical network connections, subscriptions,
+ * state providers, and application objects.
  */
 export class SharedStateClient {
     /**
@@ -28,21 +28,21 @@ export class SharedStateClient {
         this._ttlMs = options.ttlMs || options.ttl || 10000;
 
         // subscriptions
-        this._subs_map = new Map();
+        this._subscriptions = new Map();
         this._sub_scheduled = false;
 
-        // proxy collections
-        this._coll_map = new Map();
-        this._coll_paths = new Set();
-        this._var_coll_paths = new Set();
+        // state providers (Layer 1)
+        this._providers = new Map();
 
-        // application objects
-        this._weakObjects = new Map();
-        this._app_objects = {};
+        // Shared Abstractions
+        this._collections = new Map(); // path -> WeakRef(Collection)
+        this._variables = new Map();   // path -> Map(name -> WeakRef(Variable))
 
         // connection
         this._connection = new WebSocketIO(url, options);
-        this._setup_connection_handlers();
+        this._connection.on_connect = () => this._on_connect();
+        this._connection.on_disconnect = (evt) => this._on_disconnect(evt);
+        this._connection.on_message = (data) => this._on_message(data);
         this._connection.connect();
     }
 
@@ -59,46 +59,44 @@ export class SharedStateClient {
     }
 
     /**
-     * Initializes or retrieves an existing ProxyCollection instance for a given path.
+     * Initializes or retrieves an existing state provider (ProxyCollection / OptimisticProxyCollection) for a given path.
      * @param {string} rawPath - Target path (e.g. "/app/store/res")
      * @param {Object} [options={}] - Options (e.g. { optimistic: true })
-     * @returns {ProxyCollection} The initialized or cached ProxyCollection
+     * @returns {ProxyCollection} The initialized or cached state provider instance
      */
-    collection(rawPath, options = {}) {
+    provider(rawPath, options = {}) {
         const path = validatePath(rawPath);
 
-        // set up proxy collection
-        if (!this._coll_map.has(path)) {
-            const baseColl = new ProxyCollection(this, path, options);
-            const coll = (options.optimistic ?? true)
-                ? new OptimisticProxyCollection(this, baseColl, options)
-                : baseColl;
-            this._coll_map.set(path, coll);
+        // set up provider
+        if (!this._providers.has(path)) {
+            let providerInstance = new ProxyCollection(this, path, options);
+            if (options.optimistic ?? true) {
+                providerInstance = new OptimisticProxyCollection(this, providerInstance, options);
+            }
+            this._providers.set(path, providerInstance);
         }
 
         // register subscriptions
-        this._subs_map.set(path, {});
+        this._subscriptions.set(path, {});
         this._schedule_sub_sync();
 
-        return this._coll_map.get(path);
+        return this._providers.get(path);
     }
 
     /**
      * Terminates the client: releases all collections and closes the network connection.
      */
     terminate() {
-        for (const [path, ds] of this._coll_map.entries()) {
-            this._subs_map.delete(path);
-            this._coll_paths.delete(path);
-            this._var_coll_paths.delete(path);
-            if (ds !== undefined) {
-                ds._ssclient_terminate();
+        for (const [path, providerInstance] of this._providers.entries()) {
+            this._subscriptions.delete(path);
+            if (providerInstance !== undefined) {
+                providerInstance._ssclient_terminate();
             }
         }
-        this._coll_map.clear();
-        this._weakObjects.clear();
-        this._app_objects = {};
-        this._schedule_sub_sync();
+        this._providers.clear();
+        this._collections.clear();
+        this._variables.clear();
+        this._subscriptions.clear();
         if (this._connection) {
             this._connection.close();
         }
@@ -108,14 +106,6 @@ export class SharedStateClient {
     /************************************************
      *  CONNECTION
      ************************************************/
-
-    _setup_connection_handlers() {
-        this._connection.on_connect = () => this._on_connect();
-        this._connection.on_disconnect = (evt) => this._on_disconnect(evt);
-        this._connection.on_message = (data) => this._on_message(data);
-        this._connection.on_error = (err) => this._on_error(err);
-    }
-
 
     /** Called automatically when WebSocket connects/reconnects. */
     _on_connect() {
@@ -131,20 +121,27 @@ export class SharedStateClient {
         this._pending_updates.clear();
     }
 
-    _on_error(error) { }
-
 
     /************************************************
      *  COMMUNICATION
      ************************************************/
 
-    /** Parses incoming WebSocket messages and routes REPLY or NOTIFY. */
+    /** Parses incoming WebSocket messages, sanitizes structure, and routes REPLY or NOTIFY. */
     _on_message(data) {
         let msg;
         try {
             msg = JSON.parse(data);
         } catch (e) {
             return;
+        }
+
+        if (!msg || typeof msg !== "object") return;
+
+        if (msg.path) {
+            msg.path = normalizePath(msg.path);
+        }
+        if (!msg.tunnel || typeof msg.tunnel !== "object") {
+            msg.tunnel = {};
         }
 
         if (msg.type === MsgType.REPLY) {
@@ -156,33 +153,29 @@ export class SharedStateClient {
 
     /** Resolves pending request promise matching request_count. */
     _handle_reply(msg) {
-        const seq = msg.tunnel ? msg.tunnel.request_count : undefined;
-        if (seq !== undefined && this._pending_requests.has(seq)) {
-            const resolver = this._pending_requests.get(seq);
-            this._pending_requests.delete(seq);
+        const request_count = msg.tunnel.request_count;
+        if (request_count !== undefined && this._pending_requests.has(request_count)) {
+            const resolver = this._pending_requests.get(request_count);
+            this._pending_requests.delete(request_count);
             const { ok, data } = msg;
             resolver({ ok, data });
         }
 
-        if (msg.tunnel && typeof msg.tunnel.update_count === "number" && msg.tunnel.update_count > 0) {
-            this._on_ack(msg.tunnel.update_count, msg.ok !== false, msg.path);
+        const update_count = msg.tunnel.update_count;
+        if (update_count !== undefined) {
+            this._on_ack(update_count, msg.ok !== false, msg.path);
         }
     }
 
-    /** Normalizes path and passes server updates to target ProxyCollection. */
+    /** Passes server updates to target ProxyCollection provider. */
     _handle_notify(msg) {
-        let path = msg.path || "";
-        if (path && !path.startsWith("/")) {
-            path = "/" + path;
+        const update_count = msg.tunnel.update_count;
+        if (update_count !== undefined) {
+            this._on_ack(update_count, true, msg.path);
         }
-
-        if (msg.tunnel && typeof msg.tunnel.update_count === "number" && msg.tunnel.update_count > 0) {
-            this._on_ack(msg.tunnel.update_count, true, path);
-        }
-
-        if (this._coll_map.has(path)) {
-            const coll = this._coll_map.get(path);
-            coll._ssclient_update(msg.data, msg.tunnel);
+        if (this._providers.has(msg.path)) {
+            const providerInstance = this._providers.get(msg.path);
+            providerInstance._ssclient_update(msg.data, msg.tunnel);
         }
     }
 
@@ -224,7 +217,7 @@ export class SharedStateClient {
 
         return promise.then(({ ok, data }) => {
             if (cmd === MsgCmd.PUT && path === "/subs" && ok) {
-                this._subs_map = new Map(data);
+                this._subscriptions = new Map(data);
             }
             return { ok, path, data };
         });
@@ -260,13 +253,13 @@ export class SharedStateClient {
         }
     }
 
-    /** Flushes active subscriptions (_subs_map) to the server in a single PUT /subs request. */
+    /** Flushes active subscriptions (_subscriptions) to the server in a single PUT /subs request. */
     _sync_subs() {
         this._sub_scheduled = false;
         if (this._connection.state !== ConnectionState.CONNECTED) {
             return;
         }
-        const items = Array.from(this._subs_map.entries());
+        const items = Array.from(this._subscriptions.entries());
         const payload = {
             insert: items,
             reset: true
@@ -287,8 +280,7 @@ export class SharedStateClient {
         if (updateCount > this._last_acked_update_count + 1) {
             for (const [count] of this._pending_updates.entries()) {
                 if (count < updateCount) {
-                    console.warn(`Unacked gap detected in pending_updates: count ${count} skipped by ack ${updateCount}. Triggering reconnect.`);
-                    this._handle_version_gap(path, 0, 0);
+                    this._reconnect("ack_gap");
                     break;
                 }
             }
@@ -297,13 +289,10 @@ export class SharedStateClient {
         this._pending_updates.delete(updateCount);
         this._last_acked_update_count = Math.max(this._last_acked_update_count, updateCount);
 
-        let normPath = path || "";
-        if (normPath && !normPath.startsWith("/")) normPath = "/" + normPath;
-
-        if (normPath && this._coll_map.has(normPath)) {
-            const coll = this._coll_map.get(normPath);
-            if (typeof coll._ssclient_ack === "function") {
-                coll._ssclient_ack(updateCount, ok);
+        if (path && this._providers.has(path)) {
+            const providerInstance = this._providers.get(path);
+            if (typeof providerInstance._ssclient_ack === "function") {
+                providerInstance._ssclient_ack(updateCount, ok);
             }
         }
 
@@ -324,15 +313,13 @@ export class SharedStateClient {
         }
 
         if (oldestCount !== null && Date.now() - oldestTs > this._ttlMs) {
-            if (this._connection && this._connection.state === ConnectionState.CONNECTED) {
-                console.warn(`Unacked update ${oldestCount} timed out after ${this._ttlMs}ms. Triggering self-healing reconnect.`);
-                this._handle_version_gap("", 0, 0);
-            }
+            this._reconnect("timeout");
         }
     }
 
-    /** Triggers immediate WebSocket reconnection when a version discontinuity gap is detected. */
-    _handle_version_gap(path, localVer, incomingVer) {
+    /** Triggers immediate WebSocket reconnection when self-healing, ACK gaps, or version gaps occur. */
+    _reconnect(reason = "unknown") {
+        console.warn(`Reconnect (reason: ${reason})`);
         if (this._connection && this._connection.state === ConnectionState.CONNECTED) {
             this._connection.reconnect(true);
         }
@@ -343,21 +330,51 @@ export class SharedStateClient {
      *  APP OBJECTS
      ************************************************/
 
-    _get_weak_object(path) {
-        if (!path) return null;
-        const ref = this._weakObjects.get(path);
+    // path -> WeakRef(Collection)
+    _get_collection(path) {
+        const ref = this._collections.get(path);
         if (ref) {
             const obj = ref.deref();
-            if (obj) return obj;
-            this._weakObjects.delete(path);
-        }
-        return null;
-    }
-
-    _set_weak_object(path, obj) {
-        if (path && obj) {
-            this._weakObjects.set(path, new WeakRef(obj));
+            if (obj) {
+                return obj;
+            } else {
+                this._collections.delete(path);
+            }
         }
     }
 
+    // path -> WeakRef(Collection)
+    _set_collection(path, collection) {
+        this._collections.set(path, new WeakRef(collection));
+    }
+
+
+    // path -> Map(name -> WeakRef(Variable))
+    _get_variable(path, name) {
+        const varMap = this._variables.get(path);
+        if (varMap) {
+            const ref = varMap.get(name);
+            if (ref) {
+                const obj = ref.deref();
+                if (obj) {
+                    return obj;
+                } else {
+                    varMap.delete(name);
+                    if (varMap.size === 0) {
+                        this._variables.delete(path);
+                    }
+                }
+            }
+        }
+    }
+
+    // path -> Map(name -> WeakRef(Variable))
+    _set_variable(path, name, variable) {
+        let varMap = this._variables.get(path);
+        if (!varMap) {
+            varMap = new Map();
+            this._variables.set(path, varMap);
+        }
+        varMap.set(name, new WeakRef(variable));
+    }
 }

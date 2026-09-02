@@ -35,11 +35,11 @@ The `subscription` object is currently empty, but is intended to include **filte
 
 ### Subscription Logic
 
-The SharedState client manages subscriptions internally (in `_subs_map`) and **resets** server-side subscriptions using the following method:
+The SharedState client manages subscriptions internally (in `_subscriptions`) and **resets** server-side subscriptions using the following method:
 
 ```javascript
 _sync_subs() {
-    const subs = Array.from(this._subs_map.entries());
+    const subs = Array.from(this._subscriptions.entries());
     const payload = {
         insert: subs,
         reset: true
@@ -49,8 +49,8 @@ _sync_subs() {
 ```
 
 - The SharedState client automatically **resets** subscriptions whenever the network connection is established or re-established. 
-- If the `_subs_map` is empty, the client is no longer subscribed to any resources.
-- `_subs_map` is initalized when the client loads its resource configuration.
+- If `_subscriptions` is empty, the client is no longer subscribed to any resources.
+- `_subscriptions` is initialized when the client loads its resource configuration.
 
 
 

@@ -63,7 +63,7 @@ describe("Client-Server Integration Tests", () => {
         const { itemsMap } = load(client, {
             itemsMap: { type: "Map", path: "/app/mitems/chnl" }
         });
-        const coll = itemsMap._proxyCollection;
+        const coll = itemsMap.provider;
 
         // 1. Insert items
         const insertRes = await coll.update_items({
@@ -157,12 +157,12 @@ describe("Client-Server Integration Tests", () => {
         clientB.terminate();
     });
 
-    test("client.collection(path) acquires and caches Layer 1 ProxyCollection", async () => {
+    test("client.provider(path) acquires and caches Layer 1 ProxyCollection provider", async () => {
         const client = new SharedStateClient(SERVER_URL);
         await client.connection.connectedPromise();
 
-        const p1 = client.collection("/app/mitems/layer1");
-        const p2 = client.collection("/app/mitems/layer1");
+        const p1 = client.provider("/app/mitems/layer1");
+        const p2 = client.provider("/app/mitems/layer1");
 
         expect(p1).toBeDefined();
         expect(p1).toBe(p2); // Reference equality: idempotent get-or-create
