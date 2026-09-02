@@ -1,8 +1,14 @@
 import { WebSocketIO, ConnectionState } from "./wsio.js";
 import { ProxyCollection } from "./ss_collection.js";
 import { OptimisticProxyCollection } from "./ss_optimistic_collection.js";
-import { SharedMap } from "./collections/map.js";
-import { SharedSet } from "./collections/set.js";
+import {
+    MsgType,
+    MsgCmd,
+    TYPE_REGISTRY,
+    validatePath,
+    resolvablePromise,
+    random_string
+} from "./common.js";
 import {
     SharedBool,
     SharedString,
@@ -12,52 +18,6 @@ import {
     SharedArray,
     Variable
 } from "./variables/variables.js";
-
-/**
- * Registry mapping abstraction names to their implementation constructors.
- */
-export const TYPE_REGISTRY = {
-    Map: SharedMap,
-    Set: SharedSet,
-    Bool: SharedBool,
-    String: SharedString,
-    Integer: SharedInteger,
-    Float: SharedFloat,
-    Object: SharedObject,
-    Array: SharedArray,
-    Variable: Variable
-};
-
-export const MsgType = {
-    REQUEST: "REQUEST",
-    REPLY: "REPLY",
-    NOTIFY: "NOTIFY",
-    MESSAGE: "MESSAGE"
-};
-
-export const MsgCmd = {
-    GET: "GET",
-    PUT: "PUT",
-    NOTIFY: "NOTIFY"
-};
-
-function resolvablePromise() {
-    let resolver, rejecter;
-    const promise = new Promise((resolve, reject) => {
-        resolver = resolve;
-        rejecter = reject;
-    });
-    return [promise, resolver, rejecter];
-}
-
-function random_string(len = 12) {
-    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-    let res = "";
-    for (let i = 0; i < len; i++) {
-        res += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return res;
-}
 
 /**
  * SharedStateClient manages logical network connections, microtask subscription batching,
@@ -91,12 +51,32 @@ export class SharedStateClient {
         // Bound Layer 2 objects: name -> Layer 2 instance (e.g. SharedMap)
         this.objects = {};
 
+        // WeakRef caching for Layer 2 object identity: path -> WeakRef(instance)
+        this._weakObjects = new Map();
+
         // Collision detection tracking sets
         this._coll_paths = new Set();
         this._var_coll_paths = new Set();
 
         this._setup_connection_handlers();
         this._connection.connect();
+    }
+
+    _get_weak_object(path) {
+        if (!path) return null;
+        const ref = this._weakObjects.get(path);
+        if (ref) {
+            const obj = ref.deref();
+            if (obj) return obj;
+            this._weakObjects.delete(path);
+        }
+        return null;
+    }
+
+    _set_weak_object(path, obj) {
+        if (path && obj) {
+            this._weakObjects.set(path, new WeakRef(obj));
+        }
     }
 
     get connection() {
@@ -314,10 +294,7 @@ export class SharedStateClient {
      * @returns {ProxyCollection} The initialized or cached ProxyCollection
      */
     collection(rawPath, options = {}) {
-        if (!rawPath || typeof rawPath !== "string") {
-            throw new Error("client.collection() expects a valid path string.");
-        }
-        const path = rawPath.startsWith("/") ? rawPath : "/" + rawPath;
+        const path = validatePath(rawPath);
 
         // set up proxy collection
         if (!this._coll_map.has(path)) {
@@ -385,50 +362,33 @@ export class SharedStateClient {
                 throw new Error(`Unknown or missing type '${typeName}' for '${name}'. Supported types: ${Object.keys(TYPE_REGISTRY).join(", ")}`);
             }
 
-            if (!rawPath || typeof rawPath !== "string") {
-                throw new Error(`Path missing or invalid for '${name}'.`);
-            }
-
-            const normPath = rawPath.startsWith("/") ? rawPath : "/" + rawPath;
-            const segments = normPath.split("/").filter(Boolean);
-
+            const normPath = validatePath(rawPath);
             const ClassCtor = TYPE_REGISTRY[typeName];
 
-            if (segments.length === 3) {
-                // Collection Type (3 segments: app/store/resource)
-                const collWirePath = normPath;
+            const isVariable = [
+                SharedBool,
+                SharedString,
+                SharedInteger,
+                SharedFloat,
+                SharedObject,
+                SharedArray,
+                Variable
+            ].some(ctor => ClassCtor === ctor || ClassCtor.prototype instanceof Variable);
 
-                if (this._var_coll_paths.has(collWirePath)) {
-                    throw new Error(`Conflict: Cannot register Collection '${name}' at '${rawPath}'. Path is already reserved for Variables.`);
-                }
-
-                this._coll_paths.add(collWirePath);
-                itemsToInstantiate.push({ name, ClassCtor, collWirePath, isVariable: false, options });
-
-            } else if (segments.length === 4) {
-                // Variable Type (4 segments: app/store/resource/itemId)
-                const itemId = segments[3];
-                const collWirePath = "/" + segments.slice(0, 3).join("/");
-
-                if (this._coll_paths.has(collWirePath)) {
-                    throw new Error(`Conflict: Cannot bind Variable '${name}' at '${rawPath}'. Parent collection '${collWirePath}' is already registered as a Collection.`);
-                }
-
-                this._var_coll_paths.add(collWirePath);
-                itemsToInstantiate.push({ name, ClassCtor, collWirePath, isVariable: true, itemId, options });
-
+            if (isVariable) {
+                const varName = def.name || name;
+                itemsToInstantiate.push({ name, ClassCtor, path: normPath, varName, isVariable: true, options });
             } else {
-                throw new Error(`Invalid path '${rawPath}' for '${name}'. Path must have 3 segments (Collection: /app/store/res) or 4 segments (Variable: /app/store/res/item_id).`);
+                itemsToInstantiate.push({ name, ClassCtor, path: normPath, isVariable: false, options });
             }
         }
 
         for (const item of itemsToInstantiate) {
-            const proxyColl = this.collection(item.collWirePath, item.options);
             let obj;
             if (item.isVariable) {
-                obj = new item.ClassCtor(proxyColl, item.itemId, item.options);
+                obj = new item.ClassCtor(this, item.path, item.varName, item.options);
             } else {
-                obj = new item.ClassCtor(proxyColl, item.options);
+                obj = new item.ClassCtor(this, item.path, item.options);
             }
             this.objects[item.name] = obj;
             newObjects[item.name] = obj;
@@ -450,6 +410,7 @@ export class SharedStateClient {
             }
         }
         this._coll_map.clear();
+        this._weakObjects.clear();
         this.objects = {};
 
         this._schedule_sub_sync();

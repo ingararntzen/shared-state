@@ -13,9 +13,8 @@ export function canonicalStringify(val) {
 }
 
 export class SharedSet extends BaseCollection {
-    constructor(proxyCollection, options = {}) {
-        super(proxyCollection);
-        this._options = options;
+    constructor(client, path, options = {}) {
+        super(client, path, options);
         this._keyFn = options.key || options.get_id || null;
         this._elemCache = new Map(); // id -> set element
     }

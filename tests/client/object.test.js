@@ -14,22 +14,40 @@ import { SharedMap } from "../../client/collections/map.js";
 
 describe("Layer 2 Domain Abstractions Unit Tests", () => {
     function createMockClient() {
-        return {
-            update: vi.fn().mockResolvedValue({ ok: true })
+        const client = {
+            _weakObjects: new Map(),
+            _coll_map: new Map(),
+            _subs_map: new Map(),
+            _coll_paths: new Set(),
+            _var_coll_paths: new Set(),
+            update: vi.fn().mockResolvedValue({ ok: true }),
+            _get_weak_object(path) {
+                const ref = this._weakObjects.get(path);
+                return ref ? ref.deref() || null : null;
+            },
+            _set_weak_object(path, obj) {
+                this._weakObjects.set(path, new WeakRef(obj));
+            },
+            collection(collPath) {
+                if (!this._coll_map.has(collPath)) {
+                    this._coll_map.set(collPath, new ProxyCollection(this, collPath));
+                }
+                return this._coll_map.get(collPath);
+            }
         };
+        return client;
     }
 
     test("Variable defaultValues and initialValues", () => {
         const mockClient = createMockClient();
-        const coll = new ProxyCollection(mockClient, "/resources/app/store/vars");
 
-        const v = new Variable(coll, "v1");
-        const b = new SharedBool(coll, "b1");
-        const i = new SharedInteger(coll, "i1");
-        const f = new SharedFloat(coll, "f1");
-        const s = new SharedString(coll, "s1");
-        const o = new SharedObject(coll, "o1");
-        const a = new SharedArray(coll, "a1");
+        const v = new Variable(mockClient, "/app/store/vars", "v1");
+        const b = new SharedBool(mockClient, "/app/store/vars", "b1");
+        const i = new SharedInteger(mockClient, "/app/store/vars", "i1");
+        const f = new SharedFloat(mockClient, "/app/store/vars", "f1");
+        const s = new SharedString(mockClient, "/app/store/vars", "s1");
+        const o = new SharedObject(mockClient, "/app/store/vars", "o1");
+        const a = new SharedArray(mockClient, "/app/store/vars", "a1");
 
         // Verify default values
         expect(v.value).toBeUndefined();
@@ -41,13 +59,14 @@ describe("Layer 2 Domain Abstractions Unit Tests", () => {
         expect(a.value).toEqual([]);
 
         // Verify initialValue options override defaultValue until valid server state arrives
-        const bInit = new SharedBool(coll, "bInit", { initialValue: true });
-        const iInit = new SharedInteger(coll, "iInit", { initialValue: 42 });
+        const bInit = new SharedBool(mockClient, "/app/store/vars", "bInit", { initialValue: true });
+        const iInit = new SharedInteger(mockClient, "/app/store/vars", "iInit", { initialValue: 42 });
 
         expect(bInit.value).toBe(true);
         expect(iInit.value).toBe(42);
 
         // Server sends valid state for iInit
+        const coll = mockClient.collection("/app/store/vars");
         coll._ssclient_update({
             insert: [{ id: "iInit", state: 99 }]
         });
@@ -57,8 +76,8 @@ describe("Layer 2 Domain Abstractions Unit Tests", () => {
 
     test("SharedInteger operations and eventify notifications", async () => {
         const mockClient = createMockClient();
-        const coll = new ProxyCollection(mockClient, "/resources/app/store/vars");
-        const num = new SharedInteger(coll, "score");
+        const num = new SharedInteger(mockClient, "/app/store/vars2", "score");
+        const coll = mockClient.collection("/app/store/vars2");
 
         expect(num.provider).toBe(coll);
         expect(num.value).toBe(0);
@@ -75,14 +94,14 @@ describe("Layer 2 Domain Abstractions Unit Tests", () => {
 
         // Test inc / dec / set
         await num.inc(5);
-        expect(mockClient.update).toHaveBeenCalledWith("/resources/app/store/vars", {
+        expect(mockClient.update).toHaveBeenCalledWith("/app/store/vars2", {
             insert: [{ id: "score", state: 47 }],
             remove: [],
             reset: false
         });
 
         await num.set(100);
-        expect(mockClient.update).toHaveBeenCalledWith("/resources/app/store/vars", {
+        expect(mockClient.update).toHaveBeenCalledWith("/app/store/vars2", {
             insert: [{ id: "score", state: 100 }],
             remove: [],
             reset: false
@@ -91,11 +110,11 @@ describe("Layer 2 Domain Abstractions Unit Tests", () => {
 
     test("SharedString, SharedFloat, SharedObject, and SharedArray", () => {
         const mockClient = createMockClient();
-        const coll = new ProxyCollection(mockClient, "/resources/app/store/vars");
-        const str = new SharedString(coll, "status");
-        const flt = new SharedFloat(coll, "temp");
-        const obj = new SharedObject(coll, "settings");
-        const arr = new SharedArray(coll, "tags");
+        const str = new SharedString(mockClient, "/app/store/types", "status");
+        const flt = new SharedFloat(mockClient, "/app/store/types", "temp");
+        const obj = new SharedObject(mockClient, "/app/store/types", "settings");
+        const arr = new SharedArray(mockClient, "/app/store/types", "tags");
+        const coll = mockClient.collection("/app/store/types");
 
         coll._ssclient_update({
             insert: [
@@ -119,45 +138,68 @@ describe("Layer 2 Domain Abstractions Unit Tests", () => {
     test("SharedSet and SharedMap", async () => {
         const mockClient = createMockClient();
 
-        const setColl = new ProxyCollection(mockClient, "/resources/app/store/members");
-        const setObj = new SharedSet(setColl);
+        const setObj = new SharedSet(mockClient, "/app/store/members");
 
         await setObj.add("alice");
-        expect(mockClient.update).toHaveBeenCalledWith("/resources/app/store/members", {
+        expect(mockClient.update).toHaveBeenCalledWith("/app/store/members", {
             insert: [{ id: '"alice"', state: "alice" }],
             remove: [],
             reset: false
         });
 
         // Test object hashing and equality
-        const setColl2 = new ProxyCollection(mockClient, "/resources/app/store/members2");
-        const setObj2 = new SharedSet(setColl2);
+        const setObj2 = new SharedSet(mockClient, "/app/store/members2");
         await setObj2.add({ b: 2, a: 1 });
-        expect(mockClient.update).toHaveBeenCalledWith("/resources/app/store/members2", {
+        expect(mockClient.update).toHaveBeenCalledWith("/app/store/members2", {
             insert: [{ id: '{"a":1,"b":2}', state: { b: 2, a: 1 } }],
             remove: [],
             reset: false
         });
 
         // Test custom key option
-        const customSetColl = new ProxyCollection(mockClient, "/resources/app/store/custom");
-        const customSet = new SharedSet(customSetColl, { key: (item) => item.sku });
+        const customSet = new SharedSet(mockClient, "/app/store/custom", { key: (item) => item.sku });
 
         await customSet.add({ sku: "PROD-123", name: "Widget" });
-        expect(mockClient.update).toHaveBeenCalledWith("/resources/app/store/custom", {
+        expect(mockClient.update).toHaveBeenCalledWith("/app/store/custom", {
             insert: [{ id: "PROD-123", state: { sku: "PROD-123", name: "Widget" } }],
             remove: [],
             reset: false
         });
 
-        const mapColl = new ProxyCollection(mockClient, "/resources/app/store/config");
-        const mapObj = new SharedMap(mapColl);
+        const mapObj = new SharedMap(mockClient, "/app/store/config");
 
         await mapObj.set("theme", "dark");
-        expect(mockClient.update).toHaveBeenCalledWith("/resources/app/store/config", {
+        expect(mockClient.update).toHaveBeenCalledWith("/app/store/config", {
             insert: [{ id: "theme", state: "dark" }],
             remove: [],
             reset: false
         });
+    });
+
+    test("Direct Layer 2 Instantiation and WeakRef Object Identity & Conflicts", () => {
+        const mockClient = createMockClient();
+
+        const intA = new SharedInteger(mockClient, "/app/mitems/res", "counter");
+        const intB = new SharedInteger(mockClient, "/app/mitems/res", "counter");
+
+        expect(intA).toBeDefined();
+        expect(intA).toBe(intB); // WeakRef identity: intA === intB
+        expect(intA.get()).toBe(0); // get() alias matches .value
+        expect(intA.path).toBe("/app/mitems/res/counter");
+
+        const mapA = new SharedMap(mockClient, "/app/mitems/settings");
+        const mapB = new SharedMap(mockClient, "/app/mitems/settings");
+
+        expect(mapA).toBeDefined();
+        expect(mapA).toBe(mapB); // WeakRef identity: mapA === mapB
+        expect(mapA.path).toBe("/app/mitems/settings");
+
+        // Conflict check: Attempting to create a Variable on a path reserved for Collection
+        expect(() => new SharedInteger(mockClient, "/app/mitems/settings", "counter"))
+            .toThrow("Conflict: Cannot register Variable at '/app/mitems/settings'. Path is already reserved for Collection.");
+
+        // Conflict check: Attempting to create a Collection on a path reserved for Variable
+        expect(() => new SharedMap(mockClient, "/app/mitems/res"))
+            .toThrow("Conflict: Cannot register Collection at '/app/mitems/res'. Path is already reserved for Variables.");
     });
 });

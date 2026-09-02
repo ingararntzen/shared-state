@@ -13,11 +13,30 @@ function createMockClient() {
         _last_acked_update_count: 0,
         _pending_updates: new Map(),
         _coll_map: new Map(),
+        _weakObjects: new Map(),
+        _coll_paths: new Set(),
+        _var_coll_paths: new Set(),
         _ttlMs: 10000,
         _request: vi.fn(),
         _handle_version_gap: vi.fn(),
         _on_ack: SharedStateClient.prototype._on_ack,
-        _check_pending_timeouts: SharedStateClient.prototype._check_pending_timeouts
+        _check_pending_timeouts: SharedStateClient.prototype._check_pending_timeouts,
+        _get_weak_object(path) {
+            const ref = this._weakObjects.get(path);
+            return ref ? ref.deref() || null : null;
+        },
+        _set_weak_object(path, obj) {
+            this._weakObjects.set(path, new WeakRef(obj));
+        },
+        collection(collPath, options = {}) {
+            if (!this._coll_map.has(collPath)) {
+                const baseColl = new ProxyCollection(this, collPath, options);
+                const isOptimistic = options.optimistic ?? true;
+                const coll = isOptimistic ? new OptimisticProxyCollection(this, baseColl, options) : baseColl;
+                this._coll_map.set(collPath, coll);
+            }
+            return this._coll_map.get(collPath);
+        }
     };
     client._request.mockImplementation(async (cmd, path, data) => {
         if (cmd === "PUT" && path !== "/subs") {
@@ -161,14 +180,11 @@ describe("OptimisticProxyCollection Unit Tests", () => {
 
     test("Layer 2 integration (SharedInteger and SharedMap) over OptimisticProxyCollection", async () => {
         const mockClient = createMockClient();
-        const baseColl = new ProxyCollection(mockClient, "/resources/app/store/vars");
-        const specColl = new OptimisticProxyCollection(mockClient, baseColl);
 
-        const num = new SharedInteger(specColl, "score");
-        const mapObj = new SharedMap(specColl);
+        const num = new SharedInteger(mockClient, "/app/store/vars", "score");
+        const mapObj = new SharedMap(mockClient, "/app/store/maps");
 
-        expect(num.provider).toBe(specColl);
-        expect(specColl.provider).toBe(baseColl);
+        expect(num.value).toBe(0);
 
         // Local value update on microtask tick
         num.inc(5);

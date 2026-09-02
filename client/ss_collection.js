@@ -1,4 +1,4 @@
-import { random_string, resolvablePromise } from "./util/util.js";
+import { random_string, resolvablePromise } from "./common.js";
 
 export class UpdateBuilder {
     constructor(proxyCollection) {
@@ -105,6 +105,10 @@ export class ProxyCollection {
         this._version = 0;
         // microtask batch update builder
         this._builder = new UpdateBuilder(this);
+    }
+
+    get path() {
+        return this._path;
     }
 
     /*********************************************************

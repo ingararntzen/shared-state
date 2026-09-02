@@ -106,7 +106,7 @@ describe("Client-Server Integration Tests", () => {
         await client.connection.connectedPromise();
 
         const { counter, settings } = client.load({
-            counter: { type: "Integer", path: "/app/mitems/counter_chnl/counter" },
+            counter: { type: "Integer", path: "/app/mitems/counter_chnl" },
             settings: { type: "Map", path: "/app/mitems/settings_chnl" }
         });
 
