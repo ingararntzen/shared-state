@@ -255,9 +255,9 @@
         const wsUrl = `ws://${location.hostname || "127.0.0.1"}:${location.port || 9000}`;
         const client = new SharedStateClient(wsUrl);
 
-        // Load SharedMap via client.load() with local_update enabled for 0ms speculative updates
+        // Load SharedMap via client.load() with optimistic enabled for 0ms optimistic updates
         const { demoMap } = client.load({
-            demoMap: { type: "Map", path: "/app/mitems/chnl", local_update: true }
+            demoMap: { type: "Map", path: "/app/mitems/chnl", optimistic: true }
         });
 
         const viewerEl = document.querySelector("#viewer");

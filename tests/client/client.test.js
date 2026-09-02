@@ -155,4 +155,17 @@ describe("Client-Server Integration Tests", () => {
         clientA.terminate();
         clientB.terminate();
     });
+
+    test("client.collection(path) acquires and caches Layer 1 ProxyCollection", async () => {
+        const client = new SharedStateClient(SERVER_URL);
+        await client.connection.connectedPromise();
+
+        const p1 = client.collection("/app/mitems/layer1");
+        const p2 = client.collection("/app/mitems/layer1");
+
+        expect(p1).toBeDefined();
+        expect(p1).toBe(p2); // Reference equality: idempotent get-or-create
+
+        client.terminate();
+    });
 });

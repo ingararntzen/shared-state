@@ -1,6 +1,6 @@
 import { random_string } from "./util/util.js";
 
-export class SpeculativeProxyCollection {
+export class OptimisticProxyCollection {
     constructor(ssclient, proxyCollection, options = {}) {
         this._ssclient = ssclient;
         this._proxyCollection = proxyCollection;
@@ -20,6 +20,10 @@ export class SpeculativeProxyCollection {
 
     get size() {
         return this.get_items().length;
+    }
+
+    get optimistic() {
+        return true;
     }
 
     get version() {

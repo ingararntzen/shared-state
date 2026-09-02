@@ -1,6 +1,6 @@
 import { WebSocketIO, ConnectionState } from "./wsio.js";
 import { ProxyCollection } from "./ss_collection.js";
-import { SpeculativeProxyCollection } from "./ss_speculative_collection.js";
+import { OptimisticProxyCollection } from "./ss_optimistic_collection.js";
 import { SharedMap } from "./collections/map.js";
 import { SharedSet } from "./collections/set.js";
 import {
@@ -168,9 +168,8 @@ export class SharedStateClient {
     /** Normalizes path and passes server updates to target ProxyCollection. */
     _handle_notify(msg) {
         let path = msg.path || "";
-        path = path.startsWith("/") ? path : "/" + path;
-        if (!path.startsWith("/resources/")) {
-            path = "/resources" + path;
+        if (path && !path.startsWith("/")) {
+            path = "/" + path;
         }
 
         if (msg.tunnel && typeof msg.tunnel.update_count === "number" && msg.tunnel.update_count > 0) {
@@ -203,7 +202,6 @@ export class SharedStateClient {
 
         let normPath = path || "";
         if (normPath && !normPath.startsWith("/")) normPath = "/" + normPath;
-        if (normPath && !normPath.startsWith("/resources/")) normPath = "/resources" + normPath;
 
         if (normPath && this._coll_map.has(normPath)) {
             const coll = this._coll_map.get(normPath);
@@ -310,70 +308,31 @@ export class SharedStateClient {
     }
 
     /**
-     * Acquires and caches ProxyCollection instances for a batch of path specs.
-     * @param {Array<{path: string, options?: Object}>} specs
-     * @returns {Map<string, ProxyCollection>} Map of normalized wire path -> ProxyCollection
+     * Initializes or retrieves an existing ProxyCollection instance for a given path.
+     * @param {string} rawPath - Target path (e.g. "/app/store/res")
+     * @param {Object} [options={}] - Options (e.g. { optimistic: true })
+     * @returns {ProxyCollection} The initialized or cached ProxyCollection
      */
-    _acquire_collections(specs = []) {
-        const acquired = new Map();
+    collection(rawPath, options = {}) {
+        if (!rawPath || typeof rawPath !== "string") {
+            throw new Error("client.collection() expects a valid path string.");
+        }
+        const path = rawPath.startsWith("/") ? rawPath : "/" + rawPath;
 
-        for (const spec of specs) {
-            const rawPath = spec.path;
-            const options = spec.options || {};
-            const localUpdate = options.local_update ?? true;
-
-            let path = rawPath.startsWith("/") ? rawPath : "/" + rawPath;
-            if (!path.startsWith("/resources/")) {
-                path = "/resources" + path;
-            }
-
-            this._subs_map.set(path, {});
-
-            if (!this._coll_map.has(path)) {
-                const baseColl = new ProxyCollection(this, path, options);
-                const coll = localUpdate
-                    ? new SpeculativeProxyCollection(this, baseColl, options)
-                    : baseColl;
-                this._coll_map.set(path, coll);
-            }
-
-            acquired.set(path, this._coll_map.get(path));
+        // set up proxy collection
+        if (!this._coll_map.has(path)) {
+            const baseColl = new ProxyCollection(this, path, options);
+            const coll = (options.optimistic ?? true)
+                ? new OptimisticProxyCollection(this, baseColl, options)
+                : baseColl;
+            this._coll_map.set(path, coll);
         }
 
+        // register subscriptions
+        this._subs_map.set(path, {});
         this._schedule_sub_sync();
-        return acquired;
-    }
 
-    /**
-     * Releases specified collection paths (or all active collections if paths is null).
-     * @param {Array<string>|null} [paths]
-     */
-    _release_collections(paths = null) {
-        const targetPaths = paths || Array.from(this._coll_map.keys());
-
-        for (const path of targetPaths) {
-            this._subs_map.delete(path);
-            this._coll_paths.delete(path);
-            this._var_coll_paths.delete(path);
-
-            const ds = this._coll_map.get(path);
-            if (ds !== undefined) {
-                ds._ssclient_terminate();
-            }
-            this._coll_map.delete(path);
-        }
-
-        if (!paths) {
-            this.objects = {};
-        } else {
-            for (const [name, obj] of Object.entries(this.objects)) {
-                if (obj._proxyCollection && targetPaths.includes(obj._proxyCollection.path)) {
-                    delete this.objects[name];
-                }
-            }
-        }
-
-        this._schedule_sub_sync();
+        return this._coll_map.get(path);
     }
 
     /*********************************************************************
@@ -399,7 +358,7 @@ export class SharedStateClient {
 
     /**
      * Configures and loads Layer-2 abstraction objects (SharedMap, SharedInteger, etc.).
-     * @param {Object<string, {type: string, path: string, options?: Object, local_update?: boolean}>} config
+     * @param {Object<string, {type: string, path: string, options?: Object, optimistic?: boolean}>} config
      * @returns {Object<string, *>} Map of bound abstraction instances
      */
     load(config) {
@@ -408,7 +367,6 @@ export class SharedStateClient {
         }
 
         const newObjects = {};
-        const specs = [];
         const itemsToInstantiate = [];
 
         for (const [name, def] of Object.entries(config)) {
@@ -419,8 +377,8 @@ export class SharedStateClient {
             const typeName = def.type;
             const rawPath = def.path;
             const options = def.options || {};
-            if (def.local_update !== undefined) {
-                options.local_update = def.local_update;
+            if (def.optimistic !== undefined) {
+                options.optimistic = def.optimistic;
             }
 
             if (!typeName || !TYPE_REGISTRY[typeName]) {
@@ -431,36 +389,32 @@ export class SharedStateClient {
                 throw new Error(`Path missing or invalid for '${name}'.`);
             }
 
-            let normPath = rawPath.startsWith("/") ? rawPath : "/" + rawPath;
-            let cleanPath = normPath.startsWith("/resources/") ? normPath.slice(10) : (normPath.startsWith("/resources") ? normPath.slice(10) : normPath);
-            const segments = cleanPath.split("/").filter(Boolean);
+            const normPath = rawPath.startsWith("/") ? rawPath : "/" + rawPath;
+            const segments = normPath.split("/").filter(Boolean);
 
             const ClassCtor = TYPE_REGISTRY[typeName];
 
             if (segments.length === 3) {
                 // Collection Type (3 segments: app/store/resource)
-                const collWirePath = normPath.startsWith("/resources/") ? normPath : "/resources" + normPath;
+                const collWirePath = normPath;
 
                 if (this._var_coll_paths.has(collWirePath)) {
                     throw new Error(`Conflict: Cannot register Collection '${name}' at '${rawPath}'. Path is already reserved for Variables.`);
                 }
 
                 this._coll_paths.add(collWirePath);
-                specs.push({ path: collWirePath, options });
                 itemsToInstantiate.push({ name, ClassCtor, collWirePath, isVariable: false, options });
 
             } else if (segments.length === 4) {
                 // Variable Type (4 segments: app/store/resource/itemId)
                 const itemId = segments[3];
-                const collPathStr = "/" + segments.slice(0, 3).join("/");
-                const collWirePath = "/resources" + collPathStr;
+                const collWirePath = "/" + segments.slice(0, 3).join("/");
 
                 if (this._coll_paths.has(collWirePath)) {
-                    throw new Error(`Conflict: Cannot bind Variable '${name}' at '${rawPath}'. Parent collection '${collPathStr}' is already registered as a Collection.`);
+                    throw new Error(`Conflict: Cannot bind Variable '${name}' at '${rawPath}'. Parent collection '${collWirePath}' is already registered as a Collection.`);
                 }
 
                 this._var_coll_paths.add(collWirePath);
-                specs.push({ path: collWirePath, options });
                 itemsToInstantiate.push({ name, ClassCtor, collWirePath, isVariable: true, itemId, options });
 
             } else {
@@ -468,10 +422,8 @@ export class SharedStateClient {
             }
         }
 
-        const acquiredMaps = this._acquire_collections(specs);
-
         for (const item of itemsToInstantiate) {
-            const proxyColl = acquiredMaps.get(item.collWirePath);
+            const proxyColl = this.collection(item.collWirePath, item.options);
             let obj;
             if (item.isVariable) {
                 obj = new item.ClassCtor(proxyColl, item.itemId, item.options);
@@ -489,7 +441,19 @@ export class SharedStateClient {
      * Terminates the client session: releases all collections and closes the network connection.
      */
     terminate() {
-        this._release_collections();
+        for (const [path, ds] of this._coll_map.entries()) {
+            this._subs_map.delete(path);
+            this._coll_paths.delete(path);
+            this._var_coll_paths.delete(path);
+            if (ds !== undefined) {
+                ds._ssclient_terminate();
+            }
+        }
+        this._coll_map.clear();
+        this.objects = {};
+
+        this._schedule_sub_sync();
+
         if (this._connection) {
             this._connection.close();
         }

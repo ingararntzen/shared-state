@@ -1,6 +1,6 @@
 import { describe, test, expect, vi } from "vitest";
 import { ProxyCollection } from "../../client/ss_collection.js";
-import { SpeculativeProxyCollection } from "../../client/ss_speculative_collection.js";
+import { OptimisticProxyCollection } from "../../client/ss_optimistic_collection.js";
 import { SharedInteger } from "../../client/variables/variables.js";
 import { SharedMap } from "../../client/collections/map.js";
 
@@ -29,13 +29,15 @@ function createMockClient() {
     return client;
 }
 
-describe("SpeculativeProxyCollection Unit Tests", () => {
-    test("instantiates SpeculativeProxyCollection wrapping ProxyCollection", () => {
+describe("OptimisticProxyCollection Unit Tests", () => {
+    test("instantiates OptimisticProxyCollection wrapping ProxyCollection and reports optimistic property", () => {
         const mockClient = createMockClient();
-        const baseColl = new ProxyCollection(mockClient, "/resources/app/store/res1");
-        const specColl = new SpeculativeProxyCollection(mockClient, baseColl);
+        const baseColl = new ProxyCollection(mockClient, "/app/store/res1");
+        const specColl = new OptimisticProxyCollection(mockClient, baseColl);
 
-        expect(specColl.path).toBe("/resources/app/store/res1");
+        expect(baseColl.optimistic).toBe(false);
+        expect(specColl.optimistic).toBe(true);
+        expect(specColl.path).toBe("/app/store/res1");
         expect(specColl.provider).toBe(baseColl);
         expect(specColl.size).toBe(0);
     });
@@ -43,7 +45,7 @@ describe("SpeculativeProxyCollection Unit Tests", () => {
     test("speculative queries (get_item, has_item, size, get_items) overlay server state on microtask tick", async () => {
         const mockClient = createMockClient();
         const baseColl = new ProxyCollection(mockClient, "/resources/app/store/res1");
-        const specColl = new SpeculativeProxyCollection(mockClient, baseColl);
+        const specColl = new OptimisticProxyCollection(mockClient, baseColl);
 
         // Populate base collection with server snapshot
         baseColl._ssclient_update({
@@ -82,7 +84,7 @@ describe("SpeculativeProxyCollection Unit Tests", () => {
     test("speculative deletion via tombstone", async () => {
         const mockClient = createMockClient();
         const baseColl = new ProxyCollection(mockClient, "/resources/app/store/members");
-        const specColl = new SpeculativeProxyCollection(mockClient, baseColl);
+        const specColl = new OptimisticProxyCollection(mockClient, baseColl);
 
         baseColl._ssclient_update({ insert: [{ id: "alice", state: "active" }] });
         expect(specColl.has_item("alice")).toBe(true);
@@ -101,7 +103,7 @@ describe("SpeculativeProxyCollection Unit Tests", () => {
     test("1 + N sequence-based eviction when server ACK arrives", async () => {
         const mockClient = createMockClient();
         const baseColl = new ProxyCollection(mockClient, "/resources/app/store/vars");
-        const specColl = new SpeculativeProxyCollection(mockClient, baseColl);
+        const specColl = new OptimisticProxyCollection(mockClient, baseColl);
 
         // Local edit 1 in tick 1
         const p1 = specColl.update_items({ insert: [{ id: "score", state: 10 }] });
@@ -138,7 +140,7 @@ describe("SpeculativeProxyCollection Unit Tests", () => {
     test("remote client edit updates base collection while local speculative overlay stays active", async () => {
         const mockClient = createMockClient();
         const baseColl = new ProxyCollection(mockClient, "/resources/app/store/vars");
-        const specColl = new SpeculativeProxyCollection(mockClient, baseColl);
+        const specColl = new OptimisticProxyCollection(mockClient, baseColl);
 
         // Local edit at update_count 1
         specColl.update_items({ insert: [{ id: "score", state: 50 }] });
@@ -157,10 +159,10 @@ describe("SpeculativeProxyCollection Unit Tests", () => {
         expect(specColl.get_item("score")).toEqual({ id: "score", state: 50 });
     });
 
-    test("Layer 2 integration (SharedInteger and SharedMap) over SpeculativeProxyCollection", async () => {
+    test("Layer 2 integration (SharedInteger and SharedMap) over OptimisticProxyCollection", async () => {
         const mockClient = createMockClient();
         const baseColl = new ProxyCollection(mockClient, "/resources/app/store/vars");
-        const specColl = new SpeculativeProxyCollection(mockClient, baseColl);
+        const specColl = new OptimisticProxyCollection(mockClient, baseColl);
 
         const num = new SharedInteger(specColl, "score");
         const mapObj = new SharedMap(specColl);
@@ -181,7 +183,7 @@ describe("SpeculativeProxyCollection Unit Tests", () => {
     test("REPLY(ok: false) evicts speculative overlay and reverts UI state immediately", async () => {
         const mockClient = createMockClient();
         const baseColl = new ProxyCollection(mockClient, "/resources/app/store/vars");
-        const specColl = new SpeculativeProxyCollection(mockClient, baseColl);
+        const specColl = new OptimisticProxyCollection(mockClient, baseColl);
         mockClient._coll_map.set("/resources/app/store/vars", specColl);
 
         // Client performs speculative update

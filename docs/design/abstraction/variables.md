@@ -1,6 +1,6 @@
-# Variables
+# Shared Variable
 
-> Variables are programming abstractions representing a single value or object. 
+> Variable is a programing abstraction for a shared entity representing a single value or object. 
 
 
 ---

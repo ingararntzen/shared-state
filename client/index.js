@@ -1,7 +1,7 @@
 export { SharedStateClient } from "./ss_client.js";
 export { ConnectionState } from "./wsio.js";
 export { ProxyCollection } from "./ss_collection.js";
-export { SpeculativeProxyCollection } from "./ss_speculative_collection.js";
+export { OptimisticProxyCollection } from "./ss_optimistic_collection.js";
 export { BaseVariable } from "./variables/base_variable.js";
 export {
     Variable,
