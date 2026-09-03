@@ -3,7 +3,7 @@ import { ProxyCollection } from "../../client/provider.js";
 import {
     SharedVariable,
     SharedTypedVariable,
-    VarType,
+    VariableType,
     SharedBool,
     SharedInteger,
     SharedFloat,
@@ -81,9 +81,9 @@ describe("Layer 2 Domain Abstractions Unit Tests", () => {
         const iCustomDef = new SharedInteger(mockClient, "/app/store/vars", "iCustomDef", { allowUndefined: false, defaultValue: 100 });
         expect(iCustomDef.value).toBe(100);
 
-        // Verify direct SharedTypedVariable instantiation with VarType enum
-        const customTyped = new SharedTypedVariable(mockClient, "/app/store/vars", "cTyped", VarType.INTEGER, { allowUndefined: false, defaultValue: 250 });
-        expect(customTyped.type).toBe(VarType.INTEGER);
+        // Verify direct SharedTypedVariable instantiation with VariableType enum
+        const customTyped = new SharedTypedVariable(mockClient, "/app/store/vars", "cTyped", VariableType.INTEGER, { allowUndefined: false, defaultValue: 250 });
+        expect(customTyped.type).toBe(VariableType.INTEGER);
         expect(customTyped.value).toBe(250);
 
         // Verify default allowUndefined: true returns undefined when no item or initialValue is present
@@ -179,7 +179,29 @@ describe("Layer 2 Domain Abstractions Unit Tests", () => {
         });
     });
 
-    test("SharedSet and SharedMap", async () => {
+    test("SharedTypedVariable set() type validation and allowUndefined enforcement", async () => {
+        const mockClient = createMockClient();
+
+        const num = new SharedInteger(mockClient, "/app/store/vars3", "score", { allowUndefined: false });
+        const str = new SharedString(mockClient, "/app/store/vars3", "name");
+
+        // Invalid type throws TypeError
+        expect(() => num.set("not_a_number")).toThrow(TypeError);
+        expect(() => str.set(12345)).toThrow(TypeError);
+
+        // Setting undefined when allowUndefined: false throws TypeError
+        expect(() => num.set(undefined)).toThrow("Cannot set value of 'score' to undefined when allowUndefined is false.");
+
+        // Valid type or string integer representation passes validation
+        await num.set("42");
+        expect(mockClient._update).toHaveBeenCalledWith("/app/store/vars3", {
+            insert: [{ id: "score", state: 42 }],
+            remove: [],
+            reset: false
+        });
+    });
+
+    test("SharedSet and SharedMap iteration methods", async () => {
         const mockClient = createMockClient();
 
         const setObj = new SharedSet(mockClient, "/app/store/members");
@@ -198,6 +220,43 @@ describe("Layer 2 Domain Abstractions Unit Tests", () => {
             remove: [],
             reset: false
         });
+
+        // Provider data update for mapObj and setObj
+        const mapProvider = mockClient.provider("/app/store/dict");
+        mapProvider._client_update({
+            insert: [
+                { id: "k1", state: "v1" },
+                { id: "k2", state: "v2" }
+            ]
+        });
+
+        const setProvider = mockClient.provider("/app/store/members");
+        setProvider._client_update({
+            insert: [
+                { id: '"user1"', state: "user1" },
+                { id: '"user2"', state: "user2" }
+            ]
+        });
+
+        // Test SharedMap iteration methods
+        expect(mapObj.keys()).toEqual(["k1", "k2"]);
+        expect(mapObj.values()).toEqual(["v1", "v2"]);
+        expect(mapObj.entries()).toEqual([["k1", "v1"], ["k2", "v2"]]);
+        expect([...mapObj]).toEqual([["k1", "v1"], ["k2", "v2"]]);
+
+        const mapEntries = [];
+        mapObj.forEach((val, key) => mapEntries.push([key, val]));
+        expect(mapEntries).toEqual([["k1", "v1"], ["k2", "v2"]]);
+
+        // Test SharedSet iteration methods
+        expect(setObj.keys()).toEqual(["user1", "user2"]);
+        expect(setObj.values()).toEqual(["user1", "user2"]);
+        expect(setObj.entries()).toEqual([["user1", "user1"], ["user2", "user2"]]);
+        expect([...setObj]).toEqual(["user1", "user2"]);
+
+        const setValues = [];
+        setObj.forEach(val => setValues.push(val));
+        expect(setValues).toEqual(["user1", "user2"]);
     });
 
     test("Direct Layer 2 Instantiation and Property Access", () => {

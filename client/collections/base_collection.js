@@ -3,26 +3,22 @@ import { BaseAbstraction } from "../base_abstraction.js";
 export class BaseCollection extends BaseAbstraction {
     constructor(client, path, options = {}) {
         super(client, path, options);
+
+        this.provider.add_callback((changes) => {
+            this._on_provider_update(changes);
+        });
     }
 
     _on_provider_update(changes) {
-        const formatted = this._formatChanges ? this._formatChanges(changes) : changes;
-        this.emit("change", formatted);
+        this.emit("change", changes);
     }
 
     get_state(name) {
         if (name === "change") {
             const items = this._provider.get_items();
-            return { remove: [], insert: items, reset: true };
+            const insert = new Map(items.map((item) => { return [item.id, item] }));
+            return { remove: new Set(), insert, reset: true };
         }
         return null;
-    }
-
-    get size() {
-        return this._provider.size;
-    }
-
-    get_items() {
-        return this._provider.get_items();
     }
 }

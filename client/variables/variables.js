@@ -1,35 +1,23 @@
 import { SharedVariable } from "./shared_variable.js";
-import { SharedTypedVariable, VarType } from "./shared_typed_variable.js";
+import { SharedTypedVariable, VariableType } from "./shared_typed_variable.js";
 
-export { SharedVariable, SharedTypedVariable, VarType };
+export { SharedVariable, SharedTypedVariable, VariableType };
 
 export class SharedBool extends SharedTypedVariable {
     constructor(client, path, name, options = {}) {
-        super(client, path, name, VarType.BOOL, options);
-    }
-
-    set(val) {
-        return super.set(Boolean(val));
+        super(client, path, name, VariableType.BOOL, options);
     }
 }
 
 export class SharedString extends SharedTypedVariable {
     constructor(client, path, name, options = {}) {
-        super(client, path, name, VarType.STRING, options);
-    }
-
-    set(val) {
-        return super.set(String(val));
+        super(client, path, name, VariableType.STRING, options);
     }
 }
 
 export class SharedInteger extends SharedTypedVariable {
     constructor(client, path, name, options = {}) {
-        super(client, path, name, VarType.INTEGER, options);
-    }
-
-    set(val) {
-        return super.set(Math.round(Number(val) || 0));
+        super(client, path, name, VariableType.INTEGER, options);
     }
 
     inc(delta = 1) {
@@ -45,11 +33,7 @@ export class SharedInteger extends SharedTypedVariable {
 
 export class SharedFloat extends SharedTypedVariable {
     constructor(client, path, name, options = {}) {
-        super(client, path, name, VarType.FLOAT, options);
-    }
-
-    set(val) {
-        return super.set(Number(val) || 0.0);
+        super(client, path, name, VariableType.FLOAT, options);
     }
 
     inc(delta = 1.0) {
@@ -65,26 +49,12 @@ export class SharedFloat extends SharedTypedVariable {
 
 export class SharedObject extends SharedTypedVariable {
     constructor(client, path, name, options = {}) {
-        super(client, path, name, VarType.OBJECT, options);
-    }
-
-    set(val) {
-        if (typeof val !== "object" || val === null || Array.isArray(val)) {
-            throw new TypeError("SharedObject value must be an object ({})");
-        }
-        return super.set(val);
+        super(client, path, name, VariableType.OBJECT, options);
     }
 }
 
 export class SharedArray extends SharedTypedVariable {
     constructor(client, path, name, options = {}) {
-        super(client, path, name, VarType.ARRAY, options);
-    }
-
-    set(val) {
-        if (!Array.isArray(val)) {
-            throw new TypeError("SharedArray value must be an array ([])");
-        }
-        return super.set(val);
+        super(client, path, name, VariableType.ARRAY, options);
     }
 }

@@ -3,7 +3,7 @@ import { BaseVariable } from "./base_variable.js";
 /**
  * Enum for supported shared variable data types.
  */
-export const VarType = {
+export const VariableType = {
     BOOL: "BOOL",
     STRING: "STRING",
     INTEGER: "INTEGER",
@@ -16,7 +16,7 @@ export const VarType = {
  * Type-specific default values and validation rules.
  */
 const TYPE_CONFIG = {
-    [VarType.BOOL]: {
+    [VariableType.BOOL]: {
         default: false,
         validate(val) {
             if (typeof val === "boolean") return val;
@@ -25,13 +25,13 @@ const TYPE_CONFIG = {
             return undefined;
         }
     },
-    [VarType.STRING]: {
+    [VariableType.STRING]: {
         default: "",
         validate(val) {
             return typeof val === "string" ? val : undefined;
         }
     },
-    [VarType.INTEGER]: {
+    [VariableType.INTEGER]: {
         default: 0,
         validate(val) {
             if (typeof val === "number" && Number.isInteger(val)) return val;
@@ -42,7 +42,7 @@ const TYPE_CONFIG = {
             return undefined;
         }
     },
-    [VarType.FLOAT]: {
+    [VariableType.FLOAT]: {
         default: 0.0,
         validate(val) {
             if (typeof val === "number" && !isNaN(val)) return val;
@@ -53,7 +53,7 @@ const TYPE_CONFIG = {
             return undefined;
         }
     },
-    [VarType.OBJECT]: {
+    [VariableType.OBJECT]: {
         default: {},
         validate(val) {
             if (typeof val === "object" && val !== null && !Array.isArray(val)) {
@@ -62,14 +62,13 @@ const TYPE_CONFIG = {
             return undefined;
         }
     },
-    [VarType.ARRAY]: {
+    [VariableType.ARRAY]: {
         default: [],
         validate(val) {
             return Array.isArray(val) ? val : undefined;
         }
     }
 };
-
 
 /**
  * Base class for typed shared variables.
@@ -110,8 +109,22 @@ export class SharedTypedVariable extends BaseVariable {
 
     // public
     set(val) {
+        if (val === undefined) {
+            if (!this._allowUndefined) {
+                throw new TypeError(`Cannot set value of '${this.name}' to undefined when allowUndefined is false.`);
+            }
+            return this.provider.update_items({
+                insert: [{ id: this.name, state: undefined }]
+            });
+        }
+
+        const value = this._typeConfig.validate(val);
+        if (value === undefined) {
+            throw new TypeError("Illegal value for type: " + val);
+        }
+
         return this.provider.update_items({
-            insert: [{ id: this.name, state: val }]
+            insert: [{ id: this.name, state: value }]
         });
     }
 

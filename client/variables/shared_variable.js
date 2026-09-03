@@ -18,7 +18,6 @@ export class SharedVariable extends BaseVariable {
         });
     }
 
-
     _refresh_value() {
         const item = this._provider.get_item(this._itemId);
         this._value = item ? item.state : undefined;

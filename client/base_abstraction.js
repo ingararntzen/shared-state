@@ -17,6 +17,7 @@ export class BaseAbstraction {
     }
 
     get path() { return this._provider.path; }
+    get normPath() { return this._normPath; }
     get provider() { return this._provider; }
     get client() { return this._client; }
 }

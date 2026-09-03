@@ -19,4 +19,31 @@ export class SharedMap extends BaseCollection {
     has(key) {
         return this._provider.has_item(key);
     }
+
+    keys() {
+        return this._provider.get_items().map(item => item.id);
+    }
+
+    values() {
+        return this._provider.get_items().map(item =>
+            item.state !== undefined ? item.state : item.value
+        );
+    }
+
+    entries() {
+        return this._provider.get_items().map(item => [
+            item.id,
+            item.state !== undefined ? item.state : item.value
+        ]);
+    }
+
+    forEach(callback, thisArg) {
+        for (const [key, val] of this.entries()) {
+            callback.call(thisArg, val, key, this);
+        }
+    }
+
+    [Symbol.iterator]() {
+        return this.entries()[Symbol.iterator]();
+    }
 }
