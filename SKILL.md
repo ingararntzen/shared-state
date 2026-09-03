@@ -123,7 +123,7 @@ coll.remove_callback(handle);
 
 Proxy Objects manage a set of items (an array) stored within a single server-side item on the service.
 
-The ProxyObject interface implements the same querying methods as ProxyCollections:
+The ProxyObject interface implements the same querying methods as ItemProviders:
 
 * `set_items(items)`: Sets the entire array of items. Returns a Promise resolved after the set operation has taken effect on the server.
 * `get_items()`: Returns all items in the array.
@@ -155,7 +155,7 @@ const item = myobj.get_item("sub_id_1");
 
 ### Callbacks for Proxy Objects
 
-Like ProxyCollections, changes are reported through callback subscriptions.
+Like ItemProviders, changes are reported through callback subscriptions.
 
 ```javascript
 const handle = myobj.add_callback((diff) => {

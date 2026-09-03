@@ -1,7 +1,7 @@
 import { describe, test, expect, vi } from "vitest";
-import { ProxyCollection } from "../../client/provider.js";
+import { ItemProvider } from "../../client/provider.js";
 
-describe("ProxyCollection Unit Tests", () => {
+describe("ItemProvider Unit Tests", () => {
     function createMockClient() {
         return {
             _update: vi.fn().mockResolvedValue({ ok: true })
@@ -10,7 +10,7 @@ describe("ProxyCollection Unit Tests", () => {
 
     test("initial state is empty", () => {
         const mockClient = createMockClient();
-        const coll = new ProxyCollection(mockClient, "/app/mitems/chnl");
+        const coll = new ItemProvider(mockClient, "/app/mitems/chnl");
         expect(coll.size).toBe(0);
         expect(coll.get_items()).toEqual([]);
         expect(coll.has_item("1")).toBe(false);
@@ -19,7 +19,7 @@ describe("ProxyCollection Unit Tests", () => {
 
     test("handles insert, replace, and delete updates with callback diffs", () => {
         const mockClient = createMockClient();
-        const coll = new ProxyCollection(mockClient, "/app/mitems/chnl");
+        const coll = new ItemProvider(mockClient, "/app/mitems/chnl");
 
         const callback = vi.fn();
         coll.add_callback(callback);
@@ -73,7 +73,7 @@ describe("ProxyCollection Unit Tests", () => {
 
     test("handles reset update", () => {
         const mockClient = createMockClient();
-        const coll = new ProxyCollection(mockClient, "/app/mitems/chnl");
+        const coll = new ItemProvider(mockClient, "/app/mitems/chnl");
 
         coll._client_update({
             insert: [{ id: "i1", val: 1 }, { id: "i2", val: 2 }]
@@ -96,7 +96,7 @@ describe("ProxyCollection Unit Tests", () => {
 
     test("update_items auto-generates id if missing and delegates to client", async () => {
         const mockClient = createMockClient();
-        const coll = new ProxyCollection(mockClient, "/app/mitems/chnl");
+        const coll = new ItemProvider(mockClient, "/app/mitems/chnl");
 
         const p = coll.update_items({ insert: [{ data: "no_id" }] });
         await p;
@@ -111,7 +111,7 @@ describe("ProxyCollection Unit Tests", () => {
 
     test("termination prevents updates", () => {
         const mockClient = createMockClient();
-        const coll = new ProxyCollection(mockClient, "/app/mitems/chnl");
+        const coll = new ItemProvider(mockClient, "/app/mitems/chnl");
 
         coll._client_terminate();
 
@@ -126,7 +126,7 @@ describe("ProxyCollection Unit Tests", () => {
 
     test("batches multiple synchronous update_items calls into 1 microtask request", async () => {
         const mockClient = createMockClient();
-        const coll = new ProxyCollection(mockClient, "/app/mitems/chnl");
+        const coll = new ItemProvider(mockClient, "/app/mitems/chnl");
 
         const p1 = coll.update_items({ insert: [{ id: "item1", state: "val1" }] });
         const p2 = coll.update_items({ insert: [{ id: "item1", state: "val2" }] }); // Overwrites item1
@@ -149,7 +149,7 @@ describe("ProxyCollection Unit Tests", () => {
     test("detects version gap and triggers client reconnect", () => {
         const mockClient = createMockClient();
         mockClient._reconnect = vi.fn();
-        const coll = new ProxyCollection(mockClient, "/app/mitems/chnl");
+        const coll = new ItemProvider(mockClient, "/app/mitems/chnl");
 
         // Initial version 4
         coll._client_update({ reset: true, version: 4, insert: [{ id: "1" }] });
@@ -170,7 +170,7 @@ describe("ProxyCollection Unit Tests", () => {
 
     test("conditional option attaches last_version to payload data", async () => {
         const mockClient = createMockClient();
-        const coll = new ProxyCollection(mockClient, "/app/mitems/chnl");
+        const coll = new ItemProvider(mockClient, "/app/mitems/chnl");
 
         // Set version via server snapshot update
         coll._client_update({ version: 10, reset: true });

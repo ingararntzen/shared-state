@@ -1,6 +1,6 @@
 [Items]: /design/representation/item_collection#item
 [ItemCollections]: /design/representation/item_collection#itemcollection
-[ProxyCollection]: /design/representation/proxy_collection
+[ItemProvider]: /design/representation/item_provider
 
 # Consistency Model
 
@@ -18,7 +18,7 @@ Local updates are speculative in nature and thereby a temporary source of incons
 
 The server is the single authoritative source of truth for all shared state. 
 
-SharedState achieves **Strong Eventual Consistency (SEC)** for client-side replicas ([ProxyCollection]):
+SharedState achieves **Strong Eventual Consistency (SEC)** for client-side replicas ([ItemProvider]):
 - The server processes mutations sequentially per resource and tags each committed edit with a version counter.
 - Operation ordering is preserved over the network stream to clients.
 - Updates are deterministic, as SharedState implements [Passive Replication](/concept/replication).
@@ -50,8 +50,8 @@ Consistency threats are resolved by disconnecting and reconnecting to the server
 To mask network latency in the user experience, update requests are applied optimistically at the client-side, before being dispatched to the server. Automated support for rollback of rejected update requests is achieved by keeping optimistic state changes separate from the server-authoritative state until acknowledged by the server:
 
 
-- **State Overlay**: Local updates do **not** alter the underlying server replica ([ProxyCollection]) directly, but are instead applied to a separate `overlay` construct.
-- **Query Precedence**: Local lookups query the `overlay` first, then the server-authoritative [ProxyCollection].
+- **State Overlay**: Local updates do **not** alter the underlying server replica ([ItemProvider]) directly, but are instead applied to a separate `overlay` construct.
+- **Query Precedence**: Local lookups query the `overlay` first, then the server-authoritative [ItemProvider].
 - **Rollback**: Optimistic updates are removed from the `overlay` when updates are acknowledged by the server. If the update request is rejected, this triggers a rollback to server authoritative state.
 - **Failures**: In failure scenarios, optimistic updates will continue to take precedence over server truth, until the failure is resolved, by a 10s timeout in the worst case.
 

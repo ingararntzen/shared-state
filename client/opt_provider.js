@@ -1,12 +1,13 @@
 import { random_string } from "./util/util.js";
 import { sanitizeChanges } from "./common.js";
 
-export class OptimisticProxyCollection {
-    constructor(client, proxyCollection, options = {}) {
+export class OptimisticItemProvider {
+    constructor(client, itemProvider, options = {}) {
         this._client = client;
-        this._proxyCollection = proxyCollection;
+        this._itemProvider = itemProvider;
+        this._proxyCollection = itemProvider; // Alias for internal properties
         this._options = options;
-        this._path = proxyCollection._path;
+        this._path = itemProvider._path;
         this._terminated = false;
 
         this._overlay = new Map(); // id -> { item, update_count, is_delete, timestamp }

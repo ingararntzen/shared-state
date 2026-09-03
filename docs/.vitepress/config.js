@@ -29,7 +29,7 @@ export default defineConfig({
             items: [
               { text: 'Item Collection', link: '/design/representation/item_collection' },
               { text: 'Item Store', link: '/design/representation/item_store' },
-              { text: 'Proxy Collection', link: '/design/representation/proxy_collection' }
+              { text: 'Item Provider', link: '/design/representation/item_provider' }
             ]
           },
           {

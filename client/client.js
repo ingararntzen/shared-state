@@ -1,6 +1,6 @@
 import { WebSocketIO, ConnectionState } from "./wsio.js";
-import { ProxyCollection } from "./provider.js";
-import { OptimisticProxyCollection } from "./opt_provider.js";
+import { ItemProvider } from "./provider.js";
+import { OptimisticItemProvider } from "./opt_provider.js";
 import { MsgType, MsgCmd, normalizePath, validatePath, sanitizeChanges } from "./common.js";
 import { random_string, resolvablePromise } from "./util/util.js";
 
@@ -59,19 +59,19 @@ export class SharedStateClient {
     }
 
     /**
-     * Initializes or retrieves an existing state provider (ProxyCollection / OptimisticProxyCollection) for a given path.
+     * Initializes or retrieves an existing state provider (ItemProvider / OptimisticItemProvider) for a given path.
      * @param {string} rawPath - Target path (e.g. "/app/store/res")
      * @param {Object} [options={}] - Options (e.g. { optimistic: true })
-     * @returns {ProxyCollection} The initialized or cached state provider instance
+     * @returns {ItemProvider|OptimisticItemProvider} The initialized or cached state provider instance
      */
     provider(rawPath, options = {}) {
         const path = validatePath(rawPath);
 
         // set up provider
         if (!this._providers.has(path)) {
-            let providerInstance = new ProxyCollection(this, path, options);
+            let providerInstance = new ItemProvider(this, path, options);
             if (options.optimistic ?? true) {
-                providerInstance = new OptimisticProxyCollection(this, providerInstance, options);
+                providerInstance = new OptimisticItemProvider(this, providerInstance, options);
             }
             this._providers.set(path, providerInstance);
         }

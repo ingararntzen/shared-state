@@ -245,11 +245,11 @@ true and false, for a given item within a specific item collection.
 </html> 
 ```
 
-### Proxy Collection
+### ItemProvider
 
 The SharedState client manages local collections serving as proxies to server-side collections.
 
-ProxyCollections may be acquired (and relased) by application code. A released ProxyCollection 
+ItemProviders may be acquired (and released) by application code. A released ItemProvider 
 is no longer kept in sync with the corresponding server-side collection, and does no longer accept updates.
 
 ```javascript
@@ -259,7 +259,7 @@ const ds = client.acquire_collection("/myapp/items/mycollection")
 client.release("/myapp/items/mycollection");
 ```
 
-ProxyCollections provide the following methods. 
+ItemProviders provide the following methods. 
 
 ```javascript
 // return a single item, given id
@@ -272,7 +272,7 @@ const items = ds.get_items()
 const size = ds.size;
 ```
 
-ProxyCollection changes reported through callback.
+ItemProvider changes reported through callback.
 Changes include both membership changes (INSERT, DELETE) and item changes (REPLACE).
 
 ```javascript
@@ -304,14 +304,14 @@ state of the item before the update. When a new item has been added,
 
 ProxyObjects manage a set of items (an array) stored within a single server-side item on the service.
 
-The ProxyObject interface implements the same querying methods as ProxyCollections:
+The ProxyObject interface implements the same querying methods as ItemProviders:
 
 * `set_items(items)`: Sets the entire array of items. Returns a Promise resolved after the set operation has taken effect on the server.
 * `get_items()`: Returns all items in the array.
 * `get_item(id)`: Returns a single item from the array, given its ID.
 * `has_item(id)`: Returns true if an item with the given ID exists in the array.
 
-Like ProxyCollections, changes are reported through callback subscriptions.
+Like ItemProviders, changes are reported through callback subscriptions.
 
 ```javascript
 const myobj = client.acquire_object("/myapp/items/mycollection", "myobj");

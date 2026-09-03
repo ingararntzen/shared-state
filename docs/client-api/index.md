@@ -24,7 +24,7 @@ const client = new SharedStateClient("ws://localhost:9000");
 ## Core Client Classes
 
 * **`SharedStateClient`**: Manages WebSocket connection, subscription multiplexing, request/reply tunneling, and clock sync.
-* **`ProxyCollection`**: Synchronized local map of items for a resource path with change callbacks.
+* **`ItemProvider`**: Synchronized local map of items for a resource path with change callbacks.
 * **`ProxyObject`**: Item-level proxy wrapper for managing array states within a single collection item.
 * **`ServerClock`**: Time offset estimator providing synchronized server network time.
 

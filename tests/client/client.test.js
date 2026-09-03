@@ -157,7 +157,7 @@ describe("Client-Server Integration Tests", () => {
         clientB.terminate();
     });
 
-    test("client.provider(path) acquires and caches Layer 1 ProxyCollection provider", async () => {
+    test("client.provider(path) acquires and caches Layer 1 ItemProvider provider", async () => {
         const client = new SharedStateClient(SERVER_URL);
         await client.connection.connectedPromise();
 

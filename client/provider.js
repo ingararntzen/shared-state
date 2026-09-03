@@ -96,7 +96,7 @@ export class UpdateBuilder {
     }
 }
 
-export class ProxyCollection {
+export class ItemProvider {
 
     constructor(client, path, options = {}) {
         this._options = options;

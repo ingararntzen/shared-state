@@ -1,5 +1,5 @@
 import { describe, test, expect, vi } from "vitest";
-import { ProxyCollection } from "../../client/provider.js";
+import { ItemProvider } from "../../client/provider.js";
 import {
     SharedVariable,
     SharedTypedVariable,
@@ -48,7 +48,7 @@ describe("Layer 2 Domain Abstractions Unit Tests", () => {
             },
             provider(collPath) {
                 if (!this._providers.has(collPath)) {
-                    this._providers.set(collPath, new ProxyCollection(this, collPath));
+                    this._providers.set(collPath, new ItemProvider(this, collPath));
                 }
                 return this._providers.get(collPath);
             }

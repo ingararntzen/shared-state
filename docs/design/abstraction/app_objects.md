@@ -87,7 +87,7 @@ Incoming Stream / Read Request
 All Application Objects enforce **reference equality**: instantiating or querying an object bound to the exact same path or `(path, name)` tuple returns the **same object instance in memory** (`objA === objB`).
 
 - **Unified UI State**: Multiple UI components binding to the same path or variable share the exact same object reference, preventing divergent local states or race conditions.
-- **Provider Sharing**: A single `ProxyCollection` provider handles underlying WebSocket subscriptions, version tracking, and delta distribution for all consumers of that path.
+- **Provider Sharing**: A single `ItemProvider` handles underlying WebSocket subscriptions, version tracking, and delta distribution for all consumers of that path.
 
 ---
 

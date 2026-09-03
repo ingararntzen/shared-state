@@ -2,8 +2,8 @@
 [Items]: /design/representation/item_collection#item
 [ItemCollection]: /design/representation/item_collection#itemcollection
 [ItemCollections]: /design/representation/item_collection#itemcollection
-[ProxyCollection]: /design/representation/proxy_collection
-[ProxyCollections]: /design/representation/proxy_collection
+[ItemProvider]: /design/representation/item_provider
+[ItemProviders]: /design/representation/item_provider
 
 # Consistency
 
@@ -76,9 +76,9 @@ The server maintains one version counter for each [ItemCollection]:
 
 - **`version`**: The server increments the version counter on every state mutation to the [ItemCollection]. This version counter is then included in notifications sent to clients.
 
-The client maintains a corresponding counter for each [ProxyCollection]:
+The client maintains a corresponding counter for each [ItemProvider]:
 
-- **`last_version`**: The client maintains a `last_version` counter for each [ProxyCollection]. This counter tracks the latest version counter received in a notification from the server.
+- **`last_version`**: The client maintains a `last_version` counter for each [ItemProvider]. This counter tracks the latest version counter received in a notification from the server.
 
 
 This allows the client to ignore outdated or duplicated notifications, and to treat missing notifications as a failure condition.
@@ -181,7 +181,7 @@ In order to detect failures, the following operational scenarios are condidered:
 ---
 ### Detecting Failures
 
-In order to detect consistency failures, the client maintains two counters for each `ProxyCollection`:
+In order to detect consistency failures, the client maintains two counters for each `ItemProvider`:
 
 - **`last_update_count`**: This counter is incremented for each update request sent by the client, and its value is included in the request message. Upon receipt, the server echoes the value of this counter back to the client, by including it in the corresponding reply and notification messages.
 - **`last_acked_update_count`**: This counter tracks the latest update message that has been acknowledged by the server, and is updated on the receipt of every reply message.
@@ -239,7 +239,7 @@ However, local updates represent a source of inconsistency, particularly in the 
 ### Optimistic State Overlay
 
 Consistency in the SharedState framework can be discussed in terms of individual [Items] within an [ItemCollection]. The 
-client maintains a client-side `replica` for items, represented by a [ProxyCollection]. Moreover, in order to protect the integrity of this `replica`, the client does not alter its state directly, but rather applies item updates to an `overlay`, layered on top of the `replica`. Queries targets the `overlay` first, falling back to the underlying `replica`. This provides zero-latency for state updates, while also ensuring that optimistic changes can be easily undone when needed.
+client maintains a client-side `replica` for items, represented by an [ItemProvider]. Moreover, in order to protect the integrity of this `replica`, the client does not alter its state directly, but rather applies item updates to an `overlay`, layered on top of the `replica`. Queries target the `overlay` first, falling back to the underlying `replica`. This provides zero-latency for state updates, while also ensuring that optimistic changes can be easily undone when needed.
 
 ---
 ### Overlay Update & Query Rules
@@ -254,7 +254,7 @@ for (let item of update_items) {
 }
 ```
 
-- **Query**: Item queries are resolved against the `overlay` first, immediately returning the optimistic state, if such state exists. If not, the query is resolved from the underlying `replica` (i.e., [ProxyCollection]).
+- **Query**: Item queries are resolved against the `overlay` first, immediately returning the optimistic state, if such state exists. If not, the query is resolved from the underlying `replica` (i.e., [ItemProvider]).
 
 ```js
 get_item(id) {
@@ -310,7 +310,7 @@ This presents a walkthrough of the protocol, focusing on the different outcomes 
 ### Scenario B: Server Rejection
 - The server rejects the update and returns `REPLY(ok: false)`.
 - `last_acked_update_count = item.update_count`.
-- The new item is evicted from the `overlay`, resulting in a synthetic state change locally, back to the state of the underlying [ProxyCollection].
+- The new item is evicted from the `overlay`, resulting in a synthetic state change locally, back to the state of the underlying [ItemProvider].
 
 ### Scenario C: Accepted Update, Response Lost
 - The server accepts the update `u1`, but the reply was lost on the network.

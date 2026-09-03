@@ -5,9 +5,8 @@
 [Path]: /design/representation/item_collection#path
 [Paths]: /design/representation/item_collection#path
 [ItemStore]: /design/representation/item_store
-[ProxyCollection]: /design/representation/proxy_collection
-[ProxyCollections]: /design/representation/proxy_collection
-[ProxyItemCollections]: /design/representation/proxy_collection
+[ItemProvider]: /design/representation/item_provider
+[ItemProviders]: /design/representation/item_provider
 
 
 # Design Overview
@@ -32,13 +31,13 @@ The SharedState Client connects to the SharedState Server in order to **observe*
 
 ### Internal
 
-- **Proxy ItemCollections** (left box): [ProxyItemCollections] are local, in-memory collections mirroring remote [ItemCollections]. Each [ProxyCollection] is identified by a unique resource [Path].
+- **Item Providers** (left box): [ItemProviders] are local, in-memory providers mirroring remote [ItemCollections] as proxy replicas. Each [ItemProvider] is identified by a unique resource [Path].
 
 - **Client Subs** (right box): Client subscriptions list [Paths] to resources currently observed by the client. If [partial resource observation](/concept/architecture#partial-resource-observation) is supported, client subscriptions may additionally include *filters* or *range restrictions* specific to each resource.
 
 ### Public
 
-- **Shared Variables & Collections** (left box): Programming abstractions, including single-valued **Variables** (e.g., `Integer`, `Boolean`, `Float`, `String`, `Array`, `Object`) or multi-valued **Collection types** (e.g., `Set`, `List`, `Map`, `Tree`). These concepts are implemented on top of internal [ProxyCollections]. Single-valued **Variables** are backed by individual items within a [ProxyCollection], whereas multi-valued **Collection types** each correspond to a distinct [ProxyCollection].
+- **Shared Variables & Collections** (left box): Programming abstractions, including single-valued **Variables** (e.g., `Integer`, `Boolean`, `Float`, `String`, `Array`, `Object`) or multi-valued **Collection types** (e.g., `Set`, `List`, `Map`, `Tree`). These concepts are implemented on top of internal [ItemProviders]. Single-valued **Variables** are backed by individual items within an [ItemProvider], whereas multi-valued **Collection types** each correspond to a distinct [ItemProvider].
 
 - **Connection** (center box): The connection object represents the status of the underlying WebSocket connection. Applications may use this to access connection status, or to implement appropriate actions when the connection transitions between states.
 

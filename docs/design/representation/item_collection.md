@@ -7,8 +7,8 @@
 [ItemCollections]: #itemcollection
 [ItemStore]: /design/representation/item_store
 [ItemStores]: /design/representation/item_store
-[ProxyCollection]: /design/representation/proxy_collection
-[ProxyCollections]: /design/representation/proxy_collection
+[ItemProvider]: /design/representation/item_provider
+[ItemProviders]: /design/representation/item_provider
 
 # Item Collections
 
@@ -18,7 +18,7 @@
 
 The SharedState framework facilitates the sharing of application resources, such as `strings`, `numbers`, `booleans`, `objects`, `arrays`, or more advanced abstractions like `Set`, `Map`, `List`, or `Tree`.
 
-Importantly, the framework does not provide custom supprt for each of these data types, but rather provides a generic state sharing mechanism as a common basis for all these types (see [Replication Strategy](/concept/replication)).
+Importantly, the framework does not provide custom support for each of these data types, but rather provides a generic state sharing mechanism as a common basis for all these types (see [Replication Strategy](/concept/replication)).
 
 
 ---
@@ -119,5 +119,4 @@ Server-side [ItemCollections] are managed by [ItemStores].
 
 ## Client-Side ItemCollections
 
-Client-side [ItemCollections] are refered to as [ProxyCollections]. 
-
+Client-side replicas of [ItemCollections] are managed by [ItemProviders].
