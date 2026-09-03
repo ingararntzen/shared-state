@@ -46,8 +46,7 @@ export default defineConfig({
             collapsed: false,
             items: [
               { text: 'Connection', link: '/design/abstraction/connection' },
-              { text: 'Shared Variables', link: '/design/abstraction/variables' },
-              { text: 'Shared Collections', link: '/design/abstraction/collections' },
+              { text: 'Application Objects', link: '/design/abstraction/app_objects' },
               { text: 'Shared Clock', link: '/design/abstraction/clock' }
             ]
           }

@@ -2,8 +2,8 @@
 [ItemCollections]: /design/representation/item_collection
 [ProxyCollection]: /design/representation/proxy_collection
 [ProxyCollections]: /design/representation/proxy_collection
-[Variables]: /design/abstraction/variables
-[Collections]: /design/abstraction/collections
+[Variables]: /design/abstraction/app_objects
+[Collections]: /design/abstraction/app_objects
 [Changes]: /design/representation/item_collection#changes
 [Conditional Updates]: /design/mechanism/consistency#conditional-updates
 
