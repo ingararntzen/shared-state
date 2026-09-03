@@ -3,6 +3,7 @@ import { ProxyCollection } from "../../client/provider.js";
 import {
     SharedVariable,
     SharedTypedVariable,
+    BaseTypedVariable,
     VariableType,
     SharedBool,
     SharedInteger,
@@ -10,9 +11,9 @@ import {
     SharedString,
     SharedObject,
     SharedArray
-} from "../../client/variables/variables.js";
-import { SharedSet } from "../../client/collections/set.js";
-import { SharedMap } from "../../client/collections/map.js";
+} from "../../client/objects/variables.js";
+import { SharedSet } from "../../client/objects/set.js";
+import { SharedMap } from "../../client/objects/map.js";
 
 describe("Layer 2 Domain Abstractions Unit Tests", () => {
     function createMockClient() {

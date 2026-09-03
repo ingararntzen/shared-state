@@ -1,5 +1,5 @@
-import eventify from "./util/events.js";
-import { validatePath } from "./common.js";
+import eventify from "../util/events.js";
+import { validatePath } from "../common.js";
 
 /**
  * Base class for all Layer 2 abstractions (Collections & Variables).

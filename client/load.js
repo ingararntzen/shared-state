@@ -1,6 +1,6 @@
 import { validatePath } from "./common.js";
-import { SharedMap } from "./collections/map.js";
-import { SharedSet } from "./collections/set.js";
+import { SharedMap } from "./objects/map.js";
+import { SharedSet } from "./objects/set.js";
 import {
     SharedBool,
     SharedString,
@@ -9,7 +9,7 @@ import {
     SharedObject,
     SharedArray,
     SharedVariable
-} from "./variables/variables.js";
+} from "./objects/variables.js";
 
 /**
  * Registry mapping abstraction names to their implementation constructors.

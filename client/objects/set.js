@@ -1,4 +1,4 @@
-import { BaseCollection } from "./base_collection.js";
+import { BaseCollection } from "../base_objects/base_collection.js";
 
 export function canonicalStringify(val) {
     if (val === null || typeof val !== "object") {

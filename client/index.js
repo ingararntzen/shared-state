@@ -5,9 +5,10 @@ export { MsgType, MsgCmd, validatePath, normalizePath, sanitizeItem, sanitizeCha
 export { ConnectionState } from "./wsio.js";
 export { ProxyCollection } from "./provider.js";
 export { OptimisticProxyCollection } from "./opt_provider.js";
-export { BaseAbstraction } from "./base_abstraction.js";
-export { BaseVariable } from "./variables/base_variable.js";
-export { SharedTypedVariable, VariableType } from "./variables/shared_typed_variable.js";
+export { BaseAbstraction } from "./base_objects/base_abstraction.js";
+export { BaseCollection } from "./base_objects/base_collection.js";
+export { BaseVariable } from "./base_objects/base_variable.js";
+export { BaseTypedVariable, SharedTypedVariable, VariableType, VarType } from "./base_objects/base_typed_variable.js";
 export {
     SharedVariable,
     SharedBool,
@@ -16,8 +17,7 @@ export {
     SharedFloat,
     SharedObject,
     SharedArray
-} from "./variables/variables.js";
-export { BaseCollection } from "./collections/base_collection.js";
-export { SharedSet } from "./collections/set.js";
-export { SharedMap } from "./collections/map.js";
+} from "./objects/variables.js";
+export { SharedSet } from "./objects/set.js";
+export { SharedMap } from "./objects/map.js";
 export { eventify } from "./util/events.js";

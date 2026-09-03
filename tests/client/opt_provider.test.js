@@ -1,8 +1,8 @@
 import { describe, test, expect, vi } from "vitest";
 import { ProxyCollection } from "../../client/provider.js";
 import { OptimisticProxyCollection } from "../../client/opt_provider.js";
-import { SharedInteger } from "../../client/variables/variables.js";
-import { SharedMap } from "../../client/collections/map.js";
+import { SharedInteger } from "../../client/objects/variables.js";
+import { SharedMap } from "../../client/objects/map.js";
 
 import { SharedStateClient } from "../../client/client.js";
 

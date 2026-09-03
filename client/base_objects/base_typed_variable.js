@@ -74,7 +74,7 @@ const TYPE_CONFIG = {
  * Base class for typed shared variables.
  * Subclasses BaseVariable directly.
  */
-export class SharedTypedVariable extends BaseVariable {
+export class BaseTypedVariable extends BaseVariable {
     constructor(client, path, name, type, options = {}) {
         if (!type || !TYPE_CONFIG[type]) {
             throw new Error(`Invalid type: ${type}. Supported types are ${Object.keys(TYPE_CONFIG).join(", ")}`);
@@ -158,3 +158,6 @@ export class SharedTypedVariable extends BaseVariable {
         }
     }
 }
+
+// Alias for backwards compatibility
+export { BaseTypedVariable as SharedTypedVariable };

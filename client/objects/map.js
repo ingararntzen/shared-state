@@ -1,4 +1,4 @@
-import { BaseCollection } from "./base_collection.js";
+import { BaseCollection } from "../base_objects/base_collection.js";
 
 export class SharedMap extends BaseCollection {
     async set(key, value) {

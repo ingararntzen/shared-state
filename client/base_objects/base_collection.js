@@ -1,4 +1,4 @@
-import { BaseAbstraction } from "../base_abstraction.js";
+import { BaseAbstraction } from "./base_abstraction.js";
 
 export class BaseCollection extends BaseAbstraction {
     constructor(client, path, options = {}) {
@@ -16,7 +16,7 @@ export class BaseCollection extends BaseAbstraction {
     get_state(name) {
         if (name === "change") {
             const items = this._provider.get_items();
-            const insert = new Map(items.map((item) => { return [item.id, item] }));
+            const insert = new Map(items.map((item) => [item.id, item]));
             return { remove: new Set(), insert, reset: true };
         }
         return null;

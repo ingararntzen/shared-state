@@ -1,21 +1,33 @@
-import { SharedVariable } from "./shared_variable.js";
-import { SharedTypedVariable, VariableType } from "./shared_typed_variable.js";
+import { BaseVariable } from "../base_objects/base_variable.js";
+import { BaseTypedVariable, VariableType } from "../base_objects/base_typed_variable.js";
 
-export { SharedVariable, SharedTypedVariable, VariableType };
+/**
+ * Untyped shared variable.
+ */
+export class SharedVariable extends BaseVariable {
+    async set(val) {
+        return await this.provider.update_items({
+            insert: [{ id: this.name, state: val }]
+        });
+    }
+}
 
-export class SharedBool extends SharedTypedVariable {
+// Re-export base typed variable & type enum
+export { BaseTypedVariable, BaseTypedVariable as SharedTypedVariable, VariableType, VariableType as VarType };
+
+export class SharedBool extends BaseTypedVariable {
     constructor(client, path, name, options = {}) {
         super(client, path, name, VariableType.BOOL, options);
     }
 }
 
-export class SharedString extends SharedTypedVariable {
+export class SharedString extends BaseTypedVariable {
     constructor(client, path, name, options = {}) {
         super(client, path, name, VariableType.STRING, options);
     }
 }
 
-export class SharedInteger extends SharedTypedVariable {
+export class SharedInteger extends BaseTypedVariable {
     constructor(client, path, name, options = {}) {
         super(client, path, name, VariableType.INTEGER, options);
     }
@@ -31,7 +43,7 @@ export class SharedInteger extends SharedTypedVariable {
     }
 }
 
-export class SharedFloat extends SharedTypedVariable {
+export class SharedFloat extends BaseTypedVariable {
     constructor(client, path, name, options = {}) {
         super(client, path, name, VariableType.FLOAT, options);
     }
@@ -47,13 +59,13 @@ export class SharedFloat extends SharedTypedVariable {
     }
 }
 
-export class SharedObject extends SharedTypedVariable {
+export class SharedObject extends BaseTypedVariable {
     constructor(client, path, name, options = {}) {
         super(client, path, name, VariableType.OBJECT, options);
     }
 }
 
-export class SharedArray extends SharedTypedVariable {
+export class SharedArray extends BaseTypedVariable {
     constructor(client, path, name, options = {}) {
         super(client, path, name, VariableType.ARRAY, options);
     }
