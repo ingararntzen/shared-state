@@ -2,9 +2,9 @@
 [ItemCollections]: /design/representation/item_collection
 [ItemProvider]: /design/representation/item_provider
 [ItemProviders]: /design/representation/item_provider
-[App Objects]: /design/abstraction/app_objects
-[Variables]: /design/abstraction/app_objects
-[Collections]: /design/abstraction/app_objects
+[App Objects]: /design/abstraction/objects
+[Variables]: /design/abstraction/objects
+[Collections]: /design/abstraction/objects
 [Changes]: /design/representation/item_collection#changes
 [Conditional Updates]: /design/mechanism/consistency#conditional-updates
 

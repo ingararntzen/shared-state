@@ -5,6 +5,7 @@ import {
     SharedTypedVariable,
     BaseTypedVariable,
     VariableType,
+    SharedBoolean,
     SharedBool,
     SharedInteger,
     SharedFloat,
@@ -60,7 +61,7 @@ describe("Layer 2 Domain Abstractions Unit Tests", () => {
         const mockClient = createMockClient();
 
         const v = new SharedVariable(mockClient, "/app/store/vars", "v1");
-        const b = new SharedBool(mockClient, "/app/store/vars", "b1", { allowUndefined: false });
+        const b = new SharedBoolean(mockClient, "/app/store/vars", "b1", { allowUndefined: false });
         const i = new SharedInteger(mockClient, "/app/store/vars", "i1", { allowUndefined: false });
         const f = new SharedFloat(mockClient, "/app/store/vars", "f1", { allowUndefined: false });
         const s = new SharedString(mockClient, "/app/store/vars", "s1", { allowUndefined: false });
@@ -88,11 +89,11 @@ describe("Layer 2 Domain Abstractions Unit Tests", () => {
         expect(customTyped.value).toBe(250);
 
         // Verify default allowUndefined: true returns undefined when no item or initialValue is present
-        const bUndef = new SharedBool(mockClient, "/app/store/vars", "bUndef");
+        const bUndef = new SharedBoolean(mockClient, "/app/store/vars", "bUndef");
         expect(bUndef.value).toBeUndefined();
 
         // Verify initialValue options override defaultValue until valid server state arrives
-        const bInit = new SharedBool(mockClient, "/app/store/vars", "bInit", { initialValue: true });
+        const bInit = new SharedBoolean(mockClient, "/app/store/vars", "bInit", { initialValue: true });
         const iInit = new SharedInteger(mockClient, "/app/store/vars", "iInit", { initialValue: 42 });
 
         expect(bInit.value).toBe(true);

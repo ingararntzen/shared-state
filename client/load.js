@@ -2,6 +2,7 @@ import { validatePath } from "./common.js";
 import { SharedMap } from "./objects/map.js";
 import { SharedSet } from "./objects/set.js";
 import {
+    SharedBoolean,
     SharedBool,
     SharedString,
     SharedInteger,
@@ -17,7 +18,8 @@ import {
 export const TYPE_REGISTRY = {
     Map: SharedMap,
     Set: SharedSet,
-    Bool: SharedBool,
+    Boolean: SharedBoolean,
+    Bool: SharedBoolean,
     String: SharedString,
     Integer: SharedInteger,
     Float: SharedFloat,

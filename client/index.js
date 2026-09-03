@@ -11,6 +11,7 @@ export { BaseVariable } from "./base_objects/base_variable.js";
 export { BaseTypedVariable, SharedTypedVariable, VariableType, VarType } from "./base_objects/base_typed_variable.js";
 export {
     SharedVariable,
+    SharedBoolean,
     SharedBool,
     SharedString,
     SharedInteger,

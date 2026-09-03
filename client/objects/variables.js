@@ -15,11 +15,12 @@ export class SharedVariable extends BaseVariable {
 // Re-export base typed variable & type enum
 export { BaseTypedVariable, BaseTypedVariable as SharedTypedVariable, VariableType, VariableType as VarType };
 
-export class SharedBool extends BaseTypedVariable {
+export class SharedBoolean extends BaseTypedVariable {
     constructor(client, path, name, options = {}) {
         super(client, path, name, VariableType.BOOL, options);
     }
 }
+export { SharedBoolean as SharedBool };
 
 export class SharedString extends BaseTypedVariable {
     constructor(client, path, name, options = {}) {
