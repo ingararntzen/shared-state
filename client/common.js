@@ -42,3 +42,100 @@ export function validatePath(rawPath) {
     }
     return normPath;
 }
+
+/**
+ * Ensures an item object adheres to canonical structure with a valid id string.
+ * @param {*} rawItem
+ * @returns {Object}
+ */
+export function sanitizeItem(rawItem) {
+    if (!rawItem || typeof rawItem !== "object") {
+        return { id: "", state: null };
+    }
+    const id = String(rawItem.id ?? "");
+    return {
+        ...rawItem,
+        id
+    };
+}
+
+/**
+ * Sanitizes any changes payload (arrays, Sets, Maps, or objects) into canonical runtime format:
+ * { insert: Map(id -> item), remove: Set(id), reset: boolean, version?: number }
+ * @param {Object} rawChanges
+ * @returns {{ insert: Map, remove: Set, reset: boolean, version?: number }}
+ */
+export function sanitizeChanges(rawChanges) {
+    if (!rawChanges || typeof rawChanges !== "object") {
+        return { insert: new Map(), remove: new Set(), reset: false };
+    }
+
+    const reset = Boolean(rawChanges.reset);
+    const remove = new Set();
+    const insert = new Map();
+
+    // Process remove
+    if (rawChanges.remove instanceof Set) {
+        for (const id of rawChanges.remove) {
+            remove.add(String(id));
+        }
+    } else if (Array.isArray(rawChanges.remove)) {
+        for (const id of rawChanges.remove) {
+            remove.add(String(id));
+        }
+    }
+
+    // Process insert
+    if (rawChanges.insert instanceof Map) {
+        for (const [key, item] of rawChanges.insert.entries()) {
+            const sanitized = sanitizeItem(item);
+            const id = sanitized.id || String(key || "");
+            insert.set(id, { ...sanitized, id });
+        }
+    } else if (Array.isArray(rawChanges.insert)) {
+        let idx = 0;
+        for (const item of rawChanges.insert) {
+            const sanitized = sanitizeItem(item);
+            const id = sanitized.id || "";
+            const key = id || `__pending_${idx++}`;
+            insert.set(key, { ...sanitized, id });
+        }
+    }
+
+    const result = { insert, remove, reset };
+    if (rawChanges.version !== undefined) {
+        result.version = rawChanges.version;
+    }
+    if (rawChanges.last_version !== undefined) {
+        result.last_version = rawChanges.last_version;
+    }
+    return result;
+}
+
+/**
+ * Serializes runtime Map/Set changes back to wire JSON format for WebSocket transmission:
+ * { insert: Array, remove: Array, reset: boolean, version?: number }
+ * @param {Object} changes
+ * @returns {Object}
+ */
+export function serializeChanges(changes) {
+    if (!changes || typeof changes !== "object") return changes;
+
+    const reset = Boolean(changes.reset);
+    const remove = changes.remove instanceof Set
+        ? Array.from(changes.remove)
+        : (Array.isArray(changes.remove) ? changes.remove : []);
+
+    const insert = changes.insert instanceof Map
+        ? Array.from(changes.insert.values())
+        : (Array.isArray(changes.insert) ? changes.insert : []);
+
+    const result = { insert, remove, reset };
+    if (changes.version !== undefined) {
+        result.version = changes.version;
+    }
+    if (changes.last_version !== undefined) {
+        result.last_version = changes.last_version;
+    }
+    return result;
+}

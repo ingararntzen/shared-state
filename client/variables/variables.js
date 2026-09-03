@@ -1,30 +1,10 @@
 import { BaseVariable } from "./base_variable.js";
 
 export class Variable extends BaseVariable {
-    get defaultValue() {
-        return undefined;
-    }
-
-    _validate(val) {
-        return val !== undefined && val !== null ? val : undefined;
-    }
-
-    get value() {
-        const raw = this._get_current_raw();
-        const validVal = this._validate(raw);
-        if (validVal !== undefined) {
-            this._hasValidValue = true;
-            return validVal;
-        }
-        if (!this._hasValidValue && this._initialValue !== undefined) {
-            return this._initialValue;
-        }
-        return this.defaultValue;
-    }
 
     set(val) {
-        return this._provider.update_items({
-            insert: [{ id: this._itemId, state: val }]
+        return this.provider.update_items({
+            insert: [{ id: this.name, state: val }]
         });
     }
 }

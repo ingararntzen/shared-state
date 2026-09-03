@@ -1,4 +1,5 @@
 import { random_string, resolvablePromise } from "./util/util.js";
+import { sanitizeChanges, serializeChanges } from "./common.js";
 
 export class UpdateBuilder {
     constructor(proxyCollection) {
@@ -14,10 +15,12 @@ export class UpdateBuilder {
         this._sharedResolver = null;
     }
 
-    add_change(changes = {}, options = {}) {
-        const { insert = [], remove = [], reset = false, conditional = false } = changes;
+    add_change(rawChanges = {}, options = {}) {
+        const sanitized = sanitizeChanges(rawChanges);
+        const { insert, remove, reset } = sanitized;
+        const conditional = Boolean(rawChanges.conditional || options.conditional);
 
-        if (conditional || options.conditional) {
+        if (conditional) {
             this._pendingConditional = true;
         }
 
@@ -27,16 +30,20 @@ export class UpdateBuilder {
             this._pendingReset = true;
         }
 
-        if (remove.length > 0) {
+        if (remove.size > 0) {
             for (const id of remove) {
                 this._pendingInserts.delete(id);
                 this._pendingRemoves.add(id);
             }
         }
 
-        if (insert.length > 0) {
-            for (const item of insert) {
-                const id = item.id;
+        if (insert.size > 0) {
+            for (let [key, item] of insert.entries()) {
+                let id = item.id;
+                if (!id) {
+                    id = random_string(10);
+                    item = { ...item, id };
+                }
                 this._pendingRemoves.delete(id);
                 this._pendingInserts.set(id, item);
             }
@@ -55,8 +62,8 @@ export class UpdateBuilder {
     }
 
     async _flush() {
-        const inserts = Array.from(this._pendingInserts.values());
-        const removes = Array.from(this._pendingRemoves);
+        const pendingInserts = this._pendingInserts;
+        const pendingRemoves = this._pendingRemoves;
         const reset = this._pendingReset;
         const isConditional = this._pendingConditional;
         const resolver = this._sharedResolver;
@@ -70,11 +77,11 @@ export class UpdateBuilder {
         this._sharedPromise = null;
         this._sharedResolver = null;
 
-        const payload = {
-            insert: inserts,
-            remove: removes,
+        const payload = serializeChanges({
+            insert: pendingInserts,
+            remove: pendingRemoves,
             reset: reset
-        };
+        });
 
         if (isConditional) {
             payload.last_version = this._proxyCollection._version;
@@ -123,14 +130,8 @@ export class ProxyCollection {
      */
     update_items(changes = {}, options = {}) {
         if (this._terminated) {
-            throw new Error("collection already terminated")
+            throw new Error("collection already terminated");
         }
-        // ensure that inserted items have ids
-        const { insert = [] } = changes;
-        changes.insert = insert.map((item) => {
-            item.id = item.id || random_string(10);
-            return item;
-        });
         return this._builder.add_change(changes, options);
     }
 
@@ -193,25 +194,28 @@ export class ProxyCollection {
             this._version = incomingVersion;
         }
 
-        const { remove = [], insert = [], reset = false } = changes;
-        const eff_remove = [];
-        const eff_insert = [];
+        const sanitized = sanitizeChanges(changes);
+        const { remove, insert, reset } = sanitized;
+        const eff_remove = new Set();
+        const eff_insert = new Map();
 
         if (reset) {
-            eff_remove.push(...this._map.keys());
+            for (const id of this._map.keys()) {
+                eff_remove.add(id);
+            }
             this._map = new Map();
         } else {
             for (const _id of remove) {
                 if (this._map.has(_id)) {
                     this._map.delete(_id);
-                    eff_remove.push(_id);
+                    eff_remove.add(_id);
                 }
             }
         }
 
-        for (const item of insert) {
-            this._map.set(item.id, item);
-            eff_insert.push(item);
+        for (const [id, item] of insert.entries()) {
+            this._map.set(id, item);
+            eff_insert.set(id, item);
         }
 
         const effective_changes = {

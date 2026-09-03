@@ -61,7 +61,7 @@ export class SharedSet extends BaseCollection {
     }
 
     _formatChanges(changes = {}) {
-        const { insert = [], remove = [], reset = false, version } = changes;
+        const { insert, remove, reset, version } = changes;
         const formattedInsert = [];
         const formattedRemove = [];
 
@@ -69,23 +69,25 @@ export class SharedSet extends BaseCollection {
             this._elemCache.clear();
         }
 
-        insert.forEach((item) => {
+        const insertItems = insert instanceof Map ? insert.values() : (Array.isArray(insert) ? insert : []);
+        for (const item of insertItems) {
             const id = typeof item === "object" && item !== null && item.id !== undefined ? item.id : String(item);
             const val = (typeof item === "object" && item !== null)
                 ? (item.state !== undefined ? item.state : (item.value !== undefined ? item.value : item))
                 : item;
             this._elemCache.set(id, val);
             formattedInsert.push(val);
-        });
+        }
 
-        remove.forEach((id) => {
+        const removeIds = remove instanceof Set ? remove : (Array.isArray(remove) ? remove : []);
+        for (const id of removeIds) {
             if (this._elemCache.has(id)) {
                 formattedRemove.push(this._elemCache.get(id));
                 this._elemCache.delete(id);
             } else {
                 formattedRemove.push(id);
             }
-        });
+        }
 
         return {
             insert: formattedInsert,

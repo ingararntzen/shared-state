@@ -1,4 +1,5 @@
 import { random_string } from "./util/util.js";
+import { sanitizeChanges } from "./common.js";
 
 export class OptimisticProxyCollection {
     constructor(client, proxyCollection, options = {}) {
@@ -114,7 +115,7 @@ export class OptimisticProxyCollection {
         const stateAfter = this._get_visible_state_map();
         const effectiveChanges = this._compute_diff(stateBefore, stateAfter, {}, null);
 
-        if (effectiveChanges.reset || effectiveChanges.insert.length > 0 || effectiveChanges.remove.length > 0) {
+        if (effectiveChanges.reset || effectiveChanges.insert.size > 0 || effectiveChanges.remove.size > 0) {
             this._notify_callbacks(effectiveChanges);
         }
     }
@@ -147,7 +148,7 @@ export class OptimisticProxyCollection {
         const stateAfter = this._get_visible_state_map();
         const effectiveChanges = this._compute_diff(stateBefore, stateAfter, changes, tunnel);
 
-        if (effectiveChanges.reset || effectiveChanges.insert.length > 0 || effectiveChanges.remove.length > 0) {
+        if (effectiveChanges.reset || effectiveChanges.insert.size > 0 || effectiveChanges.remove.size > 0) {
             this._notify_callbacks(effectiveChanges);
         }
     }
@@ -157,15 +158,20 @@ export class OptimisticProxyCollection {
             throw new Error("collection already terminated");
         }
 
-        const { insert = [], remove = [], reset = false } = changes;
+        const sanitized = sanitizeChanges(changes);
+        const { insert, remove, reset } = sanitized;
 
-        // Auto-generate missing IDs
-        const formattedInsert = insert.map((item) => {
-            return { ...item, id: item.id || random_string(10) };
-        });
+        // Auto-generate missing IDs if raw insert was passed
+        for (const [id, item] of insert.entries()) {
+            if (!id) {
+                const newId = random_string(10);
+                insert.delete(id);
+                insert.set(newId, { ...item, id: newId });
+            }
+        }
 
         // Delegate network batching & dispatch directly to ProxyCollection
-        const promise = this._proxyCollection.update_items({ insert: formattedInsert, remove, reset }, options);
+        const promise = this._proxyCollection.update_items({ insert, remove, reset }, options);
 
         // Current pending batch will be dispatched at incremented _update_count
         const currentUpdateCount = ++this._client._update_count;
@@ -188,8 +194,8 @@ export class OptimisticProxyCollection {
                 });
             }
 
-            for (const item of formattedInsert) {
-                this._overlay.set(item.id, {
+            for (const [id, item] of insert.entries()) {
+                this._overlay.set(id, {
                     item,
                     update_count: currentUpdateCount,
                     is_delete: false,
@@ -201,7 +207,7 @@ export class OptimisticProxyCollection {
             const stateAfter = this._get_visible_state_map();
             const effectiveChanges = this._compute_diff(stateBefore, stateAfter, { reset }, null);
 
-            if (effectiveChanges.reset || effectiveChanges.insert.length > 0 || effectiveChanges.remove.length > 0) {
+            if (effectiveChanges.reset || effectiveChanges.insert.size > 0 || effectiveChanges.remove.size > 0) {
                 this._notify_callbacks(effectiveChanges);
             }
         });
@@ -225,16 +231,16 @@ export class OptimisticProxyCollection {
     }
 
     _compute_diff(stateBefore, stateAfter, baseChanges = {}, tunnel = null) {
-        const effInsert = [];
-        const effRemove = [];
+        const effInsert = new Map();
+        const effRemove = new Set();
 
         if (baseChanges.reset) {
             for (const [id, item] of stateAfter.entries()) {
-                effInsert.push(item);
+                effInsert.set(id, item);
             }
             return {
                 insert: effInsert,
-                remove: Array.from(stateBefore.keys()),
+                remove: new Set(stateBefore.keys()),
                 reset: true,
                 version: this._proxyCollection._version
             };
@@ -243,13 +249,13 @@ export class OptimisticProxyCollection {
         for (const [id, afterItem] of stateAfter.entries()) {
             const beforeItem = stateBefore.get(id);
             if (!beforeItem || JSON.stringify(beforeItem) !== JSON.stringify(afterItem)) {
-                effInsert.push(afterItem);
+                effInsert.set(id, afterItem);
             }
         }
 
         for (const id of stateBefore.keys()) {
             if (!stateAfter.has(id)) {
-                effRemove.push(id);
+                effRemove.add(id);
             }
         }
 

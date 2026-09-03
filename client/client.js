@@ -1,7 +1,7 @@
 import { WebSocketIO, ConnectionState } from "./wsio.js";
 import { ProxyCollection } from "./provider.js";
 import { OptimisticProxyCollection } from "./opt_provider.js";
-import { MsgType, MsgCmd, normalizePath, validatePath } from "./common.js";
+import { MsgType, MsgCmd, normalizePath, validatePath, sanitizeChanges } from "./common.js";
 import { random_string, resolvablePromise } from "./util/util.js";
 
 /**
@@ -175,7 +175,8 @@ export class SharedStateClient {
         }
         if (this._providers.has(msg.path)) {
             const providerInstance = this._providers.get(msg.path);
-            providerInstance._client_update(msg.data, msg.tunnel);
+            const changes = sanitizeChanges(msg.data);
+            providerInstance._client_update(changes, msg.tunnel);
         }
     }
 

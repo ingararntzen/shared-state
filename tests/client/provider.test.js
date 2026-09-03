@@ -35,8 +35,8 @@ describe("ProxyCollection Unit Tests", () => {
         expect(coll.has_item("item1")).toBe(true);
         expect(coll.get_item("item1")).toEqual({ id: "item1", state: "foo" });
         expect(callback).toHaveBeenLastCalledWith(expect.objectContaining({
-            remove: [],
-            insert: [{ id: "item1", state: "foo" }],
+            remove: new Set(),
+            insert: new Map([["item1", { id: "item1", state: "foo" }]]),
             reset: false
         }));
 
@@ -50,8 +50,8 @@ describe("ProxyCollection Unit Tests", () => {
         expect(coll.size).toBe(1);
         expect(coll.get_item("item1")).toEqual({ id: "item1", state: "bar" });
         expect(callback).toHaveBeenLastCalledWith(expect.objectContaining({
-            remove: [],
-            insert: [{ id: "item1", state: "bar" }],
+            remove: new Set(),
+            insert: new Map([["item1", { id: "item1", state: "bar" }]]),
             reset: false
         }));
 
@@ -65,8 +65,8 @@ describe("ProxyCollection Unit Tests", () => {
         expect(coll.size).toBe(0);
         expect(coll.has_item("item1")).toBe(false);
         expect(callback).toHaveBeenLastCalledWith(expect.objectContaining({
-            remove: ["item1"],
-            insert: [],
+            remove: new Set(["item1"]),
+            insert: new Map(),
             reset: false
         }));
     });
