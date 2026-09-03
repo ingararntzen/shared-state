@@ -7,8 +7,9 @@ export { ProxyCollection } from "./provider.js";
 export { OptimisticProxyCollection } from "./opt_provider.js";
 export { BaseAbstraction } from "./base_abstraction.js";
 export { BaseVariable } from "./variables/base_variable.js";
+export { SharedTypedVariable, VarType } from "./variables/shared_typed_variable.js";
 export {
-    Variable,
+    SharedVariable,
     SharedBool,
     SharedString,
     SharedInteger,

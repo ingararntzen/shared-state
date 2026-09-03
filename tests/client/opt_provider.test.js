@@ -196,7 +196,7 @@ describe("OptimisticProxyCollection Unit Tests", () => {
     test("Layer 2 integration (SharedInteger and SharedMap) over OptimisticProxyCollection", async () => {
         const mockClient = createMockClient();
 
-        const num = new SharedInteger(mockClient, "/app/store/vars", "score");
+        const num = new SharedInteger(mockClient, "/app/store/vars", "score", { allowUndefined: false });
         const mapObj = new SharedMap(mockClient, "/app/store/maps");
 
         expect(num.value).toBe(0);

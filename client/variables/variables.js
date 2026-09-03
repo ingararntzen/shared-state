@@ -1,24 +1,11 @@
-import { BaseVariable } from "./base_variable.js";
+import { SharedVariable } from "./shared_variable.js";
+import { SharedTypedVariable, VarType } from "./shared_typed_variable.js";
 
-export class Variable extends BaseVariable {
+export { SharedVariable, SharedTypedVariable, VarType };
 
-    set(val) {
-        return this.provider.update_items({
-            insert: [{ id: this.name, state: val }]
-        });
-    }
-}
-
-export class SharedBool extends Variable {
-    get defaultValue() {
-        return false;
-    }
-
-    _validate(val) {
-        if (typeof val === "boolean") return val;
-        if (val === "true") return true;
-        if (val === "false") return false;
-        return undefined;
+export class SharedBool extends SharedTypedVariable {
+    constructor(client, path, name, options = {}) {
+        super(client, path, name, VarType.BOOL, options);
     }
 
     set(val) {
@@ -26,14 +13,9 @@ export class SharedBool extends Variable {
     }
 }
 
-export class SharedString extends Variable {
-    get defaultValue() {
-        return "";
-    }
-
-    _validate(val) {
-        if (typeof val === "string") return val;
-        return undefined;
+export class SharedString extends SharedTypedVariable {
+    constructor(client, path, name, options = {}) {
+        super(client, path, name, VarType.STRING, options);
     }
 
     set(val) {
@@ -41,18 +23,9 @@ export class SharedString extends Variable {
     }
 }
 
-export class SharedInteger extends Variable {
-    get defaultValue() {
-        return 0;
-    }
-
-    _validate(val) {
-        if (typeof val === "number" && Number.isInteger(val)) return val;
-        if (typeof val === "string" && val.trim() !== "") {
-            const parsed = parseInt(val, 10);
-            if (!isNaN(parsed)) return parsed;
-        }
-        return undefined;
+export class SharedInteger extends SharedTypedVariable {
+    constructor(client, path, name, options = {}) {
+        super(client, path, name, VarType.INTEGER, options);
     }
 
     set(val) {
@@ -61,27 +34,18 @@ export class SharedInteger extends Variable {
 
     inc(delta = 1) {
         const current = this.value;
-        return this.set(current + delta);
+        return this.set((current || 0) + delta);
     }
 
     dec(delta = 1) {
         const current = this.value;
-        return this.set(current - delta);
+        return this.set((current || 0) - delta);
     }
 }
 
-export class SharedFloat extends Variable {
-    get defaultValue() {
-        return 0.0;
-    }
-
-    _validate(val) {
-        if (typeof val === "number" && !isNaN(val)) return val;
-        if (typeof val === "string" && val.trim() !== "") {
-            const parsed = parseFloat(val);
-            if (!isNaN(parsed)) return parsed;
-        }
-        return undefined;
+export class SharedFloat extends SharedTypedVariable {
+    constructor(client, path, name, options = {}) {
+        super(client, path, name, VarType.FLOAT, options);
     }
 
     set(val) {
@@ -90,25 +54,18 @@ export class SharedFloat extends Variable {
 
     inc(delta = 1.0) {
         const current = this.value;
-        return this.set(current + delta);
+        return this.set((current || 0) + delta);
     }
 
     dec(delta = 1.0) {
         const current = this.value;
-        return this.set(current - delta);
+        return this.set((current || 0) - delta);
     }
 }
 
-export class SharedObject extends Variable {
-    get defaultValue() {
-        return {};
-    }
-
-    _validate(val) {
-        if (typeof val === "object" && val !== null && !Array.isArray(val)) {
-            return val;
-        }
-        return undefined;
+export class SharedObject extends SharedTypedVariable {
+    constructor(client, path, name, options = {}) {
+        super(client, path, name, VarType.OBJECT, options);
     }
 
     set(val) {
@@ -119,16 +76,9 @@ export class SharedObject extends Variable {
     }
 }
 
-export class SharedArray extends Variable {
-    get defaultValue() {
-        return [];
-    }
-
-    _validate(val) {
-        if (Array.isArray(val)) {
-            return val;
-        }
-        return undefined;
+export class SharedArray extends SharedTypedVariable {
+    constructor(client, path, name, options = {}) {
+        super(client, path, name, VarType.ARRAY, options);
     }
 
     set(val) {

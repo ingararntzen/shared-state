@@ -8,7 +8,7 @@ import {
     SharedFloat,
     SharedObject,
     SharedArray,
-    Variable
+    SharedVariable
 } from "./variables/variables.js";
 
 /**
@@ -23,7 +23,7 @@ export const TYPE_REGISTRY = {
     Float: SharedFloat,
     Object: SharedObject,
     Array: SharedArray,
-    Variable: Variable
+    Variable: SharedVariable
 };
 
 /**
@@ -69,8 +69,8 @@ export function load(client, config) {
             SharedFloat,
             SharedObject,
             SharedArray,
-            Variable
-        ].some(ctor => ClassCtor === ctor || ClassCtor.prototype instanceof Variable);
+            SharedVariable
+        ].some(ctor => ClassCtor === ctor || ClassCtor.prototype instanceof SharedVariable);
 
         if (isVariable) {
             const varName = def.name || name;
