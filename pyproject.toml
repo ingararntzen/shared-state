@@ -26,3 +26,8 @@ pytest-asyncio = "*"
 [tool.poetry.scripts]
 sharedstate-server = "sharedstate.ss_server:start"
 
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
+extraPaths = ["src"]
+

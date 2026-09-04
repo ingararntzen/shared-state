@@ -181,3 +181,6 @@ cfg/
 
 # logs directory
 logs/
+
+.vscode/
+pyrightconfig.json
