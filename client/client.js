@@ -1,6 +1,7 @@
 import { WebSocketIO, ConnectionState } from "./wsio.js";
 import { ItemProvider } from "./provider.js";
 import { OptimisticItemProvider } from "./opt_provider.js";
+import { ServerClock } from "./server_clock.js";
 import { MsgType, MsgCmd, normalizePath, validatePath, sanitizeChanges } from "./common.js";
 import { random_string, resolvablePromise } from "./util/util.js";
 
@@ -38,6 +39,9 @@ export class SharedStateClient {
         this._collections = new Map(); // path -> WeakRef(Collection)
         this._variables = new Map();   // path -> Map(name -> WeakRef(Variable))
 
+        // clock sync
+        this._clock = new ServerClock(this);
+
         // connection
         this._connection = new WebSocketIO(url, options);
         this._connection.on_connect = () => this._on_connect();
@@ -56,6 +60,10 @@ export class SharedStateClient {
 
     get connection() {
         return this._connection;
+    }
+
+    get clock() {
+        return this._clock;
     }
 
     /**
@@ -109,11 +117,17 @@ export class SharedStateClient {
 
     /** Called automatically when WebSocket connects/reconnects. */
     _on_connect() {
+        if (this._clock) {
+            this._clock.restart();
+        }
         this._schedule_sub_sync();
     }
 
     /** Rejects pending request promises on disconnect. */
     _on_disconnect(event) {
+        if (this._clock && this._clock.pinger) {
+            this._clock.pinger.pause();
+        }
         for (const resolver of this._pending_requests.values()) {
             resolver({ ok: false, data: "connection disconnected" });
         }

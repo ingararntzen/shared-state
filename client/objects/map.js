@@ -10,6 +10,10 @@ export class SharedMap extends BaseCollection {
         return await this._provider.update_items({ remove: [key] });
     }
 
+    async clear() {
+        return await this._provider.update_items({ reset: true });
+    }
+
     get(key) {
         const item = this._provider.get_item(key);
         if (!item) return undefined;

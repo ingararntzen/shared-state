@@ -9,6 +9,10 @@ export class BaseCollection extends BaseAbstraction {
         });
     }
 
+    async clear() {
+        return await this._provider.update_items({ reset: true });
+    }
+
     _on_provider_update(changes) {
         this.emit("change", changes);
     }

@@ -7,6 +7,9 @@ const local = {
 // system clock - epoch - seconds
 const epoch = {
     now: function () {
+        if (typeof performance !== "undefined" && typeof performance.timeOrigin === "number") {
+            return (performance.timeOrigin + performance.now()) / 1000.0;
+        }
         return new Date() / 1000.0;
     }
 }
@@ -48,6 +51,8 @@ export class ServerClock {
         // estimates
         this._trans = 1000.0;
         this._skew = 0.0;
+        this._latest_trans = undefined;
+        this._latest_skew = undefined;
     }
 
     get pinger() {
@@ -58,6 +63,8 @@ export class ServerClock {
         this._samples = [];
         this._trans = 1000.0;
         this._skew = 0.0;
+        this._latest_trans = undefined;
+        this._latest_skew = undefined;
         this._pinger.restart();
     }
 
@@ -75,6 +82,9 @@ export class ServerClock {
     _add_sample(cs, ss, cr) {
         let trans = (cr - cs) / 2.0;
         let skew = ss - (cr + cs) / 2.0;
+        this._latest_trans = trans;
+        this._latest_skew = skew;
+
         let sample = [cs, ss, cr, trans, skew];
         // add to samples
         this._samples.push(sample)
@@ -97,8 +107,46 @@ export class ServerClock {
 
     // estimated skew
     get skew() { return this._skew; }
+    // estimated transit delay
+    get trans() { return this._trans; }
+    // latest raw ping transit delay
+    get latest_trans() { return this._latest_trans !== undefined ? this._latest_trans : this._trans; }
+    // latest raw ping skew
+    get latest_skew() { return this._latest_skew !== undefined ? this._latest_skew : this._skew; }
     // rtt: round trip time
     get rtt() { return this._trans * 2.0; }
+
+    // standard deviation of transit delay across current samples (seconds)
+    get trans_std() {
+        if (this._samples.length === 0) return 0.0;
+        const vals = this._samples.map(s => s[3]);
+        const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
+        const variance = vals.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / vals.length;
+        return Math.sqrt(variance);
+    }
+
+    // standard deviation of skew across current samples (seconds)
+    get skew_std() {
+        if (this._samples.length === 0) return 0.0;
+        const vals = this._samples.map(s => s[4]);
+        const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
+        const variance = vals.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / vals.length;
+        return Math.sqrt(variance);
+    }
+
+    // max - min transit delay range across current samples (seconds)
+    get trans_range() {
+        if (this._samples.length === 0) return 0.0;
+        const vals = this._samples.map(s => s[3]);
+        return Math.max(...vals) - Math.min(...vals);
+    }
+
+    // max - min skew range across current samples (seconds)
+    get skew_range() {
+        if (this._samples.length === 0) return 0.0;
+        const vals = this._samples.map(s => s[4]);
+        return Math.max(...vals) - Math.min(...vals);
+    }
 
     now() {
         // server clock is local clock + estimated skew
@@ -120,7 +168,7 @@ export class ServerClock {
 
 const SMALL_DELAY = 20; // ms
 const MEDIUM_DELAY = 500; // ms
-const LARGE_DELAY = 10000; // ms
+const LARGE_DELAY = 1000; // ms
 
 const DELAY_SEQUENCE = [
     ...new Array(3).fill(SMALL_DELAY),

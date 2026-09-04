@@ -6,6 +6,7 @@ import traceback
 import importlib
 import logging
 import mimetypes
+import time
 from pathlib import Path, PurePosixPath
 from urllib.parse import urlparse, unquote
 from datetime import datetime, timezone
@@ -138,12 +139,13 @@ class SharedStateServer:
         # Root directory for serving static HTML/JS assets
         self._html_dir = Path(html_dir) if html_dir else Path(__file__).resolve().parent.parent.parent / "html"
         self._dist_dir = self._html_dir.parent / "dist"
+        self._client_dir = self._html_dir.parent / "client"
 
         # Setup loggers
         self.http_logger = setup_logger("sharedstate_http", self._http_log_path)
         self.ws_logger = setup_logger("sharedstate_ws", self._ws_log_path)
 
-        # server monotonic wall clock
+        # server clock (using MonotonicWallClock)
         self._clock = MonotonicWallClock()
 
         # client subscriptions
@@ -515,6 +517,15 @@ class SharedStateServer:
                 content_type, _ = mimetypes.guess_type(str(dist_file))
                 content_type = content_type or "application/javascript; charset=utf-8"
                 return 200, content_type, dist_file.read_bytes(), []
+
+        # 4. Source Client SDK Files (/client/*)
+        if parts and parts[0] == 'client':
+            rel_path = "/".join(parts[1:])
+            client_file = (self._client_dir / rel_path).resolve()
+            if client_file.exists() and client_file.is_file() and str(client_file).startswith(str(self._client_dir.resolve())):
+                content_type, _ = mimetypes.guess_type(str(client_file))
+                content_type = content_type or "application/javascript; charset=utf-8"
+                return 200, content_type, client_file.read_bytes(), []
 
         # 4. Static Files (/files/*)
         if parts and parts[0] == 'files':

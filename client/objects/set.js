@@ -39,6 +39,10 @@ export class SharedSet extends BaseCollection {
         return await this._provider.update_items({ remove: [id] });
     }
 
+    async clear() {
+        return await this._provider.update_items({ reset: true });
+    }
+
     has(elem) {
         const id = this._getId(elem);
         return this._provider.has_item(id);

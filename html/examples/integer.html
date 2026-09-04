@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SharedState - SharedInteger Example</title>
+    <link rel="stylesheet" href="examples.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>SharedInteger Counter</h1>
+            <span class="badge" id="typeBadge">Integer</span>
+        </header>
+
+        <div class="controls">
+            <button class="btn-primary" id="incBtn">➕ Increment (+1)</button>
+            <button class="btn-secondary" id="decBtn">➖ Decrement (-1)</button>
+            <button class="btn-danger" id="resetBtn">🔄 Reset to 0</button>
+        </div>
+
+        <div class="metric-display">
+            <div class="metric-val" id="counterVal">0</div>
+            <div class="metric-label">Current Shared Counter Value</div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { SharedStateClient, load } from "../../client/index.js";
+
+        const wsUrl = `ws://${location.hostname || "127.0.0.1"}:${location.port || 9000}`;
+        const client = new SharedStateClient(wsUrl);
+
+        // Load SharedInteger via load(client, schema)
+        const { counter } = load(client, {
+            counter: { type: "Integer", path: "/app/items/demo_counter", allowUndefined: false, defaultValue: 0 }
+        });
+
+        const valEl = document.querySelector("#counterVal");
+
+        // Reactively update DOM on change event
+        counter.on("change", (val) => {
+            valEl.textContent = val;
+        }, { init: true });
+
+        // Event handlers
+        document.querySelector("#incBtn").onclick = () => counter.inc(1);
+        document.querySelector("#decBtn").onclick = () => counter.dec(1);
+        document.querySelector("#resetBtn").onclick = () => counter.set(0);
+    </script>
+</body>
+</html>

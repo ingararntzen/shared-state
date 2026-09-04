@@ -24,7 +24,11 @@ poetry install
 The server executable `sharedstate-server` is registered in `pyproject.toml`. Run the server by providing a JSON configuration file path:
 
 ```bash
-poetry run sharedstate-server config.json
+# In-memory development mode (default)
+poetry run sharedstate-server cfg/default.json
+
+# MySQL persistent store mode
+poetry run sharedstate-server cfg/sql.json
 ```
 
 ---
@@ -33,7 +37,7 @@ poetry run sharedstate-server config.json
 
 The server configuration file defines the server listening host/port and the set of state stores available for clients to query.
 
-### Configuration Schema
+### In-Memory Configuration (`cfg/default.json`)
 
 ```json
 {
@@ -43,10 +47,11 @@ The server configuration file defines the server listening host/port and the set
     "http_log": "logs/http.log",
     "ws_log": "logs/ws.log"
   },
-  "stores": [
+  "services": [
     {
-      "name": "mitems",
+      "name": "items",
       "module": "items_store",
+      "description": "SQLite In-Memory Item Store",
       "config": {
         "db_type": "sqlite",
         "db_name": ":memory:",
@@ -54,16 +59,13 @@ The server configuration file defines the server listening host/port and the set
       }
     },
     {
-      "name": "items",
+      "name": "mitems",
       "module": "items_store",
+      "description": "SQLite In-Memory Item Store",
       "config": {
-        "db_type": "mysql",
-        "db_name": "sharedstate",
-        "db_table": "items",
-        "db_host": "localhost",
-        "db_user": "myuser",
-        "db_password": "mypassword",
-        "ssl.enabled": false
+        "db_type": "sqlite",
+        "db_name": ":memory:",
+        "db_table": "mitems"
       }
     }
   ]
@@ -113,16 +115,20 @@ If your MySQL server requires encrypted connections, set `"ssl.enabled": true` a
 
 ## 4. JavaScript Client Library Setup
 
-The SharedState JavaScript client SDK can be imported into modern ES modules or included directly via global script tags.
+The SharedState JavaScript client SDK can be imported into modern ES modules, Node.js applications, or included directly via global script tags.
 
-### Download Public JS Bundles
+### CDN & Bundle Downloads (GitHub Pages)
 
-Pre-built client bundles are available for direct download:
+Pre-compiled client bundles are published live to GitHub Pages on every build:
 
-- **[sharedstate.es.js](https://github.com/ingararntzen/shared-state/raw/main/dist/sharedstate.es.js)** (ES6 Module - Unminified)
-- **[sharedstate.es.min.js](https://github.com/ingararntzen/shared-state/raw/main/dist/sharedstate.es.min.js)** (ES6 Module - Minified)
-- **[sharedstate.iife.js](https://github.com/ingararntzen/shared-state/raw/main/dist/sharedstate.iife.js)** (IIFE Global Script - Unminified)
-- **[sharedstate.iife.min.js](https://github.com/ingararntzen/shared-state/raw/main/dist/sharedstate.iife.min.js)** (IIFE Global Script - Minified)
+- **[sharedstate.es.js](https://ingararntzen.github.io/shared-state/dist/sharedstate.es.js)** (ES6 Module - Unminified)
+- **[sharedstate.es.min.js](https://ingararntzen.github.io/shared-state/dist/sharedstate.es.min.js)** (ES6 Module - Minified)
+- **[sharedstate.iife.js](https://ingararntzen.github.io/shared-state/dist/sharedstate.iife.js)** (IIFE Global Script - Unminified)
+- **[sharedstate.iife.min.js](https://ingararntzen.github.io/shared-state/dist/sharedstate.iife.min.js)** (IIFE Global Script - Minified)
+- **[sharedstate.cjs.js](https://ingararntzen.github.io/shared-state/dist/sharedstate.cjs.js)** (Node.js CommonJS)
+- **[sharedstate.cjs.min.js](https://ingararntzen.github.io/shared-state/dist/sharedstate.cjs.m in.js)** (Node.js CommonJS - Minified)
+- **[sharedstate.umd.js](https://ingararntzen.github.io/shared-state/dist/sharedstate.umd.js)** (Universal Module Definition)
+- **[sharedstate.umd.min.js](https://ingararntzen.github.io/shared-state/dist/sharedstate.umd.min.js)** (Universal Module Definition - Minified)
 
 ### ES Module Import Syntax
 
@@ -130,7 +136,7 @@ In modern web applications or `<script type="module">` tags:
 
 ```html
 <script type="module">
-  import { SharedStateClient, SharedMap, SharedInteger } from "./dist/sharedstate.es.js";
+  import { SharedStateClient, SharedMap, SharedInteger } from "https://ingararntzen.github.io/shared-state/dist/sharedstate.es.js";
 
   const client = new SharedStateClient("ws://localhost:9000");
 </script>
@@ -141,7 +147,7 @@ In modern web applications or `<script type="module">` tags:
 For traditional script tags without build steps:
 
 ```html
-<script src="./dist/sharedstate.iife.js"></script>
+<script src="https://ingararntzen.github.io/shared-state/dist/sharedstate.iife.js"></script>
 <script>
   // Access constructors under global SHAREDSTATE namespace
   const client = new SHAREDSTATE.SharedStateClient("ws://localhost:9000");

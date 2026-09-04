@@ -22,11 +22,13 @@
     "test": "tests"
   },
   "scripts": {
+    "dev": "vite",
     "test": "vitest run",
     "test:js": "vitest run",
     "test:watch": "vitest",
     "build": "vite build && DIST=true vite build",
     "build:dist": "vite build && DIST=true vite build",
+    "prepublishOnly": "npm run build:dist",
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",
     "docs:preview": "vitepress preview docs"

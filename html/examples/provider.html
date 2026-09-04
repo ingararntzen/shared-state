@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SharedState - ItemProvider Example</title>
+    <link rel="stylesheet" href="examples.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>ItemProvider (Layer 1)</h1>
+            <span class="badge">Layer 1 API</span>
+        </header>
+
+        <div class="controls">
+            <button class="btn-primary" id="setBtn">🎲 Set Random Value</button>
+        </div>
+
+        <div class="metric-display">
+            <div class="metric-val" id="provider">--</div>
+            <div class="metric-label">Item State ("value")</div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { SharedStateClient } from "../../client/index.js";
+
+        function getRandomInt(max) {
+            return Math.floor(Math.random() * max);
+        }
+
+        const wsUrl = `ws://${location.hostname || "127.0.0.1"}:${location.port || 9000}`;
+        const client = new SharedStateClient(wsUrl);
+
+        // ItemProvider (Layer 1 state provider)
+        const myvar = client.provider("/app/items/chnl");
+
+        // Application-level value wrappers on top of ItemProvider API
+        function set_value(val) {
+            return myvar.update_items({ insert: [{ id: "value", state: val }] });
+        }
+
+        function get_value() {
+            const item = myvar.get_item("value");
+            return item ? item.state : undefined;
+        }
+
+        // Render variable
+        const elem = document.querySelector("#provider");
+        function render() {
+            const val = get_value();
+            elem.textContent = val !== undefined ? val : "--";
+        }
+
+        render();
+        myvar.add_callback(() => {
+            render();
+        });
+
+        // Set variable
+        document.querySelector("#setBtn").onclick = () => {
+            set_value(getRandomInt(100));
+        };
+    </script>
+</body>
+</html>

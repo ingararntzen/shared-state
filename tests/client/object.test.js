@@ -261,6 +261,27 @@ describe("Layer 2 Domain Abstractions Unit Tests", () => {
         expect(setValues).toEqual(["user1", "user2"]);
     });
 
+    test("SharedSet and SharedMap clear() method", async () => {
+        const mockClient = createMockClient();
+
+        const setObj = new SharedSet(mockClient, "/app/store/members2");
+        const mapObj = new SharedMap(mockClient, "/app/store/dict2");
+
+        await mapObj.clear();
+        expect(mockClient._update).toHaveBeenCalledWith("/app/store/dict2", {
+            insert: [],
+            remove: [],
+            reset: true
+        });
+
+        await setObj.clear();
+        expect(mockClient._update).toHaveBeenCalledWith("/app/store/members2", {
+            insert: [],
+            remove: [],
+            reset: true
+        });
+    });
+
     test("Direct Layer 2 Instantiation and Property Access", () => {
         const mockClient = createMockClient();
 

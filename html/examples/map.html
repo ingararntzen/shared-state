@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SharedState - SharedMap Example</title>
+    <link rel="stylesheet" href="examples.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>SharedMap Viewer</h1>
+            <span class="badge" id="countBadge">0 Items</span>
+        </header>
+
+        <div class="controls">
+            <button class="btn-primary" id="addBtn">+ Add Entry</button>
+            <button class="btn-secondary" id="changeBtn">⚡ Change Random</button>
+            <button class="btn-danger" id="resetBtn">🗑️ Delete All</button>
+        </div>
+
+        <div class="viewer" id="viewer">
+            <div class="empty-state">Loading map data...</div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { SharedStateClient, load } from "../../client/index.js";
+
+        function getRandomInt(max) {
+            return Math.floor(Math.random() * max);
+        }
+
+        const wsUrl = `ws://${location.hostname || "127.0.0.1"}:${location.port || 9000}`;
+        const client = new SharedStateClient(wsUrl);
+
+        // Load SharedMap via load(client, config)
+        const { demoMap } = load(client, {
+            demoMap: { type: "Map", path: "/app/items/demo", optimistic: true }
+        });
+
+        const viewerEl = document.querySelector("#viewer");
+        const countBadgeEl = document.querySelector("#countBadge");
+
+        function updateDOM(changes = {}) {
+            const { insert = new Map(), remove = new Set(), reset = false } = changes;
+
+            countBadgeEl.textContent = `${demoMap.size} ${demoMap.size === 1 ? 'Entry' : 'Entries'}`;
+
+            if (demoMap.size === 0) {
+                viewerEl.innerHTML = `<div class="empty-state">Map is empty. Click "+ Add Entry" to populate.</div>`;
+                return;
+            }
+
+            const emptyEl = viewerEl.querySelector(".empty-state");
+            if (emptyEl) {
+                emptyEl.remove();
+            }
+
+            if (reset) {
+                viewerEl.innerHTML = "";
+            }
+
+            // Handle removals (remove is a Set of keys)
+            remove.forEach((key) => {
+                const card = viewerEl.querySelector(`[data-id="${CSS.escape(key)}"]`);
+                if (card) {
+                    card.remove();
+                }
+            });
+
+            // Handle inserts / updates (insert is a Map of key -> value)
+            insert.forEach((val, key) => {
+                const formattedVal = typeof val === "object" ? JSON.stringify(val) : String(val);
+
+                let card = viewerEl.querySelector(`[data-id="${CSS.escape(key)}"]`);
+                if (card) {
+                    // Update existing element in-place
+                    const stateEl = card.querySelector(".item-state");
+                    if (stateEl) {
+                        stateEl.textContent = formattedVal;
+                    }
+                } else {
+                    // Create and append new DOM node
+                    card = document.createElement("div");
+                    card.className = "item-card";
+                    card.setAttribute("data-id", key);
+
+                    const info = document.createElement("div");
+                    info.className = "item-info";
+                    info.innerHTML = `
+                        <span class="item-id">${key}</span>
+                        <span class="item-state">${formattedVal}</span>
+                    `;
+
+                    const delBtn = document.createElement("button");
+                    delBtn.className = "btn-danger btn-sm-danger";
+                    delBtn.textContent = "Delete";
+                    delBtn.onclick = () => {
+                        demoMap.delete(key);
+                    };
+
+                    card.appendChild(info);
+                    card.appendChild(delBtn);
+                    viewerEl.appendChild(card);
+                }
+            });
+        }
+
+        // Subscribe to SharedMap change events
+        demoMap.on("change", (changes) => {
+            updateDOM(changes);
+        }, { init: true });
+
+        // Event Listeners
+        document.querySelector("#addBtn").onclick = () => {
+            const idx = getRandomInt(100);
+            demoMap.set(`key_${idx}`, `val_${idx}`);
+        };
+
+        document.querySelector("#changeBtn").onclick = () => {
+            const keys = Array.from(demoMap.keys());
+            if (keys.length === 0) return;
+            const targetKey = keys[getRandomInt(keys.length)];
+            const new_idx = getRandomInt(100);
+            demoMap.set(targetKey, `val_${new_idx}`);
+        };
+
+        document.querySelector("#resetBtn").onclick = () => {
+            demoMap.clear();
+        };
+    </script>
+</body>
+</html>

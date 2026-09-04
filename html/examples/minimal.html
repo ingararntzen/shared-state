@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>SharedState Minimal Counter</title>
+    <script type="module">
+        import { SharedStateClient, load } from "../../client/index.js";
+
+        const client = new SharedStateClient("ws://127.0.0.1:9000");
+
+        // Load reactive application objects via load(client, schema)
+        const { counter } = load(client, {
+            counter: { type: "Integer", path: "/app/mitems/chnl", allowUndefined: false, defaultValue: 0 }
+        });
+
+        const elem = document.querySelector("#counter");
+        const btn = document.querySelector("#incBtn");
+
+        // Subscribe to value changes
+        counter.on("change", (val) => {
+            elem.textContent = val;
+        }, { init: true });
+
+        // Increment counter on click
+        btn.onclick = () => {
+            counter.inc(1);
+        };
+    </script>
+</head>
+<body>
+    <h3>SharedState Minimal Counter</h3>
+    <p>
+        <button id="incBtn">Increment Counter</button>
+    </p>
+    <p>
+        <div>Counter Value: <span id="counter">0</span></div>
+    </p>
+</body>
+</html>
