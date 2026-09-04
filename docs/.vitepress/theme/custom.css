@@ -17,3 +17,32 @@
   color: var(--vp-c-text-1) !important; /* Full text opacity, crisp readability */
   line-height: 1.6;
 }
+
+/* Hero Tagline styling: wide span, left-aligned with indent padding, clean italics appearance */
+.VPHero .tagline {
+  font-style: italic;
+  font-size: 1.15rem;
+  line-height: 1.65;
+  max-width: 860px;
+  margin-top: 1.5rem;
+  margin-left: 0;
+  margin-right: auto;
+  text-align: left;
+  color: var(--vp-c-text-2);
+  padding-left: 1.8rem;
+}
+
+.VPHero .tagline .highlight-concept {
+  color: var(--vp-c-brand-1);
+  font-weight: 600;
+  font-style: normal;
+}
+
+@media (min-width: 960px) {
+  .VPHero .tagline {
+    font-size: 1.25rem;
+    margin-top: 1.75rem;
+    padding-left: 2rem;
+  }
+}
+

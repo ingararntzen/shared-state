@@ -5,6 +5,10 @@ export default defineConfig({
   description: 'Python server and JavaScript client for real-time data sharing.',
   base: '/shared-state/',
 
+  head: [
+    ['link', { rel: 'icon', type: 'image/svg+xml', href: '/shared-state/logo.svg' }]
+  ],
+
   themeConfig: {
     logo: '/logo.svg',
     nav: [],
