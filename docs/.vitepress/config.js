@@ -11,6 +11,15 @@ export default defineConfig({
 
     sidebar: [
       {
+        text: 'Usage',
+        items: [
+          { text: 'Quickstart', link: '/usage/quickstart' },
+          { text: 'Setup & Installation', link: '/usage/setup' },
+          { text: 'Example Applications', link: '/usage/example' },
+          { text: 'Deployment & Security', link: '/usage/deployment' }
+        ]
+      },
+      {
         text: 'Concept',
         items: [
           { text: 'Introduction', link: '/concept/introduction' },
@@ -25,7 +34,7 @@ export default defineConfig({
           { text: 'Overview', link: '/design/overview' },
           {
             text: 'Representation',
-            collapsed: false,
+            collapsed: true,
             items: [
               { text: 'Item Collection', link: '/design/representation/item_collection' },
               { text: 'Item Store', link: '/design/representation/item_store' },
@@ -34,7 +43,7 @@ export default defineConfig({
           },
           {
             text: 'Mechanism',
-            collapsed: false,
+            collapsed: true,
             items: [
               { text: 'Communication', link: '/design/mechanism/communication' },
               { text: 'Subscriptions', link: '/design/mechanism/subscriptions' },
@@ -43,7 +52,7 @@ export default defineConfig({
           },
           {
             text: 'Abstraction',
-            collapsed: false,
+            collapsed: true,
             items: [
               { text: 'Connection', link: '/design/abstraction/connection' },
               { text: 'Application Objects', link: '/design/abstraction/objects' },
