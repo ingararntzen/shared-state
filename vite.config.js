@@ -16,12 +16,12 @@ export default defineConfig(({ mode }) => {
         },
         build: {
             outDir: path.resolve(__dirname, "dist"),
-            emptyOutDir: true,
+            emptyOutDir: !isDist,
             minify: isDist,
             lib: {
                 entry: path.resolve(__dirname, "client/index.js"),
                 name: "SHAREDSTATE",
-                formats: ["es", "iife"],
+                formats: ["es", "iife", "cjs", "umd"],
                 fileName: (format) => `sharedstate.${format}.${ext}`
             }
         }

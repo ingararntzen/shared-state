@@ -160,4 +160,4 @@ export class BaseTypedVariable extends BaseVariable {
 }
 
 // Alias for backwards compatibility
-export { BaseTypedVariable as SharedTypedVariable };
+export { BaseTypedVariable as SharedTypedVariable, VariableType as VarType };

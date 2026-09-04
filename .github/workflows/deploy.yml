@@ -34,8 +34,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Build JS Client Bundles
+        run: npm run build:dist
+
       - name: Build with VitePress
         run: npm run docs:build
+
+      - name: Include dist bundles in published site
+        run: cp -r dist docs/.vitepress/dist/dist
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

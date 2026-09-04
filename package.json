@@ -3,8 +3,17 @@
   "version": "1.0.0",
   "description": "SharedState",
   "type": "module",
-  "main": "dist/sharedstate.iife.js",
+  "main": "dist/sharedstate.cjs.js",
   "module": "dist/sharedstate.es.js",
+  "exports": {
+    ".": {
+      "import": "./dist/sharedstate.es.js",
+      "require": "./dist/sharedstate.cjs.js",
+      "browser": "./dist/sharedstate.es.js",
+      "node": "./dist/sharedstate.cjs.js",
+      "default": "./dist/sharedstate.es.js"
+    }
+  },
   "files": [
     "dist",
     "client"
@@ -16,8 +25,8 @@
     "test": "vitest run",
     "test:js": "vitest run",
     "test:watch": "vitest",
-    "build": "vite build",
-    "build:dist": "DIST=true vite build",
+    "build": "vite build && DIST=true vite build",
+    "build:dist": "vite build && DIST=true vite build",
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",
     "docs:preview": "vitepress preview docs"

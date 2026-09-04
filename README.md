@@ -3,6 +3,12 @@
 
 Python server and JavaScript client for real-time data sharing. 
 
+## Documentation
+
+Full documentation is available at: https://ingararntzen.github.io/shared-state/
+
+
+## Intro
 
 This project provides a Python server and JavaScript client for real-time data
 sharing. Shared state implies that multiple (Web) clients may connect to a

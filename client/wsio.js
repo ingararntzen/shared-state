@@ -35,7 +35,11 @@ export class WebSocketIO {
         }
 
         // connecting
-        this._ws = new WebSocket(this._url);
+        const WS = this._options.WebSocket || (typeof WebSocket !== "undefined" ? WebSocket : globalThis.WebSocket);
+        if (!WS) {
+            throw new Error("WebSocket implementation not found. In Node.js environments, pass options.WebSocket or define globalThis.WebSocket.");
+        }
+        this._ws = new WS(this._url);
         this._state = ConnectionState.CONNECTING;
         this._ws.onopen = e => this._on_open(e);
         this._ws.onmessage = e => this.on_message(e.data);
