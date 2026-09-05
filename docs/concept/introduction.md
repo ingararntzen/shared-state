@@ -24,11 +24,12 @@ These new abstractions closely mirror their single-process counterparts, but wit
 
 ## Perspective
 
-This model offers two key takeaways for application architecture:
+This model offers two key takeaways with respect to programming abstractions and application architectures:
 
-- **Familiar, yet extended Scope**: Application logic remains intuitive and expressive because it is defined in terms of familiar programming abstractions. Crucially, because these objects represent remote resources, their behavior adapts to the distributed nature of online state—queries are synchronous, while state updates are non-blocking and asynchronous.
+- **Familiar Concepts, Extended Scope**: Application development remains intuitive and expressive, as it is defined in terms of familiar programming abstractions. Crucially, though, since these abstractions are re-interpreted as online resources, their scope is extended, from local to global. Following this transformation, access semantics change slightly, as state updates are no longer synchronous operations.
 
-- **Decomposed vs. Monolithic State**: This represents a paradigm shift away from traditional web architectures that centralize state into a single monolithic data model. SharedState instead decomposes application state into fine-grained, independent shared resources, allowing sharing scope, access control, and network synchronization to be managed on a per-resource basis.
+- **Independent Resources vs. Monolithic Datamodel**: This represents a shift away from traditional web architectures, where online state management is typically organized around a single data model, database, or service type. SharedState, in contrast, encourages a model where online state management is addressed at a lower level, within individual variables, collections, and data-structures. Such a fine-grained approach to state management provides more flexibility, as it allows sharing scope and access restrictions to be specified on a per-resource basis. Moreover, this model implies that application-specific datamodels can be formed on the client-side to a larger degree, through the composition of simpler, generic resources. Furthermore, it inspires a class of backend services specializing in simple, general-purpose resources.
+
 
 ---
 
@@ -80,3 +81,9 @@ The SharedState approach is based on the following design principles:
 - **Online-first Semantics**: SharedState provides a uniform abstraction for application resources, whether hosted online or backed by local storage. A uniform abstraction ensures that local and remote resources can be used interchangeably. For instance, this allows application components to be developed within a single-process environment, and subsequently deployed in a distributed context, without requiring any changes. Moreover, remote resource semantics generalize well to local state, whereas the opposite is not the case. In remote semantics, local objects are simply objects with a smaller update delay. For this reason, SharedState treats all resources as remote resources.
 
 - **Domain-Agnostic Server**: SharedState faces a fundamental tension in distributed systems design: While server infrastructure must remain simple and lightweight to ensure high performance and scalability, developers require rich and diverse abstractions tailored to different application contexts and interaction patterns. SharedState balances these demands by organizing replication around a single, domain-agnostic resource abstraction on the server [ItemCollection], while also ensuring that this low-level abstraction can be specialized into more advanced abstractions by client-side libraries (e.g., `SharedList`, `SharedTree`, `SharedGraph`). This keeps the server generic, fast, and easy to maintain and optimize, while simultaneously enabling the SharedState framework to be extended with new, specialized abstractions, without requiring changes to the server.
+
+
+---
+## Related Concepts
+
+
