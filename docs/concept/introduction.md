@@ -28,7 +28,7 @@ This model offers two key takeaways with respect to programming abstractions and
 
 - **Familiar Concepts, Extended Scope**: Application development remains intuitive and expressive, as it is defined in terms of familiar programming abstractions. Crucially, though, since these abstractions are re-interpreted as online resources, their scope is extended, from local to global. Following this transformation, access semantics change slightly, as state updates are no longer synchronous operations.
 
-- **Independent Resources vs. Monolithic Datamodel**: This represents a shift away from traditional web architectures, where online state management is typically organized around a single data model, database, or service type. SharedState, in contrast, encourages a model where online state management is addressed at a lower level, within individual variables, collections, and data-structures. Such a fine-grained approach to state management provides more flexibility, as it allows sharing scope and access restrictions to be specified on a per-resource basis. Moreover, this model implies that application-specific datamodels can be formed on the client-side to a larger degree, through the composition of simpler, generic resources. Furthermore, it inspires a class of backend services specializing in simple, general-purpose resources.
+- **Independent Resources vs. Monolithic Data Models**: This represents a shift away from traditional web architectures, where online state management is typically organized around a single data model, database, or service type. SharedState, in contrast, encourages a model where online state management is addressed at a lower level, within individual variables, collections, and data-structures. Such a fine-grained approach to state management provides more flexibility, as it allows sharing scope and access restrictions to be specified on a per-resource basis. Moreover, this model implies that application-specific datamodels can be formed on the client-side to a larger degree, through the composition of simpler, generic resources. Furthermore, it inspires a class of backend services specializing in simple, general-purpose resources.
 
 
 ---
@@ -84,6 +84,23 @@ The SharedState approach is based on the following design principles:
 
 
 ---
+
 ## Related Concepts
 
+To understand the practical value of the SharedState approach, it is useful to position its programming model relative to existing real-time technologies:
+
+- **Real-Time Databases (e.g., Firebase, Supabase, Convex)**: Real-time databases organize state around structured documents or database tables and facilitate search and indexing. SharedState, by contrast, targets real-time state sharing of simple programming abstractions, such as variables (`float`, `string`), collections (`set`, `map`), and generic data structures (`tree`, `graph`).
+
+::: tip Why this matters
+Real-time databases focus on **larger** datasets, where state cannot generally be mirrored in full on the client-side. This implies that state access and update operations are subject to network delay. SharedState, in contrast, focuses on client-side replication of **small, dynamic** resources as a basis for zero-delay interactive state sharing. SharedState is therefore an attractive alternative, particularly suited for real-time sharing of light-weight control state and datasets. Moreover, SharedState is practical in use, as it does not require a transformation between database representation and application data model. 
+:::
+
+- **Collaborative Editing Frameworks (e.g., Yjs, Automerge, OT)**: Collaborative document engines specialize in complex, character-level text-merging algorithms (CRDTs/OT) for rich-text editing. SharedState focuses on discrete application variables and collections, using server-authoritative optimistic updates for deterministic consistency.
+  *Why this matters*: SharedState avoids the heavy memory footprint, CPU overhead, and algorithmic complexity of CRDTs when applications only need to synchronize discrete values, control flags, and structured collections.
+
+- **Event Streaming & Pub/Sub (e.g., MQTT, WebSockets, Redis Pub/Sub, Kafka)**: Pub/Sub systems provide a *transport abstraction* for transient messages ("something happened"), requiring developers to manually build mechanisms to store, reconstruct, and synchronize state. SharedState provides a *resource abstraction* for persistent state ("what the current value is").  
+  *Why this matters*: Developers do not have to write custom code to handle initial state snapshots, local memory caching, or reconnection synchronization—SharedState manages local state mirroring and delta sync out-of-the-box.
+
+- **Game Engine State Sync (e.g., Photon, Unity Netcode)**: Game networking synchronizes real-time state (positions, angles, inputs) but is tightly coupled to specific game engines and binary tick-rate architectures. SharedState extracts these real-time state patterns into language-agnostic, web-native primitives.  
+  *Why this matters*: It allows developers to apply high-frequency real-time state sharing across standard web applications, multi-device presentation systems, and microservices without being locked into a monolithic game engine.
 
