@@ -89,17 +89,28 @@ The SharedState approach is based on the following design principles:
 
 To understand the practical value of the SharedState approach, it is useful to position its programming model relative to existing real-time technologies:
 
-- **Real-Time Databases (e.g., Firebase, Supabase, Convex)**: Real-time databases organize state around structured documents or database tables and facilitate search and indexing. SharedState, by contrast, targets real-time state sharing of simple programming abstractions, such as variables (`float`, `string`), collections (`set`, `map`), and generic data structures (`tree`, `graph`).
+- **Real-Time Databases (e.g., Firebase, Supabase, Convex)**: Real-time databases organize state around structured documents or database tables in order to facilitate indexing and search. SharedState, by contrast, targets sharing of general-purpose programming abstractions, such as variables (`number`, `string`), collections (`Set`, `Map`), and data structures (`tree`, `graph`).
 
 ::: tip Why this matters
-Real-time databases focus on **larger** datasets, where state cannot generally be mirrored in full on the client-side. This implies that state access and update operations are subject to network delay. SharedState, in contrast, focuses on client-side replication of **small, dynamic** resources as a basis for zero-delay interactive state sharing. SharedState is therefore an attractive alternative, particularly suited for real-time sharing of light-weight control state and datasets. Moreover, SharedState is practical in use, as it does not require a transformation between database representation and application data model. 
+SharedState focuses on **small** resources. This makes it possible to replicate state at the client-side, and to resolve queries and state changes locally. The same trick, however, is less practical for real-time databases, as they are designed for **larger** datasets where operations must be evaluated by the database server. SharedState is therefore particularly suited for real-time sharing of lightweight datasets and dynamic control state, and it is also practical in use, as it eliminates the need to transform between database schema and application objects.
 :::
 
+- **Event Streaming & Pub/Sub (e.g., Redis Pub/Sub, Apache Kafka)**: These mechanisms typically function as message overlays, brokering **streams** of transient events between producers and consumers. Upon joining a channel, consumers might need to resolve the current state of the channel without waiting for the next event. If so, this is typically resolved through a separate mechanism, such as a REST API to an event log or cache. SharedState models **state** — not **stream** — and consequently provides both current state and change notifications as integral parts of the same mechanism.
+
+::: tip Why this matters
+**Stream** and **state** are not merely alternative concepts; they represent different levels of abstraction. SharedState eliminates the need to manually transform event formats into application objects, and also handles consistency issues that may arise when current state and event notifications are delivered through separate mechanisms. This ensures that SharedState is practical in use and a natural fit for reactive programming, where UI rendering is modeled as a pure function of shared state (`UI = f(State)`). Ultimately, pub/sub messaging systems are not direct alternatives to SharedState, but may serve as a useful mechanism for implementing the SharedState abstraction at scale.
+:::
+
+
+
+
+
+
 - **Collaborative Editing Frameworks (e.g., Yjs, Automerge, OT)**: Collaborative document engines specialize in complex, character-level text-merging algorithms (CRDTs/OT) for rich-text editing. SharedState focuses on discrete application variables and collections, using server-authoritative optimistic updates for deterministic consistency.
+
+
   *Why this matters*: SharedState avoids the heavy memory footprint, CPU overhead, and algorithmic complexity of CRDTs when applications only need to synchronize discrete values, control flags, and structured collections.
 
-- **Event Streaming & Pub/Sub (e.g., MQTT, WebSockets, Redis Pub/Sub, Kafka)**: Pub/Sub systems provide a *transport abstraction* for transient messages ("something happened"), requiring developers to manually build mechanisms to store, reconstruct, and synchronize state. SharedState provides a *resource abstraction* for persistent state ("what the current value is").  
-  *Why this matters*: Developers do not have to write custom code to handle initial state snapshots, local memory caching, or reconnection synchronization—SharedState manages local state mirroring and delta sync out-of-the-box.
 
 - **Game Engine State Sync (e.g., Photon, Unity Netcode)**: Game networking synchronizes real-time state (positions, angles, inputs) but is tightly coupled to specific game engines and binary tick-rate architectures. SharedState extracts these real-time state patterns into language-agnostic, web-native primitives.  
   *Why this matters*: It allows developers to apply high-frequency real-time state sharing across standard web applications, multi-device presentation systems, and microservices without being locked into a monolithic game engine.
