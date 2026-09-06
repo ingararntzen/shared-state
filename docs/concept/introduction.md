@@ -111,8 +111,10 @@ This positions OT and CRDTs as alternative approaches for SharedState implementa
 :::
 
 
+- **Game Engine Networking (e.g., Unity Netcode, Photon, Colyseus)**: Multiplayer game engines use networked variables (`NetworkVariable<T>`) or similar concepts to synchronize real-time game state across clients. Such game state may include a variety of control variables, such as a player's position, orientation, velocity, and posture. The SharedState pattern may be regarded as a re-interpretation of this concept for the online domain, realizing it as an independent mechanism for collaborative, multi-device applications in general.
 
+::: tip Why this matters
+Realizing real-time variable synchronization as a generic, independent mechanism opens up a range of opportunities. It allows control state to be shared across heterogeneous devices and platforms, without requiring the full application environment on every client. For UI components, this provides a common method for dispatching and consuming control signals. Moreover, the client-server architecture of SharedState means that a wide range of control scenarios can be supported, including distributed remote control and collaborative multi-user control. Ultimately, this makes real-time state synchronization available as a first-class, reusable system component, rather than something that must be addressed by each application independently.
+:::
 
-- **Game Engine State Sync (e.g., Photon, Unity Netcode)**: Game networking synchronizes real-time state (positions, angles, inputs) but is tightly coupled to specific game engines and binary tick-rate architectures. SharedState extracts these real-time state patterns into language-agnostic, web-native primitives.  
-  *Why this matters*: It allows developers to apply high-frequency real-time state sharing across standard web applications, multi-device presentation systems, and microservices without being locked into a monolithic game engine.
 
