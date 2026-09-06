@@ -104,14 +104,13 @@ SharedState focuses on **small** resources. This makes it possible to replicate 
 :::
 
 
+- **Collaborative Editing (e.g., Yjs, Automerge, ShareDB)**: Collaborative editing frameworks use specialized conflict-resolution algorithms such as Operational Transformation (OT) and Conflict-free Replicated Data Types (CRDTs) to merge concurrent edits on text sequences and document trees. The SharedState pattern, by contrast, aims to support generic programming abstractions with built-in support for collaborative state synchronization, without necessarily dictating a particular implementation.
+
+::: tip Why this matters
+This positions OT and CRDTs as alternative approaches for SharedState implementation, rather than competing patterns. For example, OT could be used to extend the current SharedState framework with new abstractions, such as `SharedText`, essentially supporting concurrent edits to a shared text string. Additionally, CRDTs could offer an alternative approach to replication altogether, replacing last-write-wins semantics with more sophisticated conflict resolution. This could enhance the user experience in highly interactive, collaborative scenarios, and potentially extend the applicability of the SharedState pattern to offline usage. Ultimately, this suggests that CRDTs and OT can become more practical in use, if made available alongside other (simpler) primitives for real-time state sharing.
+:::
 
 
-
-
-- **Collaborative Editing Frameworks (e.g., Yjs, Automerge, OT)**: Collaborative document engines specialize in complex, character-level text-merging algorithms (CRDTs/OT) for rich-text editing. SharedState focuses on discrete application variables and collections, using server-authoritative optimistic updates for deterministic consistency.
-
-
-  *Why this matters*: SharedState avoids the heavy memory footprint, CPU overhead, and algorithmic complexity of CRDTs when applications only need to synchronize discrete values, control flags, and structured collections.
 
 
 - **Game Engine State Sync (e.g., Photon, Unity Netcode)**: Game networking synchronizes real-time state (positions, angles, inputs) but is tightly coupled to specific game engines and binary tick-rate architectures. SharedState extracts these real-time state patterns into language-agnostic, web-native primitives.  
