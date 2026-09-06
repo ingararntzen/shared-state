@@ -18,13 +18,12 @@ hero:
       link: https://github.com/ingararntzen/shared-state
 
 features:
-  - title: Zero-Latency Queries & Updates
-    details: Zero query latency by mirroring state locally, and zero update latency through optimistic local state changes—making applications feel instantly responsive.
+  - title: Zero-Delay State Access
+    details: SharedState enables highly interactive and responsive applications by mirroring server state locally, resolving queries and updates as zero-delay local operations.
   - title: Strong Eventual Consistency
-    details: Deterministic convergence to a consistent state—encapsulating complexity with diff-based replication, connection management, and client subscriptions.
-  - title: Familiar Reactive Abstractions
-    details: Re-interpreting standard programming primitives for the online scope with a reactive programming model—synchronous queries and asynchronous state updates.
+    details: SharedState provides replication with strong eventual consistency, maintaining the integrity of client sessions despite network failures.
+  - title: Reactive Programming
+    details: SharedState is a great fit for reactive rendering frameworks, offering programming abstractions with state-change events and asynchronous update semantics.
   - title: Data Sharing & Distributed Control
-    details: Effortlessly build collaborative applications, live shared dashboards, and real-time interaction across distributed users and devices.
+    details: SharedState supports both data sharing and distributed control—enabling live monitoring, multi-user editing, and multi-device coordination.
 ---
-
