@@ -3,39 +3,39 @@
 
 # Introduction
 
-> SharedState supports online state sharing at the level of individual application variables and collection types.
+> SharedState supports online state sharing at the level of variables and collection types.
 
-Traditional web development is typically split between two concerns: developers express interface functionality synchronously through the manipulation of in-memory variables, and then switch to an asynchronous execution model for managing online-hosted data sources.
+Traditional web development is typically split between two concerns: developers express interface functionality synchronously through the manipulation of in-memory variables, and then switch to an asynchronous execution model for managing online data sources.
 
 In **single-process programming**, application-specific logic is defined through assignment and mutation of general-purpose programming abstractions, such as:
 
 - **Variable types**: `boolean`, `integer`, `string`, `float`.
 - **Collection types**: `List`, `Map`, `Set`, `Tree`, `Graph`.
 
-The core philosophy of SharedState is to adapt this model to the online world. This means that programming is still based on similar abstractions, but, importantly, that the abstractions live externally to the process, and may therefore be shared across multiple processes.
+The core philosophy of SharedState is to adapt this model to the online world. This means that programming is still based on similar abstractions, but, crucially, that their underlying **state** may be hosted **online** and shared across multiple processes.
 
 This idea immediately inspires a new set of programming abstractions:
 - **Variable types**: `SharedBoolean`, `SharedInteger`, `SharedString`, `SharedFloat`.
 - **Collection types**: `SharedList`, `SharedMap`, `SharedSet`, `SharedTree`, `SharedGraph`.
 
-These new abstractions closely mirror their single-process counterparts, but with the important difference that they are proxies to remote resources, and that their state mutation is therefore principally an **asynchronous** operation.
+These abstractions closely resemble their single-process counterparts, but with the key difference that they are **proxies to external resources**, and that their state mutation is therefore principally an **asynchronous** operation.
 
 ---
 
 ## Perspective
 
-This model offers two key takeaways with respect to programming abstractions and application architectures:
+This model offers two immediate takeaways with respect to programming abstractions and application architectures:
 
-- **Familiar Concepts, Extended Scope**: Application development remains intuitive and expressive, as it is defined in terms of familiar programming abstractions. Crucially, though, since these abstractions are re-interpreted as online resources, their scope is extended, from local to global. Following this transformation, access semantics change slightly, as state updates are no longer synchronous operations.
+- **Familiar Concepts, Extended Scope**: As new concepts mimic established programming abstractions, the overall programming model remains largely unchanged. However, by re-interpreting programming abstractions as online resources, their scope is significantly extended.
 
-- **Independent Resources vs. Monolithic Data Models**: This represents a shift away from traditional web architectures, where online state management is typically organized around a single data model, database, or service type. SharedState, in contrast, encourages a model where online state management is addressed at a lower level, within individual variables, collections, and data-structures. Such a fine-grained approach to state management provides more flexibility, as it allows sharing scope and access restrictions to be specified on a per-resource basis. Moreover, this model implies that application-specific datamodels can be formed on the client-side to a larger degree, through the composition of simpler, generic resources. Furthermore, it inspires a class of backend services specializing in simple, general-purpose resources.
+- **Independent Resources vs. Monolithic Data Models**: By addressing state-sharing at the level of individual programming abstractions, this represents a shift away from traditional web architectures, where state management is typically organized around a single monolithic data model, database, or service type. Such a fine-grained approach to state management provides more flexibility, as it allows sharing scope and access restrictions to be specified on a per-resource basis. Moreover, the model implies that application-specific data models can be synthesized on the client-side, to a larger degree, through the runtime composition of many small, independent resources. This, in turn, may inspire backend services specializing in the hosting of such small, general-purpose resources.
 
 
 ---
 
 ## Objective
 
-The objective of SharedState is to facilitate **online sharing of application state — at the level of individual variables and collections**.
+> The objective of SharedState is to facilitate online sharing of application state — as a built-in capability of generic programming abstractions, such as variables, collections, and generic data-structures.
 
 ---
 
@@ -45,19 +45,21 @@ Asking what shared variables and shared collections can be used for is very much
 
 SharedState, importantly, further **extends the scope** of such programming constructs, imbuing them with built-in support for **shared usage** across multiple devices and/or client sessions.
 
-For inspiration, here are some common scenarios that are trivially addressed by SharedState:
+For inspiration, these are common scenarios trivially addressed by SharedState:
 
-- using SharedMap to back a live dataset, recorded by one device and visualized by another.
-- using SharedList to back a playlist, a feed, an activity log, or active data layers in a map. 
-- using SharedString to manage the ID of the currently selected item in a SharedList, or who holds the presenter role in a slideshow presentation.
-- using SharedFloat to represent offset in a media player, or scroll position in a document.
-- using SharedObject to hold `longitude`, `latitude`, and `extent` of a map viewer.
-- using SharedMap to hold live layout configuration options for a multi-screen presentation system.
-- using SharedSet to hold active client sessions.
-- using SharedInteger to control slide show progression.
-- using SharedBoolean to toggle the mic or camera on/off across participants in a call.
-- using SharedFloat to report performance stats from clients, such as network latency, CPU usage, or buffer capacity for live data streaming.
 
+::: tip Using ...
+- `SharedMap` to back a live dataset, recorded by one device and visualized by another.
+- `SharedList` to back a playlist, a feed, an activity log, or active data layers in a map. 
+- `SharedString` to manage the ID of the currently selected item in a `SharedList`, or who holds the presenter role in a slideshow presentation.
+- `SharedFloat` to represent offset in a media player, or scroll position in a document.
+- `SharedObject` to hold longitude, latitude, and extent of a map viewer.
+- `SharedMap` to hold live layout configuration options for a multi-screen presentation system.
+- `SharedSet` to hold active client sessions.
+- `SharedInteger` to control slide show progression.
+- `SharedBoolean` to toggle the mic or camera on/off across participants in a call.
+- `SharedFloat` to report performance stats from clients, such as network latency, CPU usage, or buffer capacity for live data streaming.
+:::
 
 In short, developers can exploit SharedState for both resource sharing and distributed application control.
 
