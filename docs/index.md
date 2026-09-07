@@ -19,7 +19,7 @@ hero:
 
 features:
   - title: Zero-Delay State Access
-    details: SharedState enables highly interactive and responsive applications by mirroring server state locally, resolving queries and updates as zero-delay local operations.
+    details: SharedState enables highly interactive and responsive applications by mirroring server state on the client, handling queries and updates as zero-delay local operations.
   - title: Strong Eventual Consistency
     details: SharedState provides replication with strong eventual consistency, maintaining the integrity of client sessions despite network failures.
   - title: Reactive Programming
