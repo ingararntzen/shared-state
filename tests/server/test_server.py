@@ -346,3 +346,29 @@ async def test_monotonic_wall_clock_behavior():
         t4 = clock.now()
         assert t4 > t3  # Advances smoothly forward
 
+
+@pytest.mark.asyncio
+async def test_port_fallback(tmp_path, server):
+    _, occupied_port = server
+    stores_config = [
+        {
+            "name": "items",
+            "module": "items_store",
+            "config": {"db_type": "sqlite", "db_name": ":memory:", "db_table": "items"}
+        }
+    ]
+    srv2 = SharedStateServer(
+        host="127.0.0.1",
+        port=occupied_port,
+        http_log=str(tmp_path / "http2.log"),
+        ws_log=str(tmp_path / "ws2.log"),
+        stores=stores_config
+    )
+    task = asyncio.create_task(srv2.serve_forever())
+    await asyncio.sleep(0.1)
+    assert srv2._port != occupied_port
+    assert srv2._port > occupied_port
+    srv2.stop()
+    await task
+
+

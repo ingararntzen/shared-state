@@ -21,13 +21,14 @@ poetry install
 
 ### Server CLI Command
 
-The server executable `sharedstate-server` is registered in `pyproject.toml`. Run the server by providing a JSON configuration file path:
+The server executable `sharedstate-server` is registered in `pyproject.toml`. You can run the server directly (which defaults to `cfg/sqlite.json`), or pass a custom JSON configuration file path:
 
 ```bash
-# In-memory development mode (default)
-poetry run sharedstate-server cfg/default.json
+# In-memory development mode (default - no argument needed)
+poetry run sharedstate-server
 
-# MySQL persistent store mode
+# Or specify a custom config file
+poetry run sharedstate-server cfg/sqlite.json
 poetry run sharedstate-server cfg/sql.json
 ```
 
@@ -37,7 +38,7 @@ poetry run sharedstate-server cfg/sql.json
 
 The server configuration file defines the server listening host/port and the set of state stores available for clients to query.
 
-### In-Memory Configuration (`cfg/default.json`)
+### SQLite Configuration (`cfg/sqlite.json`)
 
 ```json
 {
@@ -47,7 +48,7 @@ The server configuration file defines the server listening host/port and the set
     "http_log": "logs/http.log",
     "ws_log": "logs/ws.log"
   },
-  "services": [
+  "stores": [
     {
       "name": "items",
       "module": "items_store",

@@ -1,5 +1,6 @@
 import asyncio
 import websockets
+import websockets.exceptions
 import json
 import http
 import traceback
@@ -8,7 +9,30 @@ import logging
 import mimetypes
 from pathlib import Path, PurePosixPath
 from urllib.parse import urlparse, unquote
+from typing import Any, Dict
 from sharedstate.ss_clock import MonotonicWallClock
+
+
+DEFAULT_CONFIG = {
+    "service": {
+        "host": "0.0.0.0",
+        "port": 9000,
+        "http_log": "logs/http.log",
+        "ws_log": "logs/ws.log"
+    },
+    "stores": [
+        {
+            "name": "items",
+            "module": "items_store",
+            "description": "SQLite In-Memory Item Store",
+            "config": {
+                "db_type": "sqlite",
+                "db_name": ":memory:",
+                "db_table": "items"
+            }
+        }
+    ]
+}
 
 
 def normalize(path):
@@ -44,6 +68,41 @@ def setup_logger(name, log_file, level=logging.INFO):
     handler.setFormatter(formatter)
     logger.addHandler(handler)
     return logger
+
+
+async def serve_with_port_fallback(handler, host, port, process_request=None, loggers=None, max_attempts=100):
+    """Attempts to bind a websockets server to the requested port, searching subsequent ports if in use."""
+    bound_server = None
+    actual_port = port
+
+    for offset in range(max_attempts):
+        try_port = port + offset
+        try:
+            bound_server = await websockets.serve(
+                handler,
+                host,
+                try_port,
+                process_request=process_request
+            )
+            actual_port = try_port
+            if try_port != port:
+                port_warn = f"SharedState: Requested port {port} in use. Automatically bound to port {try_port}."
+                print(port_warn)
+                if loggers:
+                    for lgr in loggers:
+                        if lgr:
+                            lgr.warning(port_warn)
+            break
+        except OSError as e:
+            # EADDRINUSE: errno 98 on Linux, 48 on macOS, 10048 on Windows
+            if getattr(e, 'errno', None) in (98, 48, 10048) or "address already in use" in str(e).lower():
+                continue
+            raise
+
+    if bound_server is None:
+        raise OSError(f"SharedState: Could not bind to any port in range {port}-{port + max_attempts - 1}")
+
+    return bound_server, actual_port
 
 
 ########################################################################
@@ -480,7 +539,7 @@ class SharedStateServer:
                 store_name = api_parts[1] if len(api_parts) > 1 else None
                 store = self._stores.get(store_name) if store_name else None
 
-                if store_name and not store:
+                if not store:
                     return 404, "application/json", json.dumps({"ok": False, "error": f"no store '{store_name}'"}).encode('utf-8'), []
 
                 if len(api_parts) == 2:
@@ -580,16 +639,14 @@ class SharedStateServer:
         self._stop_event = asyncio.Event()
         for store_obj in self._stores.values():
             await store_obj.open()
-            
-        self._ws_server = await websockets.serve(
+
+        self._ws_server, self._port = await serve_with_port_fallback(
             self._handle_ws_client,
             self._host,
             self._port,
-            process_request=self._process_http_request
+            process_request=self._process_http_request,
+            loggers=[self.http_logger, self.ws_logger]
         )
-
-        if self._ws_server.sockets:
-            self._port = self._ws_server.sockets[0].getsockname()[1]
 
         startup_msg = f"SharedState: Server listening at http://{self._host}:{self._port} (HTTP & WebSockets)"
         print(startup_msg)
@@ -627,18 +684,31 @@ async def main():
     import json
 
     parser = argparse.ArgumentParser(description="SharedState Server")
-    parser.add_argument('config', type=str, help='Path to the configuration file (JSON)')
+    parser.add_argument('config', type=str, nargs='?', default=None, help='Path to the configuration file (JSON). Defaults to in-memory SQLite configuration.')
     args = parser.parse_args()
 
-    with open(args.config) as f:
-        config = json.load(f)
+    config = None
+    if args.config:
+        config_path = Path(args.config)
+        if not config_path.is_file():
+            print(f"Error: Config file '{args.config}' not found.")
+            return
+        with open(config_path, "r", encoding="utf-8") as f:
+            config = json.load(f)
+    else:
+        config = DEFAULT_CONFIG
+        print("SharedState: No config file specified. Using default in-memory SQLite configuration.")
 
-    srv_cfg = config.get("service", config.get("server", {}))
-    host = srv_cfg.get("host", "0.0.0.0")
-    port = int(srv_cfg.get("port", srv_cfg.get("http_port", srv_cfg.get("ws_port", 9000))))
+    raw_service = config.get("service")
+    srv_cfg: dict = raw_service if isinstance(raw_service, dict) else {}
+
+    raw_stores = config.get("stores")
+    stores: list = raw_stores if isinstance(raw_stores, list) else []
+
+    host = str(srv_cfg.get("host", "0.0.0.0"))
+    port = int(srv_cfg.get("port", 9000))
     http_log = srv_cfg.get("http_log", "logs/http.log")
     ws_log = srv_cfg.get("ws_log", "logs/ws.log")
-    stores = config.get("stores", config.get("services", []))
 
     server = SharedStateServer(
         host=host,
@@ -663,3 +733,5 @@ def start():
 
 if __name__ == '__main__':
     start()
+
+

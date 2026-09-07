@@ -4,7 +4,21 @@
 
 ---
 
-This quickstart shows how to run the SharedState server locally and test out built-in demo pages directly out of the box.
+
+
+::: tip SharedState in three simple steps
+
+1. Start the SharedState server. 
+
+```sh
+poetry run sharedstate-server
+```
+2. Note the server URL in the terminal output, typically `http://localhost:9000/`
+3. Open [http://0.0.0.0:9000/files/examples/map.html](http://0.0.0.0:9000/files/examples/map.html) in two browser tabs.
+:::
+
+That is it! Now make changes in one of the tabs and observe real-time updates in both.
+
 
 ---
 
@@ -25,27 +39,13 @@ The SharedState server is written in Python. By default, it runs with in-memory 
    poetry install
    ```
 
-2. Launch the server using the default configuration file (`cfg/default.json`):
+2. Launch the server (uses `cfg/sqlite.json` by default):
    ```bash
-   poetry run sharedstate-server cfg/default.json
+   poetry run sharedstate-server
    ```
 
-   The server will start listening at `http://0.0.0.0:9000` for HTTP static asset requests, REST API calls, and WebSocket connections.
+   The server will start listening at `http://0.0.0.0:9000` for HTTP static asset requests, REST API calls, and WebSocket connections. If port 9000 is occupied, it will automatically bind to the next available port.
 
----
-
-## 2. Out-of-the-Box Demo Applications
-
-The SharedState server serves static demo applications under `/files/` directly out of the box. These demos import JavaScript SDK source files natively—requiring **only the running Python server** (no frontend build step, `npm install`, or database setup required).
-
-Open any of the following URLs in your web browser:
-
-- **Admin Overview**: `http://localhost:9000/files/adm/index.html` (inspect active server endpoints, registered stores, connected WebSocket clients, and subscriptions).
-- **SharedMap Demo**: `http://localhost:9000/files/examples/map.html` (real-time key-value collection viewer with add/update/delete operations).
-- **SharedInteger Demo**: `http://localhost:9000/files/examples/integer.html` (real-time counter showcasing `inc()`, `dec()`, and `set()`).
-- **Minimal Counter**: `http://localhost:9000/files/examples/minimal.html` (lightweight, unstyled counter example created with `load()`).
-- **Layer 1 Provider**: `http://localhost:9000/files/examples/provider.html` (demonstrates low-level `ItemProvider` collection mutations).
-- **Monotonic Clock Sync**: `http://localhost:9000/files/examples/clock.html` (real-time client-server clock drift and skew monitoring).
 
 ---
 
@@ -108,3 +108,20 @@ To create your own standalone HTML file in your workspace, bind a `SharedInteger
 3. Click **"Increment Counter"** in Window 1.
 
 Notice how Window 2 updates **instantly** in real time! You have successfully executed your first SharedState application.
+
+
+
+---
+
+## 2. Out-of-the-Box Demo Applications
+
+The SharedState server serves static demo applications under `/files/` directly out of the box. These demos import JavaScript SDK source files natively—requiring **only the running Python server** (no frontend build step, `npm install`, or database setup required).
+
+Open any of the following URLs in your web browser:
+
+- **Admin Overview**: `http://localhost:9000/files/adm/index.html` (inspect active server endpoints, registered stores, connected WebSocket clients, and subscriptions).
+- **SharedMap Demo**: `http://localhost:9000/files/examples/map.html` (real-time key-value collection viewer with add/update/delete operations).
+- **SharedInteger Demo**: `http://localhost:9000/files/examples/integer.html` (real-time counter showcasing `inc()`, `dec()`, and `set()`).
+- **Minimal Counter**: `http://localhost:9000/files/examples/minimal.html` (lightweight, unstyled counter example created with `load()`).
+- **Layer 1 Provider**: `http://localhost:9000/files/examples/provider.html` (demonstrates low-level `ItemProvider` collection mutations).
+- **Monotonic Clock Sync**: `http://localhost:9000/files/examples/clock.html` (real-time client-server clock drift and skew monitoring).
