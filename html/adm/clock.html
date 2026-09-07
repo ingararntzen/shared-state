@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SharedState - Server Clock</title>
+    <link rel="stylesheet" href="adm.css">
+    <style>
+        .metric-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+            margin-bottom: 1.25rem;
+        }
+        @media (max-width: 640px) {
+            .metric-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        .metric-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 1.25rem 1.5rem;
+            text-align: center;
+            transition: border-color 0.2s ease;
+        }
+        .metric-card:hover {
+            border-color: var(--border-highlight);
+        }
+        .metric-card.hero {
+            grid-column: 1 / -1;
+            background: linear-gradient(135deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.9));
+            border-color: var(--border-highlight);
+            padding: 1.75rem 1.5rem;
+        }
+        .metric-value {
+            font-family: var(--font-mono);
+            font-size: 2.2rem;
+            font-weight: 700;
+            color: var(--accent-primary);
+            margin-bottom: 0.35rem;
+        }
+        .metric-card.hero .metric-value {
+            font-size: 2.8rem;
+            color: #38bdf8;
+            text-shadow: 0 0 20px rgba(56, 189, 248, 0.25);
+        }
+        .metric-value.warning {
+            color: var(--accent-warning);
+        }
+        .metric-value.muted {
+            color: var(--text-secondary);
+            font-size: 1.15rem;
+        }
+        .metric-label {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- HEADER -->
+    <header>
+        <div class="header-container">
+            <a href="index.html" class="brand-section">
+                <div class="brand-logo">SS</div>
+                <div class="brand-title">SharedState</div>
+            </a>
+        </div>
+    </header>
+
+    <div class="container">
+
+        <!-- PAGE TITLE BANNER -->
+        <div class="page-title-banner">
+            <h1 class="page-title">
+                ⏱️ Server Clock
+            </h1>
+        </div>
+
+        <!-- METRICS DISPLAY GRID -->
+        <div class="metric-grid">
+            <!-- HERO CLOCK CARD -->
+            <div class="metric-card hero">
+                <div class="metric-value" id="clock">--</div>
+            </div>
+
+            <!-- RAW DELAY & SKEW -->
+            <div class="metric-card">
+                <div class="metric-value" id="latest_trans">--</div>
+                <div class="metric-label">Latest Raw Ping Delay</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value" id="latest_skew">--</div>
+                <div class="metric-label">Latest Raw Ping Skew</div>
+            </div>
+
+            <!-- FILTERED DELAY & SKEW -->
+            <div class="metric-card">
+                <div class="metric-value warning" id="trans">--</div>
+                <div class="metric-label">Filtered Delay (Min RTT)</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value warning" id="skew">--</div>
+                <div class="metric-label">Filtered Skew (Min RTT)</div>
+            </div>
+
+            <!-- JITTER / VARIANCE -->
+            <div class="metric-card">
+                <div class="metric-value muted" id="trans_var">--</div>
+                <div class="metric-label">Delay Jitter (StdDev / Range)</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value muted" id="skew_var">--</div>
+                <div class="metric-label">Skew Jitter (StdDev / Range)</div>
+            </div>
+        </div>
+
+    </div>
+
+    <script type="module">
+        import { SharedStateClient } from "../../client/index.js";
+
+        const wsUrl = `ws://${location.hostname || "127.0.0.1"}:${location.port || 9000}`;
+        const client = new SharedStateClient(wsUrl);
+
+        const elem_clock = document.querySelector("#clock");
+        const elem_latest_trans = document.querySelector("#latest_trans");
+        const elem_latest_skew = document.querySelector("#latest_skew");
+        const elem_trans = document.querySelector("#trans");
+        const elem_skew = document.querySelector("#skew");
+        const elem_trans_var = document.querySelector("#trans_var");
+        const elem_skew_var = document.querySelector("#skew_var");
+
+        setInterval(() => {
+            if (client.clock) {
+                elem_clock.textContent = client.clock.now() ? client.clock.now().toFixed(6) : "--";
+                elem_latest_trans.textContent = client.clock.latest_trans !== undefined ? `${(client.clock.latest_trans * 1000).toFixed(3)} ms` : "--";
+                elem_latest_skew.textContent = client.clock.latest_skew !== undefined ? `${(client.clock.latest_skew * 1000).toFixed(3)} ms` : "--";
+                elem_trans.textContent = client.clock.trans !== undefined ? `${(client.clock.trans * 1000).toFixed(3)} ms` : "--";
+                elem_skew.textContent = client.clock.skew !== undefined ? `${(client.clock.skew * 1000).toFixed(3)} ms` : "--";
+
+                const tStd = (client.clock.trans_std * 1000).toFixed(3);
+                const tRng = (client.clock.trans_range * 1000).toFixed(3);
+                elem_trans_var.textContent = client.clock.trans !== undefined ? `±${tStd} ms (Δ ${tRng} ms)` : "--";
+
+                const sStd = (client.clock.skew_std * 1000).toFixed(3);
+                const sRng = (client.clock.skew_range * 1000).toFixed(3);
+                elem_skew_var.textContent = client.clock.skew !== undefined ? `±${sStd} ms (Δ ${sRng} ms)` : "--";
+            }
+        }, 50);
+    </script>
+</body>
+</html>

@@ -89,7 +89,7 @@ _mitems_ and is based on an in-memory sqlite database.
     "service": {"host": "0.0.0.0", "port": 9000},
     "stores": [
         {
-            "name": "items", "module": "items_store", 
+            "name": "items", "module": "item_store", 
             "config": {
                 "db_type": "mysql",
                 "db_name": "sharedstate",
@@ -104,7 +104,7 @@ _mitems_ and is based on an in-memory sqlite database.
             }
         },
         {
-            "name": "mitems", "module": "items_store", 
+            "name": "mitems", "module": "item_store", 
             "config": {
                 "db_type": "sqlite",
                 "db_name": ":memory:",

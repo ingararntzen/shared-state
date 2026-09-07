@@ -18,9 +18,10 @@ export default defineConfig({
         text: 'Usage',
         items: [
           { text: 'Quickstart', link: '/usage/quickstart' },
-          { text: 'Setup & Installation', link: '/usage/setup' },
-          { text: 'Example Applications', link: '/usage/example' },
-          { text: 'Deployment & Security', link: '/usage/deployment' }
+          { text: 'Server Setup', link: '/usage/server' },
+          { text: 'Client Setup', link: '/usage/client' },
+          { text: 'Example App', link: '/usage/example' },
+          { text: 'Deployment', link: '/usage/deployment' }
         ]
       },
       {

@@ -11,7 +11,7 @@ async def server(tmp_path):
     stores_config = [
         {
             "name": "mitems",
-            "module": "items_store",
+            "module": "item_store",
             "config": {
                 "db_type": "sqlite",
                 "db_name": ":memory:",
@@ -353,7 +353,7 @@ async def test_port_fallback(tmp_path, server):
     stores_config = [
         {
             "name": "items",
-            "module": "items_store",
+            "module": "item_store",
             "config": {"db_type": "sqlite", "db_name": ":memory:", "db_table": "items"}
         }
     ]

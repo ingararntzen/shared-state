@@ -23,7 +23,7 @@ DEFAULT_CONFIG = {
     "stores": [
         {
             "name": "items",
-            "module": "items_store",
+            "module": "item_store",
             "description": "SQLite In-Memory Item Store",
             "config": {
                 "db_type": "sqlite",
@@ -690,14 +690,29 @@ async def main():
     config = None
     if args.config:
         config_path = Path(args.config)
-        if not config_path.is_file():
-            print(f"Error: Config file '{args.config}' not found.")
-            return
-        with open(config_path, "r", encoding="utf-8") as f:
-            config = json.load(f)
+        if config_path.is_file():
+            with open(config_path, "r", encoding="utf-8") as f:
+                config = json.load(f)
+        else:
+            for candidate in [Path("cfg/default.json"), Path("cfg/sqlite.json")]:
+                if candidate.is_file():
+                    with open(candidate, "r", encoding="utf-8") as f:
+                        config = json.load(f)
+                    print(f"SharedState: Config file '{args.config}' not found. Loaded fallback configuration from '{candidate}'.")
+                    break
+            if config is None:
+                print(f"Error: Config file '{args.config}' not found.")
+                return
     else:
-        config = DEFAULT_CONFIG
-        print("SharedState: No config file specified. Using default in-memory SQLite configuration.")
+        for candidate in [Path("cfg/default.json"), Path("cfg/sqlite.json")]:
+            if candidate.is_file():
+                with open(candidate, "r", encoding="utf-8") as f:
+                    config = json.load(f)
+                print(f"SharedState: No config file specified. Loaded configuration from '{candidate}'.")
+                break
+        if config is None:
+            config = DEFAULT_CONFIG
+            print("SharedState: No config file specified. Using default in-memory SQLite configuration.")
 
     raw_service = config.get("service")
     srv_cfg: dict = raw_service if isinstance(raw_service, dict) else {}

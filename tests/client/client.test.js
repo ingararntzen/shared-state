@@ -14,7 +14,7 @@ from sharedstate.ss_server import SharedStateServer
 
 config = [
     {
-        "name": "mitems", "module": "items_store",
+        "name": "mitems", "module": "item_store",
         "config": {"db_type": "sqlite", "db_name": ":memory:", "db_table": "items"}
     }
 ]

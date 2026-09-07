@@ -2,6 +2,10 @@
 
 > Best practices for deploying the SharedState server to production using Docker, reverse proxies, and TLS encryption.
 
+::: warning Work in Progress
+The SharedState framework is currently an active research and development project under continuous refinement. It has **not been verified as production quality** or certified for high-availability, mission-critical deployments at this point. Use in production environments at your own discretion.
+:::
+
 ---
 
 Production deployments of SharedState typically run behind a reverse proxy (such as Nginx or Caddy) handling SSL/TLS encryption (`wss://`) and WebSocket connection upgrades.

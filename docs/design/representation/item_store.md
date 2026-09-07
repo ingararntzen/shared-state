@@ -20,7 +20,7 @@ The SharedState server implements state management through the concept of [ItemS
 
 **Default Item Store**
 
-The SharedState server provides a default implementation of the [ItemStore] interface, called `ItemsStore` (`sharedstate.stores.items_store`). This module supports simple item collections indexed by ID, and may be configured to support either persistent or in-memory storage. Persistent storage is implemented using MySQL, whereas the in-memory version is backed by SQLite.
+The SharedState server provides a default implementation of the [ItemStore] interface, called `ItemsStore` (`sharedstate.stores.item_store`). This module supports simple item collections indexed by ID, and may be configured to support either persistent or in-memory storage. Persistent storage is implemented using MySQL, whereas the in-memory version is backed by SQLite.
 
 **Custom Item Store**
 

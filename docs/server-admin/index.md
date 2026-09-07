@@ -19,7 +19,7 @@ server = SharedStateServer(
     stores=[
         {
             "name": "items",
-            "module": "items_store",
+            "module": "item_store",
             "config": {
                 "db_type": "sqlite",
                 "db_name": ":memory:"
