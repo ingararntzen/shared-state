@@ -4,24 +4,29 @@ import { BaseTypedVariable, VariableType } from "../base_objects/base_typed_vari
 /**
  * Untyped shared variable.
  */
-export class SharedVariable extends BaseVariable {
-    async set(val) {
-        return await this.provider.update_items({
-            insert: [{ id: this.name, state: val }]
-        });
-    }
-}
+export class SharedVariable extends BaseVariable { }
 
-// Re-export base typed variable & type enum
-export { BaseTypedVariable, BaseTypedVariable as SharedTypedVariable, VariableType, VariableType as VarType };
-
+/**
+ * Shared boolean variable.
+ */
 export class SharedBoolean extends BaseTypedVariable {
     constructor(client, path, name, options = {}) {
         super(client, path, name, VariableType.BOOL, options);
     }
-}
-export { SharedBoolean as SharedBool };
 
+    /**
+     * Toggle the boolean value.
+     * @returns {Promise<void>}
+     */
+    toggle() {
+        const current = this.value;
+        return this.set(!current);
+    }
+}
+
+/**
+ * Shared string variable.
+ */
 export class SharedString extends BaseTypedVariable {
     constructor(client, path, name, options = {}) {
         super(client, path, name, VariableType.STRING, options);

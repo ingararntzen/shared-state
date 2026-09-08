@@ -113,9 +113,7 @@ export class BaseTypedVariable extends BaseVariable {
             if (!this._allowUndefined) {
                 throw new TypeError(`Cannot set value of '${this.name}' to undefined when allowUndefined is false.`);
             }
-            return this.provider.update_items({
-                insert: [{ id: this.name, state: undefined }]
-            });
+            return super.set(undefined);
         }
 
         const value = this._typeConfig.validate(val);
@@ -123,9 +121,7 @@ export class BaseTypedVariable extends BaseVariable {
             throw new TypeError("Illegal value for type: " + val);
         }
 
-        return this.provider.update_items({
-            insert: [{ id: this.name, state: value }]
-        });
+        return super.set(value);
     }
 
     // internal

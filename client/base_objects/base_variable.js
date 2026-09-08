@@ -25,8 +25,14 @@ export class BaseVariable extends BaseAbstraction {
     get value() { return this._value; }
     get path() { return this._path; }
 
-    // public aliases
+    // public methods
     get() { return this.value; }
+
+    set(val) {
+        return this.provider.update_items({
+            insert: [{ id: this.name, state: val }]
+        });
+    }
 
     // internal event handler
     _on_provider_update(changes) {

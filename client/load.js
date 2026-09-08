@@ -3,7 +3,6 @@ import { SharedMap } from "./objects/map.js";
 import { SharedSet } from "./objects/set.js";
 import {
     SharedBoolean,
-    SharedBool,
     SharedString,
     SharedInteger,
     SharedFloat,
@@ -65,7 +64,7 @@ export function load(client, config) {
         const ClassCtor = TYPE_REGISTRY[typeName];
 
         const isVariable = [
-            SharedBool,
+            SharedBoolean,
             SharedString,
             SharedInteger,
             SharedFloat,

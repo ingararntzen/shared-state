@@ -1,12 +1,13 @@
 import { describe, test, expect, vi } from "vitest";
 import { ItemProvider } from "../../client/provider.js";
 import {
-    SharedVariable,
-    SharedTypedVariable,
     BaseTypedVariable,
-    VariableType,
+    SharedTypedVariable,
+    VariableType
+} from "../../client/base_objects/base_typed_variable.js";
+import {
+    SharedVariable,
     SharedBoolean,
-    SharedBool,
     SharedInteger,
     SharedFloat,
     SharedString,
@@ -106,6 +107,30 @@ describe("Layer 2 Domain Abstractions Unit Tests", () => {
         });
 
         expect(iInit.value).toBe(99);
+    });
+
+    test("SharedBoolean toggle() operation", async () => {
+        const mockClient = createMockClient();
+        const boolVar = new SharedBoolean(mockClient, "/app/store/vars", "flag", { allowUndefined: false });
+        expect(boolVar.value).toBe(false);
+
+        await boolVar.toggle();
+        expect(mockClient._update).toHaveBeenCalledWith(
+            "/app/store/vars",
+            { insert: [{ id: "flag", state: true }], remove: [], reset: false }
+        );
+
+        const coll = mockClient.provider("/app/store/vars");
+        coll._client_update({
+            insert: [{ id: "flag", state: true }]
+        });
+        expect(boolVar.value).toBe(true);
+
+        await boolVar.toggle();
+        expect(mockClient._update).toHaveBeenCalledWith(
+            "/app/store/vars",
+            { insert: [{ id: "flag", state: false }], remove: [], reset: false }
+        );
     });
 
     test("SharedInteger operations and eventify notifications", async () => {
