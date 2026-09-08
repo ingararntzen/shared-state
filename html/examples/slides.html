@@ -61,6 +61,7 @@
                     slot.dataset.slideId = slide.id;
                     slot.dataset.slideNo = slide.no;
                     slot.classList.add("has-slide");
+                    slot.innerHTML = `<span class="gallery-item-number">${idx + 1}</span>`;
 
                     if (slide.no === currentActiveNo) {
                         slot.classList.add("active");
@@ -71,6 +72,7 @@
                 } else {
                     slot.style.backgroundColor = "";
                     slot.title = "";
+                    slot.innerHTML = "";
                     delete slot.dataset.slideId;
                     delete slot.dataset.slideNo;
                     slot.classList.remove("has-slide");

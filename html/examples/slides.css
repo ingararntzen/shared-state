@@ -26,6 +26,19 @@
     transition: all 0.2s ease;
     position: relative;
     overflow: hidden;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.gallery-item-number {
+    font-size: 0.95rem;
+    font-weight: 800;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    color: rgba(255, 255, 255, 0.95);
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+    user-select: none;
+    pointer-events: none;
 }
 
 .gallery-item.active {
