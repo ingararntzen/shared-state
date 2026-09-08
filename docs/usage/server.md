@@ -63,6 +63,7 @@ The Service Config (`"service"`) defines global options for the SharedState serv
 - **`"host"`**: Network interface binding (`0.0.0.0` for all interfaces, `127.0.0.1` for localhost only).
 - **`"port"`**: Requested port number for HTTP and WebSocket traffic.
 - **`"http_log"` / `"ws_log"`**: Rotating log file paths (limited to ~100 KB with 1 backup).
+- **`"ssl_cert"` / `"ssl_key"`**: (Optional) Paths to SSL/TLS certificate and key files for direct `https://` / `wss://` encrypted connections without a reverse proxy.
 
 ### Store Config
 The Store Config (`"stores"`) defines options for each [ItemStore]:
@@ -145,10 +146,10 @@ The [ItemStore] implementation (`stores/item_store.py`) expects two options.
 - **`"db_host"`**: Hostname or IP of mysql server
 - **`"db_user"`**: Username for mysql server
 - **`"db_password"`**: Password for mysql server
-- **`"ssl.enabled"`**: Enable SSL/TLS encryption for mysql server
-- **`"ssl.ca"`**: Path to CA certificate for mysql server
-- **`"ssl.cert"`**: Path to client certificate for mysql server
-- **`"ssl.key"`**: Path to client key for mysql server
+- **`"ssl.enabled"`**: Enable SSL/TLS encryption for the MySQL database connection
+- **`"ssl.ca"`**: Path to CA certificate for verifying the MySQL database server
+- **`"ssl.cert"`**: Path to client certificate for authenticating with the MySQL database
+- **`"ssl.key"`**: Path to client private key for authenticating with the MySQL database
 
 
 ```json

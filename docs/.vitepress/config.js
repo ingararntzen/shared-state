@@ -20,8 +20,7 @@ export default defineConfig({
           { text: 'Quickstart', link: '/usage/quickstart' },
           { text: 'Server', link: '/usage/server' },
           { text: 'Client', link: '/usage/client' },
-          { text: 'Example', link: '/usage/example' },
-          { text: 'Deployment', link: '/usage/deployment' }
+          { text: 'Example', link: '/usage/example' }
         ]
       },
       {

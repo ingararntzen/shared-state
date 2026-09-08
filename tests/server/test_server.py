@@ -372,3 +372,25 @@ async def test_port_fallback(tmp_path, server):
     await task
 
 
+@pytest.mark.asyncio
+async def test_ssl_configuration_validation(tmp_path):
+    # Only ssl_cert provided without ssl_key -> raises ValueError
+    srv_partial = SharedStateServer(
+        host="127.0.0.1",
+        port=0,
+        ssl_cert=str(tmp_path / "cert.pem")
+    )
+    with pytest.raises(ValueError, match="Both 'ssl_cert' and 'ssl_key' must be specified"):
+        await srv_partial.serve_forever()
+
+    # Non-existent files -> raises FileNotFoundError
+    srv_missing = SharedStateServer(
+        host="127.0.0.1",
+        port=0,
+        ssl_cert=str(tmp_path / "nonexistent_cert.pem"),
+        ssl_key=str(tmp_path / "nonexistent_key.pem")
+    )
+    with pytest.raises(FileNotFoundError, match="SSL certificate file"):
+        await srv_missing.serve_forever()
+
+

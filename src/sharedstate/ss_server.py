@@ -1,4 +1,5 @@
 import asyncio
+import ssl
 import websockets
 import websockets.exceptions
 import json
@@ -9,7 +10,6 @@ import logging
 import mimetypes
 from pathlib import Path, PurePosixPath
 from urllib.parse import urlparse, unquote
-from typing import Any, Dict
 from sharedstate.ss_clock import MonotonicWallClock
 
 
@@ -70,7 +70,7 @@ def setup_logger(name, log_file, level=logging.INFO):
     return logger
 
 
-async def serve_with_port_fallback(handler, host, port, process_request=None, loggers=None, max_attempts=100):
+async def serve_with_port_fallback(handler, host, port, process_request=None, loggers=None, max_attempts=100, ssl=None):
     """Attempts to bind a websockets server to the requested port, searching subsequent ports if in use."""
     bound_server = None
     actual_port = port
@@ -82,7 +82,8 @@ async def serve_with_port_fallback(handler, host, port, process_request=None, lo
                 handler,
                 host,
                 try_port,
-                process_request=process_request
+                process_request=process_request,
+                ssl=ssl
             )
             actual_port = try_port
             if try_port != port:
@@ -183,12 +184,15 @@ class Clients:
 class SharedStateServer:
 
     def __init__(self, port=9000, host="0.0.0.0", stores=[],
-                 http_log="logs/http.log", ws_log="logs/ws.log", html_dir=None):
+                 http_log="logs/http.log", ws_log="logs/ws.log", html_dir=None,
+                 ssl_cert=None, ssl_key=None):
         self._host = host
         self._port = port
 
         self._http_log_path = http_log
         self._ws_log_path = ws_log
+        self._ssl_cert = ssl_cert
+        self._ssl_key = ssl_key
         
         self._ws_server = None
         self._stop_event = None
@@ -640,20 +644,38 @@ class SharedStateServer:
         for store_obj in self._stores.values():
             await store_obj.open()
 
+        ssl_context = None
+        if self._ssl_cert or self._ssl_key:
+            if not self._ssl_cert or not self._ssl_key:
+                raise ValueError("SharedState: Both 'ssl_cert' and 'ssl_key' must be specified in service config to enable SSL/TLS.")
+            cert_path = Path(self._ssl_cert)
+            key_path = Path(self._ssl_key)
+            if not cert_path.is_file():
+                raise FileNotFoundError(f"SharedState: SSL certificate file '{self._ssl_cert}' not found.")
+            if not key_path.is_file():
+                raise FileNotFoundError(f"SharedState: SSL key file '{self._ssl_key}' not found.")
+            ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+            ssl_context.load_cert_chain(certfile=str(cert_path), keyfile=str(key_path))
+
         self._ws_server, self._port = await serve_with_port_fallback(
             self._handle_ws_client,
             self._host,
             self._port,
             process_request=self._process_http_request,
-            loggers=[self.http_logger, self.ws_logger]
+            loggers=[self.http_logger, self.ws_logger],
+            ssl=ssl_context
         )
 
-        startup_msg = f"SharedState: Server listening at http://{self._host}:{self._port} (HTTP & WebSockets)"
+        scheme = "https" if ssl_context else "http"
+        startup_msg = f"SharedState: Server listening at {scheme}://{self._host}:{self._port} (HTTP & WebSockets)"
         print(startup_msg)
         self.http_logger.info(startup_msg)
         self.ws_logger.info(startup_msg)
 
-        await self._stop_event.wait()
+        try:
+            await self._stop_event.wait()
+        finally:
+            await self.shutdown()
 
     async def shutdown(self):
         shutdown_msg = "SharedState: Server shutting down..."
@@ -724,13 +746,17 @@ async def main():
     port = int(srv_cfg.get("port", 9000))
     http_log = srv_cfg.get("http_log", "logs/http.log")
     ws_log = srv_cfg.get("ws_log", "logs/ws.log")
+    ssl_cert = srv_cfg.get("ssl_cert")
+    ssl_key = srv_cfg.get("ssl_key")
 
     server = SharedStateServer(
         host=host,
         port=port,
         http_log=http_log,
         ws_log=ws_log,
-        stores=stores
+        stores=stores,
+        ssl_cert=ssl_cert,
+        ssl_key=ssl_key
     )
     try:
         await server.serve_forever()
