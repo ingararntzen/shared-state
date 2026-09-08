@@ -1,134 +1,163 @@
-# Client Setup & Usage
+# Client Setup
 
-> Guide for importing, initializing, and using the SharedState JavaScript client library.
+> How to import and use the SharedState client JavaScript library.
 
 ---
 
-## 1. CDN & Bundle Downloads
+## Bundle Downloads
 
-Pre-compiled JavaScript client bundles are published live to GitHub Pages on every build. Choose the bundle format that fits your application toolchain:
+JavaScript client bundles are published live to GitHub Pages on every build. Choose the bundle format that fits your application toolchain:
 
-- **[sharedstate.es.js](https://ingararntzen.github.io/shared-state/dist/sharedstate.es.js)** — ES6 Module (Unminified)
+- **[sharedstate.es.js](https://ingararntzen.github.io/shared-state/dist/sharedstate.es.js)** — ES6 Module
 - **[sharedstate.es.min.js](https://ingararntzen.github.io/shared-state/dist/sharedstate.es.min.js)** — ES6 Module (Minified)
-- **[sharedstate.iife.js](https://ingararntzen.github.io/shared-state/dist/sharedstate.iife.js)** — IIFE Script Tag (Unminified)
+- **[sharedstate.iife.js](https://ingararntzen.github.io/shared-state/dist/sharedstate.iife.js)** — IIFE Script Tag
 - **[sharedstate.iife.min.js](https://ingararntzen.github.io/shared-state/dist/sharedstate.iife.min.js)** — IIFE Script Tag (Minified)
 - **[sharedstate.cjs.js](https://ingararntzen.github.io/shared-state/dist/sharedstate.cjs.js)** — Node.js / CommonJS
 - **[sharedstate.cjs.min.js](https://ingararntzen.github.io/shared-state/dist/sharedstate.cjs.min.js)** — Node.js / CommonJS (Minified)
 
 ---
 
-## 2. Including the SDK in Web Applications
+## Bundle Imports
 
-### ES6 Module Import Syntax (Recommended)
-In modern web applications or native `<script type="module">` tags:
+### ES6 Module Import Syntax
+Used when building applications with modern bundlers (Vite, Webpack, Rollup) or natively in browsers via `<script type="module">`:
 
 ```html
 <script type="module">
-  import { SharedStateClient, SharedInteger, SharedMap } from "https://ingararntzen.github.io/shared-state/dist/sharedstate.es.js";
-
-  // 1. Initialize client connection
-  const client = new SharedStateClient("ws://localhost:9000");
-
-  // 2. Instantiate a shared variable
-  const counter = new SharedInteger(client, "/app/items/vars", "counter");
+  import { SharedStateClient } from "https://ingararntzen.github.io/shared-state/dist/sharedstate.es.js";
 </script>
 ```
 
-### Traditional IIFE Script Tag
-For traditional HTML pages without module bundlers:
+### IIFE Script Tag
+For plain HTML web pages without build tools or module support. Regular script import assigns the `SHAREDSTATE` object to the global `window` object.
 
 ```html
 <script src="https://ingararntzen.github.io/shared-state/dist/sharedstate.iife.js"></script>
-<script>
-  // Constructors are exposed under the global SHAREDSTATE namespace
-  const client = new SHAREDSTATE.SharedStateClient("ws://localhost:9000");
-  const myMap = new SHAREDSTATE.SharedMap(client, "/app/items/store", "myMap");
-</script>
 ```
 
 ### Node.js / CommonJS
-In server-side Node.js or build tools requiring CommonJS:
+For usage with Node.js or build tools requiring CommonJS:
 
 ```javascript
-const { SharedStateClient, SharedMap } = require("./dist/sharedstate.cjs.js");
-const client = new SharedStateClient("ws://localhost:9000");
+const { SharedStateClient } = require("./dist/sharedstate.cjs.js");
+```
+
+
+---
+## Programming Abstractions
+
+SharedState currently provides the following programming abstractions:
+
+
+### Shared Variables
+
+Shared variables represent a single value which can be accessed (`.get()`, `.value`) or assigned to (`.set(value)`). 
+
+- **`SharedVariable`** - Shared variable without type restriction. 
+- **`SharedBoolean`**: Shared variable restricted to boolean type (`true|false`).
+- **`SharedInteger`**: Shared variable restricted to integer type (`0`). 
+- **`SharedFloat`**: Shared variable restricted to number type (`0.0`).
+- **`SharedString`**: Shared variable restricted to string type (`""`).
+- **`SharedObject`**: Shared variable restricted to object type (`{}`).
+- **`SharedArray`**: Shared variable restricted to array type (`[]`).
+
+
+`SharedBoolean` defines custom method `toggle()`. `SharedInteger` and `SharedFloat` define custom methods `inc(delta)` and `dec(delta)`. The remaining objects do not introduce type-specific methods. 
+
+
+### Shared Collections
+
+Shared collections represent abstractions built over a collection of elements.
+
+- **`SharedMap`**: Synchronized key-value dictionary (`.set(key, val)`, `.delete(key)`, `.get(key)`).
+- **`SharedSet`**: Synchronized unique element set (`.add(item)`, `.delete(item)`, `.has(item)`).
+
+---
+## Imports
+
+Programming abstractions are exported as independent classes within the sharedstate namespace. These are the most important objects exported from the SharedState bundle (`client/index.js`):
+
+```html
+<script type="module">
+  import { 
+    // Client
+    SharedStateClient, 
+    // Connection States
+    ConnectionState,
+    // Variables
+    SharedVariable,
+    SharedBoolean,
+    SharedInteger,
+    SharedFloat,
+    SharedString,
+    SharedObject,
+    SharedArray,
+    // Collections
+    SharedSet, 
+    SharedMap 
+  } from "https://ingararntzen.github.io/shared-state/dist/sharedstate.es.js";
+</script>
 ```
 
 ---
 
-## 3. Initializing `SharedStateClient`
+## Initialization, Setup, and Usage
 
-The `SharedStateClient` manages the persistent WebSocket connection, automatic heartbeat ping-pong, clock synchronization, and subscription multiplexing.
+The `SharedStateClient` sets up a WebSocket connection to the server and manages connection recovery and subscriptions under the hood. 
 
-```javascript
-import { SharedStateClient } from "./dist/sharedstate.es.js";
-
-// Connect to local or remote SharedState server
+```js
+// Client Initialization
 const client = new SharedStateClient("ws://localhost:9000");
-
-// Wait for connection establishing (optional, as primitives handle auto-queueing)
-await client.connection.connectedPromise();
 ```
 
----
 
-## 4. Shared Application Primitives
+### Application Setup
 
-SharedState provides familiar programming abstractions backed by online state replication:
+> The client is immediately ready for application setup.
 
-### Shared Variable Types
-- **`SharedBoolean`**: Synchronized boolean flag (`true`/`false`).
-- **`SharedInteger`**: Synchronized integer with atomic `.inc(delta)` / `.dec(delta)` helper methods.
-- **`SharedFloat`**: Synchronized floating-point value.
-- **`SharedString`**: Synchronized string value.
+Programming abstractions and event listeners can be defined immediately after the client object is created:
 
-```javascript
-import { SharedInteger, SharedString } from "./dist/sharedstate.es.js";
-
-// Instantiate shared counter variable
+```js
+// Setup abstractions
+const users = new SharedMap(client, "/app/items/users");
 const counter = new SharedInteger(client, "/app/items/vars", "counter", {
   allowUndefined: false,
   defaultValue: 0
 });
 
-// Increment counter
-counter.inc(1);
-```
-
-### Shared Collection Types
-- **`SharedMap`**: Synchronized key-value dictionary (`.set(key, val)`, `.delete(key)`, `.get(key)`).
-- **`SharedSet`**: Synchronized unique element set (`.add(item)`, `.delete(item)`, `.has(item)`).
-- **`SharedTree`**: Hierarchical parent-child node structure.
-
-```javascript
-import { SharedMap } from "./dist/sharedstate.es.js";
-
-const users = new SharedMap(client, "/app/items/data", "users");
-
-// Mutate map locally (optimistic update replicated to server and peers)
-users.set("user_101", { name: "Alice", role: "admin" });
-```
-
----
-
-## 5. Reactive Event Subscriptions
-
-Use `.on('change', handler, { init: true })` to bind UI components reactively to state updates. Setting `{ init: true }` fires the callback immediately with current local state upon subscription.
-
-```javascript
-// Bind UI to counter changes
-counter.on("change", () => {
-  document.getElementById("count-display").textContent = counter.value;
-}, { init: true });
-
-// Listen to map changes
+// Setup event listeners
 users.on("change", () => {
-  console.log("Current users:", users.entries());
+  console.log("Users changed:", users.entries());
+}, { init: true });
+counter.on("change", () => {
+  console.log("Counter changed:", counter.value);
 }, { init: true });
 ```
 
----
+Notably, until the WebSocket connection has been established, application objects will either be empty or reflect default or initial state.
 
-## 6. Real-World Application Example
+### Runtime Usage
 
-To see a complete walkthrough combining a `SharedMap` and a `SharedString` in a multi-user collaborative application, explore the **[Example Walkthrough](/usage/example.md)**.
+> State mutation (e.g., `set()`, `inc()`) requires an open WebSocket connection. 
+
+If an update request is attempted before the connection has been established, or during a temporary disconnect-reconnect cycle, application objects will throw an `Error`. 
+
+Applications may inspect the connection status and/or wait for the connection to become available.
+
+```js
+// check connection status
+if (client.connection.connected) {
+  console.log("Connected to server");
+} else {
+  console.log("Not connected to server");
+}
+
+// wait for the connection to become available
+await client.connection.connectedPromise();
+```
+
+Connection state (`client.connection.state`) may be used to provide immediate feedback to the user that interactivity is temporarily suspended, and to make sure the UI is reflecting this situation in a sensible way, including the subsequent return to normal operation. 
+
+Alternatively, connection state may be used to buffer update requests, and to automatically flush them to the server once the connection becomes operational. 
+
+
