@@ -66,20 +66,8 @@ export default defineConfig({
         ]
       },
       {
-        text: 'JavaScript Client API',
+        text: 'Client API',
         items: [
-          { text: 'Client Overview', link: '/client-api/' },
-          { text: 'SharedStateClient', link: '/client-api/sharedstate-client' },
-          { text: 'ProxyCollection', link: '/client-api/proxy-collection' },
-          { text: 'ServerClock', link: '/client-api/server-clock' }
-        ]
-      },
-      {
-        text: 'Server & Administration',
-        items: [
-          { text: 'Server Setup & CLI', link: '/server-admin/' },
-          { text: 'Configuration Schema', link: '/server-admin/config' },
-          { text: 'HTTP REST & Admin Endpoints', link: '/server-admin/rest-api' }
         ]
       }
     ],
