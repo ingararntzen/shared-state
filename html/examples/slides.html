@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>SharedState Slideshow Demo</title>
+    <link rel="stylesheet" href="./slides.css" />
+    <script type="module">
+        import { SharedStateClient, SharedMap, SharedInteger } from "../../client/index.js";
+
+        // Color Palette & Title Pool
+        const COLORS = [
+            "#ef4444", "#f97316", "#f59e0b", "#10b981", "#06b6d4",
+            "#3b82f6", "#6366f1", "#8b5cf6", "#ec4899", "#f43f5e"
+        ];
+
+        const TITLES = [
+            "Introduction & Overview",
+            "System Architecture",
+            "Data Replication Model",
+            "Consistency & Sync",
+            "Real-time Events",
+            "Performance & Metrics",
+            "Security & Deployment",
+            "Client Abstractions",
+            "ItemStore Storage",
+            "Future Roadmap"
+        ];
+
+        function generateId() {
+            const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
+            let res = "";
+            for (let i = 0; i < 3; i++) {
+                res += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return res;
+        }
+
+        // Initialize SharedState client, SharedMap, and SharedInteger
+        const wsUrl = (location.protocol === "https:" ? "wss://" : "ws://") + (location.host || "127.0.0.1:9000");
+        const client = new SharedStateClient(wsUrl);
+        const slidesMap = new SharedMap(client, "/app/items/slides");
+        const activeSlideNo = new SharedInteger(client, "/app/items/vars", "activeSlideNo", {
+            allowUndefined: false,
+            defaultValue: 0
+        });
+
+        // Render gallery and active viewer when map or activeSlideNo changes
+        function render() {
+            const slides = slidesMap.values();
+            slides.sort((a, b) => (a.no || 0) - (b.no || 0));
+
+            const currentActiveNo = activeSlideNo.value;
+            let activeSlide = null;
+
+            const slots = document.querySelectorAll(".gallery-item");
+            slots.forEach((slot, idx) => {
+                const slide = slides[idx];
+                if (slide) {
+                    slot.style.backgroundColor = slide.color || "#38bdf8";
+                    slot.title = `${slide.title || "Slide"} (#${slide.no})`;
+                    slot.dataset.slideId = slide.id;
+                    slot.dataset.slideNo = slide.no;
+                    slot.classList.add("has-slide");
+
+                    if (slide.no === currentActiveNo) {
+                        slot.classList.add("active");
+                        activeSlide = slide;
+                    } else {
+                        slot.classList.remove("active");
+                    }
+                } else {
+                    slot.style.backgroundColor = "";
+                    slot.title = "";
+                    delete slot.dataset.slideId;
+                    delete slot.dataset.slideNo;
+                    slot.classList.remove("has-slide");
+                    slot.classList.remove("active");
+                }
+            });
+
+            // Render active slide viewer if activeSlide is matched
+            const activeFrame = document.querySelector(".active-slide-frame");
+            if (activeSlide) {
+                // Calculate 1-based index in the sorted gallery array (not slide.no)
+                const activeIndex = slides.findIndex(s => s && s.id === activeSlide.id) + 1;
+
+                activeFrame.style.backgroundColor = activeSlide.color || "#1e293b";
+                activeFrame.innerHTML = `
+                    <div class="active-slide-number">#${activeIndex}</div>
+                    <h2 class="active-slide-title">${activeSlide.title}</h2>
+                `;
+            } else {
+                activeFrame.style.backgroundColor = "";
+                activeFrame.innerHTML = "";
+            }
+        }
+
+        // Re-render whenever SharedMap or activeSlideNo changes
+        slidesMap.on("change", render, { init: true });
+        activeSlideNo.on("change", render, { init: true });
+
+        // Left Click on gallery item to activate slide
+        const gallery = document.querySelector(".gallery");
+        gallery.addEventListener("click", (e) => {
+            const item = e.target.closest(".gallery-item");
+            if (item && item.dataset.slideNo) {
+                activeSlideNo.set(parseInt(item.dataset.slideNo, 10));
+            }
+        });
+
+        // Navigation Handlers (Prev & Next Selection)
+        const prevBtn = document.querySelector("#prevBtn");
+        const nextBtn = document.querySelector("#nextBtn");
+
+        nextBtn.onclick = () => {
+            const slides = slidesMap.values();
+            slides.sort((a, b) => (a.no || 0) - (b.no || 0));
+            const currentNo = activeSlideNo.value;
+
+            // Find smallest slide.no strictly greater than currentNo
+            const nextSlide = slides.find(s => s && typeof s.no === "number" && s.no > currentNo);
+            if (nextSlide) {
+                activeSlideNo.set(nextSlide.no);
+            }
+        };
+
+        prevBtn.onclick = () => {
+            const slides = slidesMap.values();
+            slides.sort((a, b) => (a.no || 0) - (b.no || 0));
+            const currentNo = activeSlideNo.value;
+
+            // Find largest slide.no strictly smaller than currentNo
+            const prevSlide = [...slides].reverse().find(s => s && typeof s.no === "number" && s.no < currentNo);
+            if (prevSlide) {
+                activeSlideNo.set(prevSlide.no);
+            }
+        };
+
+        // Reordering Handlers (Move Left & Move Right)
+        const movePrevBtn = document.querySelector("#movePrevBtn");
+        const moveNextBtn = document.querySelector("#moveNextBtn");
+
+        moveNextBtn.onclick = () => {
+            const slides = slidesMap.values();
+            slides.sort((a, b) => (a.no || 0) - (b.no || 0));
+            const currentNo = activeSlideNo.value;
+
+            const currIdx = slides.findIndex(s => s && s.no === currentNo);
+            if (currIdx !== -1 && currIdx < slides.length - 1) {
+                const currSlide = slides[currIdx];
+                const nextSlide = slides[currIdx + 1];
+
+                const tempNo = currSlide.no;
+                slidesMap.set(currSlide.id, { ...currSlide, no: nextSlide.no });
+                slidesMap.set(nextSlide.id, { ...nextSlide, no: tempNo });
+                activeSlideNo.set(nextSlide.no);
+            }
+        };
+
+        movePrevBtn.onclick = () => {
+            const slides = slidesMap.values();
+            slides.sort((a, b) => (a.no || 0) - (b.no || 0));
+            const currentNo = activeSlideNo.value;
+
+            const currIdx = slides.findIndex(s => s && s.no === currentNo);
+            if (currIdx > 0) {
+                const currSlide = slides[currIdx];
+                const prevSlide = slides[currIdx - 1];
+
+                const tempNo = currSlide.no;
+                slidesMap.set(currSlide.id, { ...currSlide, no: prevSlide.no });
+                slidesMap.set(prevSlide.id, { ...prevSlide, no: tempNo });
+                activeSlideNo.set(prevSlide.no);
+            }
+        };
+
+        // Add Slide button handler
+        const addBtn = document.querySelector("#addBtn");
+        addBtn.onclick = () => {
+            const slides = slidesMap.values();
+            const maxNo = slides.reduce((max, s) => (s && typeof s.no === "number" && s.no > max ? s.no : max), 0);
+            const nextNo = maxNo + 1;
+            const id = generateId();
+            const color = COLORS[(nextNo - 1) % COLORS.length];
+            const title = TITLES[(nextNo - 1) % TITLES.length];
+
+            const slide = {
+                id: id,
+                no: nextNo,
+                title: title,
+                color: color
+            };
+
+            slidesMap.set(id, slide);
+        };
+
+        // Right-click (contextmenu) handler for deleting slides from gallery
+        let pendingDeleteSlideId = null;
+        const contextMenu = document.querySelector("#contextMenu");
+
+        gallery.addEventListener("contextmenu", (e) => {
+            const item = e.target.closest(".gallery-item");
+            if (item && item.dataset.slideId) {
+                e.preventDefault();
+                pendingDeleteSlideId = item.dataset.slideId;
+                contextMenu.style.left = `${e.clientX}px`;
+                contextMenu.style.top = `${e.clientY}px`;
+                contextMenu.style.display = "block";
+            }
+        });
+
+        document.addEventListener("click", () => {
+            contextMenu.style.display = "none";
+        });
+
+        document.querySelector("#deleteContextBtn").onclick = () => {
+            if (pendingDeleteSlideId) {
+                slidesMap.delete(pendingDeleteSlideId);
+                pendingDeleteSlideId = null;
+            }
+            contextMenu.style.display = "none";
+        };
+    </script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>SharedState Slideshow</h1>
+            <span class="badge">Demo</span>
+        </header>
+
+        <main class="slides-layout">
+            <!-- Top Horizontal Gallery: 10 equal-sized slide frames -->
+            <div class="gallery">
+                <div class="gallery-item"></div>
+                <div class="gallery-item"></div>
+                <div class="gallery-item"></div>
+                <div class="gallery-item"></div>
+                <div class="gallery-item"></div>
+                <div class="gallery-item"></div>
+                <div class="gallery-item"></div>
+                <div class="gallery-item"></div>
+                <div class="gallery-item"></div>
+                <div class="gallery-item"></div>
+            </div>
+
+            <!-- Main Active Slide Display Frame -->
+            <div class="active-slide-frame"></div>
+
+            <!-- Navigation & Reordering Controls Area -->
+            <div class="slide-controls">
+                <button class="btn-primary" id="prevBtn" title="Previous Slide Selection">&#x25C0;</button>
+                <button class="btn-secondary" id="movePrevBtn" title="Move Active Slide Left">&#x25C0;</button>
+                <button class="btn-secondary" id="addBtn">+ Add Slide</button>
+                <button class="btn-secondary" id="moveNextBtn" title="Move Active Slide Right">&#x25B6;</button>
+                <button class="btn-primary" id="nextBtn" title="Next Slide Selection">&#x25B6;</button>
+            </div>
+        </main>
+    </div>
+
+    <!-- Floating Context Menu for Slide Deletion -->
+    <div id="contextMenu" class="context-menu">
+        <div id="deleteContextBtn" class="context-menu-item">🗑️ Delete Slide</div>
+    </div>
+</body>
+</html>

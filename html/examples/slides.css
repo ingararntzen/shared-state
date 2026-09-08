@@ -1,0 +1,132 @@
+/* Slideshow Example Custom Styles */
+@import url("./examples.css");
+
+.slides-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    width: 100%;
+    align-items: center;
+}
+
+/* Horizontal Gallery (Top) spanning full container width */
+.gallery {
+    display: flex;
+    gap: 0.5rem;
+    width: 100%;
+    justify-content: space-between;
+}
+
+.gallery-item {
+    flex: 1;
+    aspect-ratio: 16 / 9;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    transition: all 0.2s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.gallery-item.active {
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.3);
+}
+
+.gallery-item:hover {
+    border-color: rgba(56, 189, 248, 0.5);
+}
+
+.gallery-item.has-slide {
+    cursor: pointer;
+}
+
+/* Larger Centered Active Slide Frame (Middle) */
+.active-slide-frame {
+    width: 100%;
+    max-width: 640px;
+    aspect-ratio: 16 / 9;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    box-shadow: 0 12px 24px -6px rgba(0, 0, 0, 0.4);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    transition: background-color 0.3s ease;
+}
+
+.active-slide-title {
+    font-size: 2.25rem;
+    font-weight: 800;
+    color: #ffffff;
+    text-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
+    user-select: none;
+    padding: 1rem;
+    text-align: center;
+}
+
+.active-slide-number {
+    position: absolute;
+    top: 1rem;
+    right: 1.25rem;
+    font-size: 1.2rem;
+    font-weight: 800;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    color: rgba(255, 255, 255, 0.95);
+    background: rgba(0, 0, 0, 0.35);
+    backdrop-filter: blur(8px);
+    padding: 0.35rem 0.75rem;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    user-select: none;
+}
+
+/* Controls Area (Bottom) */
+.slide-controls {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 1rem;
+    width: 100%;
+    margin-top: 0.5rem;
+}
+
+.slide-controls button {
+    min-width: 3.5rem;
+    font-size: 1.1rem;
+    padding: 0.65rem 1.5rem;
+    line-height: 1;
+}
+
+/* Custom Context Menu */
+.context-menu {
+    position: fixed;
+    z-index: 1000;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    box-shadow: 0 10px 20px -3px rgba(0, 0, 0, 0.6);
+    padding: 0.35rem;
+    display: none;
+    min-width: 140px;
+    backdrop-filter: blur(8px);
+}
+
+.context-menu-item {
+    padding: 0.5rem 0.85rem;
+    color: var(--accent-danger);
+    font-size: 0.85rem;
+    font-weight: 600;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: background 0.15s ease;
+}
+
+.context-menu-item:hover {
+    background: rgba(239, 68, 68, 0.18);
+}
