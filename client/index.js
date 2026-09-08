@@ -1,6 +1,6 @@
 export { SharedStateClient } from "./client.js";
 export { load } from "./load.js";
-export { ConnectionState } from "./wsio.js";
+export { Connection, ConnectionState } from "./wsio.js";
 export {
     SharedVariable,
     SharedBoolean,

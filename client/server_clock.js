@@ -39,8 +39,16 @@ export const CLOCK = function () {
 
 const MAX_SAMPLE_COUNT = 30;
 
+/**
+ * Server time synchronization provider calculating clock skew and network latency.
+ * Access via `client.clock`.
+ * @class ServerClock
+ */
 export class ServerClock {
-
+    /**
+     * Initializes a ServerClock instance.
+     * @param {SharedStateClient} client - SharedState client instance
+     */
     constructor(client) {
         // sharedstate client
         this._client = client;
@@ -55,10 +63,19 @@ export class ServerClock {
         this._latest_skew = undefined;
     }
 
+    /**
+     * Underlying Pinger instance.
+     * @type {Object}
+     * @readonly
+     */
     get pinger() {
         return this._pinger;
     }
 
+    /**
+     * Restarts clock synchronization sampling.
+     * @returns {void}
+     */
     restart() {
         this._samples = [];
         this._trans = 1000.0;
@@ -105,18 +122,46 @@ export class ServerClock {
         this._trans = trans;
     }
 
-    // estimated skew
+    /**
+     * Estimated clock skew relative to server in seconds.
+     * @type {number}
+     * @readonly
+     */
     get skew() { return this._skew; }
-    // estimated transit delay
+
+    /**
+     * Estimated minimum transit delay in seconds.
+     * @type {number}
+     * @readonly
+     */
     get trans() { return this._trans; }
-    // latest raw ping transit delay
+
+    /**
+     * Latest raw ping transit delay in seconds.
+     * @type {number}
+     * @readonly
+     */
     get latest_trans() { return this._latest_trans !== undefined ? this._latest_trans : this._trans; }
-    // latest raw ping skew
+
+    /**
+     * Latest raw ping clock skew in seconds.
+     * @type {number}
+     * @readonly
+     */
     get latest_skew() { return this._latest_skew !== undefined ? this._latest_skew : this._skew; }
-    // rtt: round trip time
+
+    /**
+     * Estimated round trip time (RTT) in seconds.
+     * @type {number}
+     * @readonly
+     */
     get rtt() { return this._trans * 2.0; }
 
-    // standard deviation of transit delay across current samples (seconds)
+    /**
+     * Standard deviation of transit delay across current samples in seconds.
+     * @type {number}
+     * @readonly
+     */
     get trans_std() {
         if (this._samples.length === 0) return 0.0;
         const vals = this._samples.map(s => s[3]);
@@ -125,7 +170,11 @@ export class ServerClock {
         return Math.sqrt(variance);
     }
 
-    // standard deviation of skew across current samples (seconds)
+    /**
+     * Standard deviation of clock skew across current samples in seconds.
+     * @type {number}
+     * @readonly
+     */
     get skew_std() {
         if (this._samples.length === 0) return 0.0;
         const vals = this._samples.map(s => s[4]);
@@ -134,20 +183,32 @@ export class ServerClock {
         return Math.sqrt(variance);
     }
 
-    // max - min transit delay range across current samples (seconds)
+    /**
+     * Transit delay range (max - min) across current samples in seconds.
+     * @type {number}
+     * @readonly
+     */
     get trans_range() {
         if (this._samples.length === 0) return 0.0;
         const vals = this._samples.map(s => s[3]);
         return Math.max(...vals) - Math.min(...vals);
     }
 
-    // max - min skew range across current samples (seconds)
+    /**
+     * Clock skew range (max - min) across current samples in seconds.
+     * @type {number}
+     * @readonly
+     */
     get skew_range() {
         if (this._samples.length === 0) return 0.0;
         const vals = this._samples.map(s => s[4]);
         return Math.max(...vals) - Math.min(...vals);
     }
 
+    /**
+     * Returns current estimated server time in epoch seconds (high precision).
+     * @returns {number} Current estimated server timestamp in seconds
+     */
     now() {
         // server clock is local clock + estimated skew
         return CLOCK.now() + this._skew;

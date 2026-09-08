@@ -29,8 +29,9 @@
     "build": "vite build && DIST=true vite build",
     "build:dist": "vite build && DIST=true vite build",
     "prepublishOnly": "npm run build:dist",
-    "docs:dev": "vitepress dev docs",
-    "docs:build": "vitepress build docs",
+    "docs:generate": "node scripts/generate-api-docs.js",
+    "docs:dev": "npm run docs:generate && vitepress dev docs",
+    "docs:build": "npm run docs:generate && vitepress build docs",
     "docs:preview": "vitepress preview docs"
   },
   "repository": {
@@ -49,6 +50,7 @@
   },
   "homepage": "https://github.com/ingararntzen/shared-state#readme",
   "devDependencies": {
+    "jsdoc-to-markdown": "^9.1.3",
     "vite": "^8.1.5",
     "vitepress": "^1.6.3",
     "vitest": "^4.1.10"

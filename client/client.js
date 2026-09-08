@@ -1,4 +1,4 @@
-import { WebSocketIO, ConnectionState } from "./wsio.js";
+import { Connection, ConnectionState } from "./wsio.js";
 import { ItemProvider } from "./provider.js";
 import { OptimisticItemProvider } from "./opt_provider.js";
 import { ServerClock } from "./server_clock.js";
@@ -8,6 +8,7 @@ import { random_string, resolvablePromise } from "./util/util.js";
 /**
  * SharedStateClient manages logical network connections, subscriptions,
  * state providers, and application objects.
+ * @class SharedStateClient
  */
 export class SharedStateClient {
     /**
@@ -43,7 +44,7 @@ export class SharedStateClient {
         this._clock = new ServerClock(this);
 
         // connection
-        this._connection = new WebSocketIO(url, options);
+        this._connection = new Connection(url, options);
         this._connection.on_connect = () => this._on_connect();
         this._connection.on_disconnect = (evt) => this._on_disconnect(evt);
         this._connection.on_message = (data) => this._on_message(data);
@@ -54,14 +55,29 @@ export class SharedStateClient {
     /************************************************
      *  PUBLIC API
      ************************************************/
+    /**
+     * Unique logical client identifier generated for consistency tracking.
+     * @type {string}
+     * @readonly
+     */
     get id() {
         return this._client_id;
     }
 
+    /**
+     * Connection transport manager instance.
+     * @type {Connection}
+     * @readonly
+     */
     get connection() {
         return this._connection;
     }
 
+    /**
+     * Server clock sync provider instance.
+     * @type {ServerClock}
+     * @readonly
+     */
     get clock() {
         return this._clock;
     }
@@ -92,7 +108,8 @@ export class SharedStateClient {
     }
 
     /**
-     * Terminates the client: releases all collections and closes the network connection.
+     * Terminates the client: releases all collections, providers, subscriptions, and closes the WebSocket connection.
+     * @returns {void}
      */
     terminate() {
         for (const [path, providerInstance] of this._providers.entries()) {

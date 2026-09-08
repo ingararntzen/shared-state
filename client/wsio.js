@@ -2,6 +2,11 @@ import { resolvablePromise } from "./util/util.js";
 
 const MAX_RETRIES = 4;
 
+/**
+ * Connection states for Connection manager.
+ * @readonly
+ * @enum {string}
+ */
 export const ConnectionState = Object.freeze({
     DISCONNECTED: "disconnected",
     CONNECTING: "connecting",
@@ -9,8 +14,17 @@ export const ConnectionState = Object.freeze({
     TERMINATED: "terminated"
 });
 
-export class WebSocketIO {
-
+/**
+ * Connection transport manager providing automatic reconnection and state tracking.
+ * Access via `client.connection`.
+ * @class Connection
+ */
+export class Connection {
+    /**
+     * Initializes a Connection instance.
+     * @param {string} url - WebSocket server URL
+     * @param {Object} [options] - Configuration options
+     */
     constructor(url, options = {}) {
         this._url = url;
         this._ws = undefined;
@@ -20,10 +34,32 @@ export class WebSocketIO {
         this._connect_promise_resolvers = [];
     }
 
+    /**
+     * Current connection state (`"disconnected"`, `"connecting"`, `"connected"`, `"terminated"`).
+     * @type {ConnectionState}
+     * @readonly
+     */
     get state() { return this._state; }
+
+    /**
+     * Target WebSocket URL.
+     * @type {string}
+     * @readonly
+     */
     get url() { return this._url; }
+
+    /**
+     * Connection configuration options.
+     * @type {Object}
+     * @readonly
+     */
     get options() { return this._options; }
 
+    /**
+     * Initiates the WebSocket connection (internal use by SharedStateClient).
+     * @internal
+     * @returns {void}
+     */
     connect() {
         if (this._state === ConnectionState.CONNECTING || this._state === ConnectionState.CONNECTED) {
             console.log("Connect while connecting or connected");
@@ -107,6 +143,11 @@ export class WebSocketIO {
         if (debug) { console.log(`Receive: ${data}`); }
     }
 
+    /**
+     * Sends raw text data over the WebSocket connection.
+     * @param {string} data - Payload string to send
+     * @returns {void}
+     */
     send(data) {
         if (this._state === ConnectionState.CONNECTED) {
             try {
@@ -119,6 +160,10 @@ export class WebSocketIO {
         }
     }
 
+    /**
+     * Returns a Promise that resolves when the WebSocket reaches the CONNECTED state.
+     * @returns {Promise<void>} Resolves upon successful connection
+     */
     connectedPromise() {
         const [promise, resolver] = resolvablePromise();
         if (this._state === ConnectionState.CONNECTED) {
@@ -129,6 +174,10 @@ export class WebSocketIO {
         return promise;
     }
 
+    /**
+     * Closes the WebSocket connection and marks state as TERMINATED (disables auto-reconnect).
+     * @returns {void}
+     */
     close() {
         this._retries = MAX_RETRIES + 1;
         this._state = ConnectionState.TERMINATED;
@@ -137,6 +186,11 @@ export class WebSocketIO {
         }
     }
 
+    /**
+     * Triggers a manual connection reset and reconnect.
+     * @param {boolean} [immediate=true] - Whether to reconnect immediately or after a 1s delay
+     * @returns {void}
+     */
     reconnect(immediate = true) {
         if (this._ws) {
             this._ws.onopen = null;

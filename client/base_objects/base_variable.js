@@ -1,9 +1,18 @@
 import { BaseAbstraction } from "./base_abstraction.js";
 
 /**
- * Base class for all Layer 2 variables.
+ * Base class for all SharedState variables.
+ * Extends {@link BaseAbstraction} with single-item state management and change events.
+ * @class BaseVariable
  */
 export class BaseVariable extends BaseAbstraction {
+    /**
+     * Initializes a new SharedVariable instance.
+     * @param {SharedStateClient} client - The SharedState client instance
+     * @param {string} path - Target path prefix (e.g. "/app/vars")
+     * @param {string} name - Variable key name (e.g. "counter")
+     * @param {Object} [options] - Configuration options
+     */
     constructor(client, path, name, options = {}) {
         if (!name || typeof name !== "string") {
             throw new Error("Variable name must be a non-empty string");
@@ -20,14 +29,38 @@ export class BaseVariable extends BaseAbstraction {
         });
     }
 
-    // getters
+    /**
+     * The name/key of the variable.
+     * @type {string}
+     * @readonly
+     */
     get name() { return this._itemId; }
+
+    /**
+     * The current local value of the variable.
+     * @type {*}
+     * @readonly
+     */
     get value() { return this._value; }
+
+    /**
+     * Full path identifying this variable (`path/name`).
+     * @type {string}
+     * @readonly
+     */
     get path() { return this._path; }
 
-    // public methods
+    /**
+     * Gets the current value of the variable.
+     * @returns {*} The current variable value
+     */
     get() { return this.value; }
 
+    /**
+     * Updates the variable value across the network.
+     * @param {*} val - New value to set
+     * @returns {Promise<void>} Resolves when state update is processed
+     */
     set(val) {
         return this.provider.update_items({
             insert: [{ id: this.name, state: val }]

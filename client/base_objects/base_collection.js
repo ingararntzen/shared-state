@@ -1,6 +1,17 @@
 import { BaseAbstraction } from "./base_abstraction.js";
 
+/**
+ * Base class for all SharedState collection types (SharedMap and SharedSet).
+ * Extends {@link BaseAbstraction} with collection mutation and change broadcasting.
+ * @class BaseCollection
+ */
 export class BaseCollection extends BaseAbstraction {
+    /**
+     * Initializes a BaseCollection instance.
+     * @param {SharedStateClient} client - The SharedState client instance
+     * @param {string} path - Target path prefix for the collection
+     * @param {Object} [options] - Configuration options
+     */
     constructor(client, path, options = {}) {
         super(client, path, options);
 
@@ -9,6 +20,10 @@ export class BaseCollection extends BaseAbstraction {
         });
     }
 
+    /**
+     * Removes all elements from the collection.
+     * @returns {Promise<void>} Resolves when clear operation completes
+     */
     async clear() {
         return await this._provider.update_items({ reset: true });
     }
