@@ -6,12 +6,13 @@ The `SharedStateClient` manages logical network connections, subscriptions, stat
 
 ### `new SharedStateClient(url, [options])`
 
-Initializes a new SharedState logical client connection.
+Initializes the SharedStateClient.
 
 | Parameter | Type | Description |
 | --- | --- | --- |
-| `url` | `string` | WebSocket server URL |
+| `url` | `string` | WebSocket server URL (ws://host:port/) |
 | `[options]` | `Object` | Configuration options |
+| `[options.failureTimeout]` | `number` | Time in seconds before unacknowledged updates trigger a timeout reconnect |
 
 ## Accessors & Properties
 
@@ -19,36 +20,39 @@ Initializes a new SharedState logical client connection.
 
 **Type**: `string`
 
-Unique logical client identifier generated for consistency tracking.
+Unique client identifier.
 
 ### `connection`
 
 **Type**: `Connection`
 
-Connection transport manager instance.
+Connection object.
 
 ### `clock`
 
 **Type**: `ServerClock`
 
-Server clock sync provider instance.
+ServerClock object.
 
 ## Methods
 
-### `provider(rawPath, options)`
+### `provider(token, path, itemID, options)`
 
-Initializes or retrieves an existing state provider (ItemProvider / OptimisticItemProvider) for a given path.
+Initializes or retrieves an existing state provider pair [reader, updater] for a path or (path, itemID).
+Locks the path or (path, itemID) to the given token to prevent type mismatches.
 
 | Parameter | Type | Description |
 | --- | --- | --- |
-| `rawPath` | `string` | Target path (e.g. "/app/store/res") |
-| `[options]` | `Object` | Options (e.g. { optimistic: true }) |
+| `token` | `string` | Binding token reserving scope (e.g. "SharedMap", "MyCustomApp") |
+| `path` | `string` | Target path (e.g. "/app/store/res") |
+| `[itemID]` | `string` | Target item ID for item-exclusive binding (omit for path-exclusive) |
+| `[options]` | `Object` | Provider options |
 
-**Returns**: `ItemProvider` | `OptimisticItemProvider` - The initialized or cached state provider instance
+**Returns**: `Array.<Object>` - Tuple containing [reader, updater]
 
 ### `terminate()`
 
-Terminates the client: releases all collections, providers, subscriptions, and closes the WebSocket connection.
+Terminates the client: releases all providers, subscriptions, bindings, and closes the WebSocket connection.
 
 **Returns**: `void`
 

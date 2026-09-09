@@ -56,7 +56,7 @@ describe("Client-Server Integration Tests", () => {
         client.terminate();
     });
 
-    test("load(client, config) with SharedMap: update_items (insert, remove, reset), and querying", async () => {
+    test("load(client, config) with SharedMap operations and querying", async () => {
         const client = new SharedStateClient(SERVER_URL);
         await client.connection.connectedPromise();
 
@@ -65,39 +65,27 @@ describe("Client-Server Integration Tests", () => {
         });
         const coll = itemsMap.provider;
 
-        // 1. Insert items
-        const insertRes = await coll.update_items({
-            insert: [
-                { id: "item1", data: "first" },
-                { id: "item2", data: "second" }
-            ]
-        });
+        // 1. Insert item
+        const insertRes = await itemsMap.set("item1", { data: "first" });
         expect(insertRes.ok).toBe(true);
 
         // Wait for notification sync to proxy collection
         await new Promise((resolve) => setTimeout(resolve, 100));
-        expect(coll.size).toBe(2);
-        expect(coll.has_item("item1")).toBe(true);
-        expect(coll.get_item("item1")).toEqual({ id: "item1", data: "first" });
+        expect(coll.size).toBe(1);
+        expect(itemsMap.has("item1")).toBe(true);
+        expect(itemsMap.get("item1")).toEqual({ data: "first" });
 
         // 2. Remove item1
-        const removeRes = await coll.update_items({ remove: ["item1"] });
+        const removeRes = await itemsMap.delete("item1");
         expect(removeRes.ok).toBe(true);
 
         await new Promise((resolve) => setTimeout(resolve, 100));
-        expect(coll.size).toBe(1);
-        expect(coll.has_item("item1")).toBe(false);
+        expect(coll.size).toBe(0);
+        expect(itemsMap.has("item1")).toBe(false);
 
         // 3. Reset collection
-        const resetRes = await coll.update_items({
-            insert: [{ id: "item3", data: "third" }],
-            reset: true
-        });
+        const resetRes = await itemsMap.clear();
         expect(resetRes.ok).toBe(true);
-
-        await new Promise((resolve) => setTimeout(resolve, 100));
-        expect(coll.size).toBe(1);
-        expect(coll.get_item("item3")).toEqual({ id: "item3", data: "third" });
 
         client.terminate();
     });
@@ -157,15 +145,36 @@ describe("Client-Server Integration Tests", () => {
         clientB.terminate();
     });
 
-    test("client.provider(path) acquires and caches Layer 1 ItemProvider provider", async () => {
+    test("client.provider(identifier, path) acquires and returns [reader, updater]", async () => {
         const client = new SharedStateClient(SERVER_URL);
         await client.connection.connectedPromise();
 
-        const p1 = client.provider("/app/mitems/layer1");
-        const p2 = client.provider("/app/mitems/layer1");
+        const [r1, u1] = client.provider("AppLayer", "/app/mitems/layer1");
+        const [r2, u2] = client.provider("AppLayer", "/app/mitems/layer1");
 
-        expect(p1).toBeDefined();
-        expect(p1).toBe(p2); // Reference equality: idempotent get-or-create
+        expect(r1).toBeDefined();
+        expect(u1).toBeDefined();
+        expect(r1).toBe(r2);
+
+        client.terminate();
+    });
+
+    test("enforces path-exclusive and item-exclusive binding locks", () => {
+        const client = new SharedStateClient(SERVER_URL);
+
+        // Path-exclusive binding
+        client.provider("AppA", "/app/mitems/path1");
+        expect(() => client.provider("AppB", "/app/mitems/path1")).toThrow("is already bound to token 'AppA'");
+        expect(() => client.provider("AppA", "/app/mitems/path1", "item1")).toThrow("is already bound to token 'AppA' (path-exclusive)");
+
+        // Item-exclusive binding
+        client.provider("AppC", "/app/mitems/path2", "var1");
+        expect(() => client.provider("AppD", "/app/mitems/path2")).toThrow("already has item-exclusive bindings");
+        expect(() => client.provider("AppE", "/app/mitems/path2", "var1")).toThrow("item 'var1' is already bound to token 'AppC'");
+
+        // Same token on same item -> succeeds
+        const [r, u] = client.provider("AppC", "/app/mitems/path2", "var1");
+        expect(r).toBeDefined();
 
         client.terminate();
     });

@@ -1,5 +1,6 @@
 import { describe, test, expect, vi } from "vitest";
 import { ItemProvider } from "../../client/provider.js";
+import { ItemReader, ItemUpdater } from "../../client/reader_updater.js";
 import {
     BaseTypedVariable,
     SharedTypedVariable,
@@ -21,38 +22,38 @@ describe("Layer 2 Domain Abstractions Unit Tests", () => {
     function createMockClient() {
         const client = {
             _providers: new Map(),
-            _collections: new Map(),
-            _variables: new Map(),
+            _path_bindings: new Map(),
+            _item_bindings: new Map(),
             _subscriptions: new Map(),
             _update: vi.fn().mockResolvedValue({ ok: true }),
-            _get_collection(path) {
-                const ref = this._collections.get(path);
-                return ref ? ref.deref() || null : null;
-            },
-            _set_collection(path, coll) {
-                this._collections.set(path, new WeakRef(coll));
-            },
-            _get_variable(path, name) {
-                const varMap = this._variables.get(path);
-                if (varMap) {
-                    const ref = varMap.get(name);
-                    return ref ? ref.deref() || null : null;
+            provider(token, rawPath, itemID = undefined, options = {}) {
+                let path, id;
+                if (rawPath === undefined) {
+                    path = token;
+                    id = "test";
+                } else {
+                    path = rawPath;
+                    id = token;
                 }
-                return null;
-            },
-            _set_variable(path, name, variable) {
-                let varMap = this._variables.get(path);
-                if (!varMap) {
-                    varMap = new Map();
-                    this._variables.set(path, varMap);
+                if (!this._providers.has(path)) {
+                    this._providers.set(path, new ItemProvider(this, path, options));
                 }
-                varMap.set(name, new WeakRef(variable));
-            },
-            provider(collPath) {
-                if (!this._providers.has(collPath)) {
-                    this._providers.set(collPath, new ItemProvider(this, collPath));
+                const providerInstance = this._providers.get(path);
+                if (rawPath === undefined) {
+                    return providerInstance;
                 }
-                return this._providers.get(collPath);
+                if (itemID === undefined) {
+                    const reader = providerInstance;
+                    const updater = {
+                        update_items: (changes, opts) => providerInstance._update_items(changes, opts),
+                        clear: () => providerInstance._update_items({ reset: true })
+                    };
+                    return [reader, updater];
+                } else {
+                    const reader = new ItemReader(providerInstance, itemID);
+                    const updater = new ItemUpdater(providerInstance, itemID);
+                    return [reader, updater];
+                }
             }
         };
         return client;

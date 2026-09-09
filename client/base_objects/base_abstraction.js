@@ -4,39 +4,98 @@ import { validatePath } from "../common.js";
 /**
  * Base class for all SharedState abstractions (Variables and Collections).
  * Extends objects with path/provider accessors and event handling (`on`, `off`, `once`).
+ * Manages singleton instance caching via WeakRef.
  * @class BaseAbstraction
  */
 export class BaseAbstraction {
+    /** @type {Map<string, WeakRef>} */
+    static _path_instances = new Map();
+
+    /** @type {Map<string, Map<string, WeakRef>>} */
+    static _item_instances = new Map();
+
     /**
-     * Initializes a BaseAbstraction instance.
-     * @param {SharedStateClient} client - The parent SharedState client instance
-     * @param {string} path - Canonical path for this state object
-     * @param {Object} [options] - Options passed to provider initialization
+     * Retrieves an active cached instance for a path or (path, itemID).
+     * @param {string} path - Canonical path
+     * @param {string} [itemID] - Target item ID (omit for path-exclusive collections)
+     * @returns {BaseAbstraction|null} Active cached instance or null
      */
-    constructor(client, path, options) {
-        if (!client || typeof client.provider !== "function") {
-            throw new Error(`Client must be an instance of SharedStateClient or implement provider().`);
+    static get_cached_instance(path, itemID = undefined) {
+        path = validatePath(path);
+        if (itemID === undefined) {
+            const ref = BaseAbstraction._path_instances.get(path);
+            if (ref) {
+                const inst = ref.deref();
+                if (inst) return inst;
+                BaseAbstraction._path_instances.delete(path);
+            }
+        } else {
+            const itemMap = BaseAbstraction._item_instances.get(path);
+            if (itemMap) {
+                const ref = itemMap.get(itemID);
+                if (ref) {
+                    const inst = ref.deref();
+                    if (inst) return inst;
+                    itemMap.delete(itemID);
+                    if (itemMap.size === 0) {
+                        BaseAbstraction._item_instances.delete(path);
+                    }
+                }
+            }
         }
-        const normPath = validatePath(path);
-        this._client = client;
-        this._normPath = normPath;
-        this._options = options;
-        this._provider = client.provider(normPath, options);
+        return null;
     }
 
     /**
-     * The full canonical path of the object's provider.
-     * @type {string}
-     * @readonly
+     * Caches a new instance under path or (path, itemID) using WeakRef.
+     * @param {string} path - Canonical path
+     * @param {string} [itemID] - Target item ID (omit for path-exclusive collections)
+     * @param {BaseAbstraction} instance - Instance to cache
      */
-    get path() { return this._provider.path; }
+    static cache_instance(path, itemID, instance) {
+        path = validatePath(path);
+        if (itemID === undefined) {
+            BaseAbstraction._path_instances.set(path, new WeakRef(instance));
+        } else {
+            let itemMap = BaseAbstraction._item_instances.get(path);
+            if (!itemMap) {
+                itemMap = new Map();
+                BaseAbstraction._item_instances.set(path, itemMap);
+            }
+            itemMap.set(itemID, new WeakRef(instance));
+        }
+    }
 
     /**
-     * Normalized path string.
+     * Initializes a BaseAbstraction instance.
+     * @param {SharedStateClient} client - The parent SharedState client instance
+     * @param {string} token - Token for binding reservation (e.g. class name)
+     * @param {string} path - Canonical path for this state object
+     * @param {string} [itemID] - Target item ID if item-exclusive
+     * @param {Object} [options] - Options passed to provider initialization
+     */
+    constructor(client, token, path, itemID = undefined, options = {}) {
+        if (!client || typeof client.provider !== "function") {
+            throw new Error(`Client must be an instance of SharedStateClient or implement provider().`);
+        }
+        path = validatePath(path);
+        this._client = client;
+        this._path = path;
+        this._options = options;
+        this._token = token;
+
+        const [reader, updater] = client.provider(token, path, itemID, options);
+        this._reader = reader;
+        this._updater = updater;
+        this._provider = reader.provider || reader;
+    }
+
+    /**
+     * Canonical path of the object's provider.
      * @type {string}
      * @readonly
      */
-    get normPath() { return this._normPath; }
+    get path() { return this._path; }
 
     /**
      * The underlying Layer 1 state provider.
@@ -44,6 +103,20 @@ export class BaseAbstraction {
      * @readonly
      */
     get provider() { return this._provider; }
+
+    /**
+     * The reader object (`ItemReader` or provider instance).
+     * @type {Object}
+     * @readonly
+     */
+    get reader() { return this._reader; }
+
+    /**
+     * The updater object (`ItemUpdater` or collection updater).
+     * @type {Object}
+     * @readonly
+     */
+    get updater() { return this._updater; }
 
     /**
      * The parent SharedState client instance.
@@ -79,4 +152,3 @@ export class BaseAbstraction {
 }
 
 eventify(BaseAbstraction.prototype);
-

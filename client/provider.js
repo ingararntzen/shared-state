@@ -128,7 +128,7 @@ export class ItemProvider {
     /**
      * application dispatching update to server
      */
-    update_items(changes = {}, options = {}) {
+    _update_items(changes = {}, options = {}) {
         if (this._terminated) {
             throw new Error("collection already terminated");
         }

@@ -1,4 +1,5 @@
 import { BaseAbstraction } from "./base_abstraction.js";
+import { validatePath } from "../common.js";
 
 /**
  * Base class for all SharedState collection types (SharedMap and SharedSet).
@@ -11,11 +12,21 @@ export class BaseCollection extends BaseAbstraction {
      * @param {SharedStateClient} client - The SharedState client instance
      * @param {string} path - Target path prefix for the collection
      * @param {Object} [options] - Configuration options
+     * @param {string} [token] - Binding lock token (defaults to constructor name)
      */
-    constructor(client, path, options = {}) {
-        super(client, path, options);
+    constructor(client, path, options = {}, token = undefined) {
+        path = validatePath(path);
+        const cached = BaseAbstraction.get_cached_instance(path);
+        if (cached) {
+            return cached;
+        }
 
-        this.provider.add_callback((changes) => {
+        const tok = token || (new.target && new.target.name) || "BaseCollection";
+        super(client, tok, path, undefined, options);
+
+        BaseAbstraction.cache_instance(path, undefined, this);
+
+        this._reader.add_callback((changes) => {
             this._on_provider_update(changes);
         });
     }
@@ -25,7 +36,7 @@ export class BaseCollection extends BaseAbstraction {
      * @returns {Promise<void>} Resolves when clear operation completes
      */
     async clear() {
-        return await this._provider.update_items({ reset: true });
+        return await this._updater.clear();
     }
 
     _on_provider_update(changes) {
@@ -34,7 +45,7 @@ export class BaseCollection extends BaseAbstraction {
 
     get_state(name) {
         if (name === "change") {
-            const items = this._provider.get_items();
+            const items = this._reader.get_items();
             const insert = new Map(items.map((item) => [item.id, item]));
             return { remove: new Set(), insert, reset: true };
         }

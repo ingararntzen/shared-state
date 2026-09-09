@@ -3,6 +3,7 @@ import { ItemProvider } from "../../client/provider.js";
 import { OptimisticItemProvider } from "../../client/opt_provider.js";
 import { SharedInteger } from "../../client/objects/variables.js";
 import { SharedMap } from "../../client/objects/map.js";
+import { ItemReader, ItemUpdater } from "../../client/reader_updater.js";
 
 import { SharedStateClient } from "../../client/client.js";
 
@@ -13,44 +14,32 @@ function createMockClient() {
         _last_acked_update_count: 0,
         _pending_updates: new Map(),
         _providers: new Map(),
-        _collections: new Map(),
-        _variables: new Map(),
-        _ttlMs: 10000,
+        _path_bindings: new Map(),
+        _item_bindings: new Map(),
+        _options: { failureTimeout: 10 },
         _request: vi.fn(),
         _reconnect: vi.fn(),
         _on_ack: SharedStateClient.prototype._on_ack,
         _check_pending_timeouts: SharedStateClient.prototype._check_pending_timeouts,
-        _get_collection(path) {
-            const ref = this._collections.get(path);
-            return ref ? ref.deref() || null : null;
-        },
-        _set_collection(path, coll) {
-            this._collections.set(path, new WeakRef(coll));
-        },
-        _get_variable(path, name) {
-            const varMap = this._variables.get(path);
-            if (varMap) {
-                const ref = varMap.get(name);
-                return ref ? ref.deref() || null : null;
-            }
-            return null;
-        },
-        _set_variable(path, name, variable) {
-            let varMap = this._variables.get(path);
-            if (!varMap) {
-                varMap = new Map();
-                this._variables.set(path, varMap);
-            }
-            varMap.set(name, new WeakRef(variable));
-        },
-        provider(collPath, options = {}) {
+        provider(token, collPath, itemID = undefined, options = {}) {
             if (!this._providers.has(collPath)) {
                 const baseColl = new ItemProvider(this, collPath, options);
-                const isOptimistic = options.optimistic ?? true;
-                const coll = isOptimistic ? new OptimisticItemProvider(this, baseColl, options) : baseColl;
+                const coll = new OptimisticItemProvider(this, baseColl, options);
                 this._providers.set(collPath, coll);
             }
-            return this._providers.get(collPath);
+            const providerInstance = this._providers.get(collPath);
+            if (itemID === undefined) {
+                const reader = providerInstance;
+                const updater = {
+                    update_items: (changes, opts) => providerInstance._update_items(changes, opts),
+                    clear: () => providerInstance._update_items({ reset: true })
+                };
+                return [reader, updater];
+            } else {
+                const reader = new ItemReader(providerInstance, itemID);
+                const updater = new ItemUpdater(providerInstance, itemID);
+                return [reader, updater];
+            }
         }
     };
     client._request.mockImplementation(async (cmd, path, data) => {
@@ -95,7 +84,7 @@ describe("OptimisticItemProvider Unit Tests", () => {
         const callback = vi.fn();
         specColl.add_callback(callback);
 
-        specColl.update_items({
+        specColl._update_items({
             insert: [
                 { id: "item1", state: 200 },
                 { id: "item2", state: 300 }
@@ -123,7 +112,7 @@ describe("OptimisticItemProvider Unit Tests", () => {
         baseColl._client_update({ insert: [{ id: "alice", state: "active" }] });
         expect(specColl.has_item("alice")).toBe(true);
 
-        specColl.update_items({ remove: ["alice"] });
+        specColl._update_items({ remove: ["alice"] });
         await Promise.resolve();
 
         expect(specColl.has_item("alice")).toBe(false);
@@ -140,12 +129,12 @@ describe("OptimisticItemProvider Unit Tests", () => {
         const specColl = new OptimisticItemProvider(mockClient, baseColl);
 
         // Local edit 1 in tick 1
-        const p1 = specColl.update_items({ insert: [{ id: "score", state: 10 }] });
+        const p1 = specColl._update_items({ insert: [{ id: "score", state: 10 }] });
         await new Promise(r => queueMicrotask(r));
         await p1;
 
         // Local edit 2 in tick 2
-        const p2 = specColl.update_items({ insert: [{ id: "score", state: 20 }] });
+        const p2 = specColl._update_items({ insert: [{ id: "score", state: 20 }] });
         await new Promise(r => queueMicrotask(r));
         await p2;
 
@@ -177,7 +166,7 @@ describe("OptimisticItemProvider Unit Tests", () => {
         const specColl = new OptimisticItemProvider(mockClient, baseColl);
 
         // Local edit at update_count 1
-        specColl.update_items({ insert: [{ id: "score", state: 50 }] });
+        specColl._update_items({ insert: [{ id: "score", state: 50 }] });
         await Promise.resolve();
 
         // Remote client (client_remote_99) sends update
@@ -218,7 +207,7 @@ describe("OptimisticItemProvider Unit Tests", () => {
         mockClient._providers.set("/resources/app/store/vars", specColl);
 
         // Client performs speculative update
-        specColl.update_items({ insert: [{ id: "counter", state: 10 }] });
+        specColl._update_items({ insert: [{ id: "counter", state: 10 }] });
         await Promise.resolve();
         expect(specColl.get_item("counter")).toEqual({ id: "counter", state: 10 });
 
@@ -242,7 +231,7 @@ describe("OptimisticItemProvider Unit Tests", () => {
         expect(mockClient._reconnect).toHaveBeenCalled();
     });
 
-    test("triggers reconnect when pending update exceeds ttlMs and state is CONNECTED", () => {
+    test("triggers reconnect when pending update exceeds failureTimeout and state is CONNECTED", () => {
         const mockClient = createMockClient();
         mockClient._connection = { state: "connected", reconnect: vi.fn() };
         mockClient._reconnect = vi.fn(() => mockClient._connection.reconnect(true));
@@ -253,5 +242,13 @@ describe("OptimisticItemProvider Unit Tests", () => {
         mockClient._check_pending_timeouts();
 
         expect(mockClient._connection.reconnect).toHaveBeenCalledWith(true);
+    });
+
+    test("defaults failureTimeout option to 10 when invalid or unprovided", () => {
+        const clientInvalid = new SharedStateClient("ws://localhost:9000", { failureTimeout: "invalid" });
+        expect(clientInvalid._options.failureTimeout).toBe(10);
+
+        const clientCustom = new SharedStateClient("ws://localhost:9000", { failureTimeout: 20 });
+        expect(clientCustom._options.failureTimeout).toBe(20);
     });
 });

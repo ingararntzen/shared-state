@@ -94,11 +94,11 @@ describe("ItemProvider Unit Tests", () => {
         expect(callback).toHaveBeenCalled();
     });
 
-    test("update_items auto-generates id if missing and delegates to client", async () => {
+    test("_update_items auto-generates id if missing and delegates to client", async () => {
         const mockClient = createMockClient();
         const coll = new ItemProvider(mockClient, "/app/mitems/chnl");
 
-        const p = coll.update_items({ insert: [{ data: "no_id" }] });
+        const p = coll._update_items({ insert: [{ data: "no_id" }] });
         await p;
 
         expect(mockClient._update).toHaveBeenCalledTimes(1);
@@ -120,17 +120,17 @@ describe("ItemProvider Unit Tests", () => {
         }).toThrow("collection already terminated");
 
         expect(() => {
-            coll.update_items({ insert: [{ id: "i1" }] });
+            coll._update_items({ insert: [{ id: "i1" }] });
         }).toThrow("collection already terminated");
     });
 
-    test("batches multiple synchronous update_items calls into 1 microtask request", async () => {
+    test("batches multiple synchronous _update_items calls into 1 microtask request", async () => {
         const mockClient = createMockClient();
         const coll = new ItemProvider(mockClient, "/app/mitems/chnl");
 
-        const p1 = coll.update_items({ insert: [{ id: "item1", state: "val1" }] });
-        const p2 = coll.update_items({ insert: [{ id: "item1", state: "val2" }] }); // Overwrites item1
-        const p3 = coll.update_items({ insert: [{ id: "item2", state: "val3" }] });
+        const p1 = coll._update_items({ insert: [{ id: "item1", state: "val1" }] });
+        const p2 = coll._update_items({ insert: [{ id: "item1", state: "val2" }] }); // Overwrites item1
+        const p3 = coll._update_items({ insert: [{ id: "item2", state: "val3" }] });
 
         expect(p1).toBe(p2);
         expect(p2).toBe(p3);
@@ -177,7 +177,7 @@ describe("ItemProvider Unit Tests", () => {
         expect(coll._version).toBe(10);
 
         // Perform conditional update
-        await coll.update_items({ insert: [{ id: "i1", state: "v1" }] }, { conditional: true });
+        await coll._update_items({ insert: [{ id: "i1", state: "v1" }] }, { conditional: true });
 
         expect(mockClient._update).toHaveBeenCalledWith("/app/mitems/chnl", {
             insert: [{ id: "i1", state: "v1" }],

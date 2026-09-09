@@ -26,10 +26,6 @@
 
 [Variables] are bound to a single [Item] within an [ItemProvider]. As such, they are defined by a `(path, name)` tuple, where the `path` identifies the [ItemProvider]'s [Path] and `name` identifies an [Item] within that [ItemProvider]. 
 
-::: tip Note
-[Variables] can **not** be bound to a [Path] which is already bound to by a [Collection]. Note however, that this protection is only enforced within the scope of a single client.  
-:::
-
 
 ### Typed Variables
 
@@ -61,10 +57,6 @@ Options `allowUndefined`, `defaultValue`, and `initialValue` regulate this funct
 [Collections] are abstractions that represent a collection of elements. They support methods for access to elements within the collections, and methods which alter the collection, by inserting, replacing, and deleting elements. 
 
 [Collections] are bound to a single [ItemProvider] and identified by a [Path].
-
-::: tip Note
-[Collections] can **not** be bound to a [Path] which is already bound to by a [Variable]. Note however, that this protection is only enforced within the scope of a single client.
-:::
 
 ### Map 
 
@@ -103,7 +95,43 @@ Application objects enforce **reference equality**. This means that objects boun
 
 ---
 
-## Object Access Semantics
+## Binding Application Objects to Item Providers
+
+It would be a problem if two application objects were set up to mutate the same underlying state. To avoid this, we need a mechanism which can grant exclusive access to a resource. 
+
+
+### Token-based Resource Access
+SharedState implements a simple mekanism for this, where resource access is granted based on a **token** (string).
+
+```js
+const [reader, updater] = client.provider(token, path, itemID = undefined, options = {})
+```
+
+This claims access for the resource identified by `(path, itemID)` for the given `token`:
+- If the resource has already been claimed by a different `token`, the constructor will throw an `Error`.
+- If the resource has already been claimed by the same `token`, the constructor will return the same `[reader, updater]` tuple.
+- If the resource has not been claimed before, the constructor will initialize the resource, bind it to `token` and return the associated `[reader, updater]` tuple.
+
+After this operation, access through the `[reader, update]` object pair. A repeated invocation with the same parameters (`token`, `path`, `itemID`) will return the same object pair. SharedState application objects use class name as token.
+
+::: tip Note
+When SharedState application objects are granted exclusive access to a resource, this is only ensured locally, within the single process. Application-wide agreement is required to ensure that all clients treat the same resource in the same way. This is not enforced by the SharedState framework, and left as a responsibility of the application developer.  
+:::
+
+### Access Scope
+
+SharedState distinguishes two scopes for resource access:
+
+- **Path-Exclusive Scope** (`path, undefined`): Token access is granted for the entire [ItemProvider] identified by a [Path]. 
+- **Item-Exclusive Scope** (`path, itemID`): Token-based access is granted for a single [Item] within the [ItemProvider] identified by a [Path].
+
+**Path-Exclusive** and **Item-Exclusive Access** are mutually exclusive for a given [Path]. If **Item-Exclusive** access had been granted for an [Item] within a given [ItemProvider], **Item-Exclusive** access can still be granted for other [Items] within the same [ItemProvider], 
+
+
+
+---
+
+## Query and Update Semantics
 
 ### Queries
 

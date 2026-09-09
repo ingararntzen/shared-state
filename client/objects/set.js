@@ -26,7 +26,7 @@ export class SharedSet extends BaseCollection {
      * @param {Function} [options.key] - Custom element identity key function
      */
     constructor(client, path, options = {}) {
-        super(client, path, options);
+        super(client, path, options, "SharedSet");
         this._keyFn = options.key || options.get_id || null;
     }
 
@@ -48,7 +48,7 @@ export class SharedSet extends BaseCollection {
     async add(elem) {
         const id = this._getId(elem);
         const record = { id, state: elem };
-        return await this._provider.update_items({ insert: [record] });
+        return await this._updater.update_items({ insert: [record] });
     }
 
     /**
@@ -58,7 +58,7 @@ export class SharedSet extends BaseCollection {
      */
     async delete(elem) {
         const id = this._getId(elem);
-        return await this._provider.update_items({ remove: [id] });
+        return await this._updater.update_items({ remove: [id] });
     }
 
     /**
@@ -66,7 +66,7 @@ export class SharedSet extends BaseCollection {
      * @returns {Promise<void>} Resolves when set is reset
      */
     async clear() {
-        return await this._provider.update_items({ reset: true });
+        return await this._updater.clear();
     }
 
     /**
@@ -76,7 +76,7 @@ export class SharedSet extends BaseCollection {
      */
     has(elem) {
         const id = this._getId(elem);
-        return this._provider.has_item(id);
+        return this._reader.has_item(id);
     }
 
     /**
@@ -92,7 +92,7 @@ export class SharedSet extends BaseCollection {
      * @returns {Array<*>} Array of set values
      */
     values() {
-        return this._provider.get_items().map(item =>
+        return this._reader.get_items().map(item =>
             item.state !== undefined ? item.state : item.value
         );
     }
@@ -124,4 +124,3 @@ export class SharedSet extends BaseCollection {
         return this.values()[Symbol.iterator]();
     }
 }
-

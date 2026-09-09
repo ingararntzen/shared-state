@@ -1,9 +1,12 @@
 import { Connection, ConnectionState } from "./wsio.js";
 import { ItemProvider } from "./provider.js";
 import { OptimisticItemProvider } from "./opt_provider.js";
+import { ItemReader, ItemUpdater } from "./reader_updater.js";
 import { ServerClock } from "./server_clock.js";
 import { MsgType, MsgCmd, normalizePath, validatePath, sanitizeChanges } from "./common.js";
-import { random_string, resolvablePromise } from "./util/util.js";
+import { random_string, resolvablePromise, isNumber } from "./util/util.js";
+
+const DEFAULT_FAILURE_TIMEOUT = 10;
 
 /**
  * SharedStateClient manages logical network connections, subscriptions,
@@ -12,11 +15,17 @@ import { random_string, resolvablePromise } from "./util/util.js";
  */
 export class SharedStateClient {
     /**
-     * Initializes a new SharedState logical client connection.
-     * @param {string} url - WebSocket server URL
+     * Initializes the SharedStateClient.
+     * @param {string} url - WebSocket server URL (ws://host:port/)
      * @param {Object} [options] - Configuration options
+     * @param {number} [options.failureTimeout=10] - Time in seconds before unacknowledged updates trigger a timeout reconnect
      */
     constructor(url, options = {}) {
+        // check options
+        if (!isNumber(options.failureTimeout)) {
+            options.failureTimeout = DEFAULT_FAILURE_TIMEOUT;
+        }
+
         // options
         this._options = options;
 
@@ -27,7 +36,6 @@ export class SharedStateClient {
         this._last_acked_update_count = 0;
         this._pending_requests = new Map();
         this._pending_updates = new Map();
-        this._ttlMs = options.ttlMs || options.ttl || 10000;
 
         // subscriptions
         this._subscriptions = new Map();
@@ -36,9 +44,9 @@ export class SharedStateClient {
         // state providers (Layer 1)
         this._providers = new Map();
 
-        // Shared Abstractions
-        this._collections = new Map(); // path -> WeakRef(Collection)
-        this._variables = new Map();   // path -> Map(name -> WeakRef(Variable))
+        // Binding Locks: path -> identifier (path-exclusive) AND path -> Map(itemID -> identifier) (item-exclusive)
+        this._path_bindings = new Map();
+        this._item_bindings = new Map();
 
         // clock sync
         this._clock = new ServerClock(this);
@@ -56,7 +64,7 @@ export class SharedStateClient {
      *  PUBLIC API
      ************************************************/
     /**
-     * Unique logical client identifier generated for consistency tracking.
+     * Unique client identifier.
      * @type {string}
      * @readonly
      */
@@ -65,7 +73,7 @@ export class SharedStateClient {
     }
 
     /**
-     * Connection transport manager instance.
+     * Connection object.
      * @type {Connection}
      * @readonly
      */
@@ -74,7 +82,7 @@ export class SharedStateClient {
     }
 
     /**
-     * Server clock sync provider instance.
+     * ServerClock object.
      * @type {ServerClock}
      * @readonly
      */
@@ -83,32 +91,83 @@ export class SharedStateClient {
     }
 
     /**
-     * Initializes or retrieves an existing state provider (ItemProvider / OptimisticItemProvider) for a given path.
-     * @param {string} rawPath - Target path (e.g. "/app/store/res")
-     * @param {Object} [options={}] - Options (e.g. { optimistic: true })
-     * @returns {ItemProvider|OptimisticItemProvider} The initialized or cached state provider instance
+     * Initializes or retrieves an existing state provider pair [reader, updater] for a path or (path, itemID).
+     * Locks the path or (path, itemID) to the given token to prevent type mismatches.
+     * @param {string} token - Binding token reserving scope (e.g. "SharedMap", "MyCustomApp")
+     * @param {string} path - Target path (e.g. "/app/store/res")
+     * @param {string} [itemID] - Target item ID for item-exclusive binding (omit for path-exclusive)
+     * @param {Object} [options={}] - Provider options
+     * @returns {Array<Object>} Tuple containing [reader, updater]
      */
-    provider(rawPath, options = {}) {
-        const path = validatePath(rawPath);
+    provider(token, path, itemID = undefined, options = {}) {
+        if (!token || typeof token !== "string") {
+            throw new Error("Token must be a non-empty string.");
+        }
+        path = validatePath(path);
 
-        // set up provider
-        if (!this._providers.has(path)) {
-            let providerInstance = new ItemProvider(this, path, options);
-            if (options.optimistic ?? true) {
-                providerInstance = new OptimisticItemProvider(this, providerInstance, options);
+        // Binding lock check & recording
+        if (itemID === undefined) {
+            // Path-exclusive binding
+            const existingPathToken = this._path_bindings.get(path);
+            if (existingPathToken !== undefined && existingPathToken !== token) {
+                throw new Error(`Path '${path}' is already bound to token '${existingPathToken}' (path-exclusive)`);
             }
+            const itemMap = this._item_bindings.get(path);
+            if (itemMap && itemMap.size > 0) {
+                throw new Error(`Path '${path}' already has item-exclusive bindings; cannot bind path-exclusively`);
+            }
+            this._path_bindings.set(path, token);
+        } else {
+            // Item-exclusive binding
+            if (typeof itemID !== "string" || !itemID) {
+                throw new Error("itemID must be a non-empty string if provided.");
+            }
+            const existingPathToken = this._path_bindings.get(path);
+            if (existingPathToken !== undefined) {
+                throw new Error(`Path '${path}' is already bound to token '${existingPathToken}' (path-exclusive)`);
+            }
+            let itemMap = this._item_bindings.get(path);
+            if (itemMap) {
+                const existingItemToken = itemMap.get(itemID);
+                if (existingItemToken !== undefined && existingItemToken !== token) {
+                    throw new Error(`Path '${path}' item '${itemID}' is already bound to token '${existingItemToken}'`);
+                }
+                itemMap.set(itemID, token);
+            } else {
+                itemMap = new Map([[itemID, token]]);
+                this._item_bindings.set(path, itemMap);
+            }
+        }
+
+        // Set up provider
+        if (!this._providers.has(path)) {
+            const baseProvider = new ItemProvider(this, path, options);
+            const providerInstance = new OptimisticItemProvider(this, baseProvider, options);
             this._providers.set(path, providerInstance);
         }
 
-        // register subscriptions
+        // Register subscriptions
         this._subscriptions.set(path, {});
         this._schedule_sub_sync();
 
-        return this._providers.get(path);
+        const providerInstance = this._providers.get(path);
+
+        if (itemID === undefined) {
+            const reader = providerInstance;
+            const updater = {
+                update_items: (changes, opts) => providerInstance._update_items(changes, opts),
+                clear: () => providerInstance._update_items({ reset: true })
+            };
+            return [reader, updater];
+        } else {
+            const reader = new ItemReader(providerInstance, itemID);
+            const updater = new ItemUpdater(providerInstance, itemID);
+            return [reader, updater];
+        }
     }
 
     /**
-     * Terminates the client: releases all collections, providers, subscriptions, and closes the WebSocket connection.
+     * Terminates the client: releases all providers, subscriptions, bindings, and closes the WebSocket connection.
      * @returns {void}
      */
     terminate() {
@@ -119,8 +178,8 @@ export class SharedStateClient {
             }
         }
         this._providers.clear();
-        this._collections.clear();
-        this._variables.clear();
+        this._path_bindings.clear();
+        this._item_bindings.clear();
         this._subscriptions.clear();
         if (this._connection) {
             this._connection.close();
@@ -331,7 +390,7 @@ export class SharedStateClient {
         this._check_pending_timeouts();
     }
 
-    /** Checks if the oldest pending update exceeds ttlMs, triggering reconnect if CONNECTED. */
+    /** Checks if the oldest pending update exceeds failureTimeout, triggering reconnect if CONNECTED. */
     _check_pending_timeouts() {
         if (this._pending_updates.size === 0) return;
 
@@ -344,7 +403,7 @@ export class SharedStateClient {
             }
         }
 
-        if (oldestCount !== null && Date.now() - oldestTs > this._ttlMs) {
+        if (oldestCount !== null && Date.now() - oldestTs > this._options.failureTimeout * 1000) {
             this._reconnect("timeout");
         }
     }
@@ -358,55 +417,4 @@ export class SharedStateClient {
     }
 
 
-    /************************************************
-     *  APP OBJECTS
-     ************************************************/
-
-    // path -> WeakRef(Collection)
-    _get_collection(path) {
-        const ref = this._collections.get(path);
-        if (ref) {
-            const obj = ref.deref();
-            if (obj) {
-                return obj;
-            } else {
-                this._collections.delete(path);
-            }
-        }
-    }
-
-    // path -> WeakRef(Collection)
-    _set_collection(path, collection) {
-        this._collections.set(path, new WeakRef(collection));
-    }
-
-
-    // path -> Map(name -> WeakRef(Variable))
-    _get_variable(path, name) {
-        const varMap = this._variables.get(path);
-        if (varMap) {
-            const ref = varMap.get(name);
-            if (ref) {
-                const obj = ref.deref();
-                if (obj) {
-                    return obj;
-                } else {
-                    varMap.delete(name);
-                    if (varMap.size === 0) {
-                        this._variables.delete(path);
-                    }
-                }
-            }
-        }
-    }
-
-    // path -> Map(name -> WeakRef(Variable))
-    _set_variable(path, name, variable) {
-        let varMap = this._variables.get(path);
-        if (!varMap) {
-            varMap = new Map();
-            this._variables.set(path, varMap);
-        }
-        varMap.set(name, new WeakRef(variable));
-    }
 }

@@ -79,7 +79,8 @@ export class BaseTypedVariable extends BaseVariable {
         if (!type || !TYPE_CONFIG[type]) {
             throw new Error(`Invalid type: ${type}. Supported types are ${Object.keys(TYPE_CONFIG).join(", ")}`);
         }
-        super(client, path, name, options);
+        const tok = (new.target && new.target.name) || "BaseTypedVariable";
+        super(client, path, name, options, tok);
 
         // internal state
         this._type = type;
@@ -126,12 +127,12 @@ export class BaseTypedVariable extends BaseVariable {
 
     // internal
     _refresh_value() {
-        // Fetch raw value from provider
-        const item = this._provider.get_item(this._itemId);
-        const exists = item !== undefined;
+        if (!this._reader) return;
+        const exists = this._reader.item_exists();
+        const raw = this._reader.get();
 
         // Cast rawValue to the correct type of undefined
-        this._value = exists ? this._typeConfig.validate(item.state) : undefined;
+        this._value = exists ? this._typeConfig.validate(raw) : undefined;
 
         // Check if value is valid
         const valid = (this._value !== undefined || this._allowUndefined);

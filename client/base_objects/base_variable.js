@@ -1,4 +1,5 @@
 import { BaseAbstraction } from "./base_abstraction.js";
+import { validatePath } from "../common.js";
 
 /**
  * Base class for all SharedState variables.
@@ -12,19 +13,29 @@ export class BaseVariable extends BaseAbstraction {
      * @param {string} path - Target path prefix (e.g. "/app/vars")
      * @param {string} name - Variable key name (e.g. "counter")
      * @param {Object} [options] - Configuration options
+     * @param {string} [token] - Binding lock token (defaults to constructor name)
      */
-    constructor(client, path, name, options = {}) {
+    constructor(client, path, name, options = {}, token = undefined) {
         if (!name || typeof name !== "string") {
             throw new Error("Variable name must be a non-empty string");
         }
-        super(client, path, options);
+        path = validatePath(path);
+        const cached = BaseAbstraction.get_cached_instance(path, name);
+        if (cached) {
+            return cached;
+        }
+
+        const tok = token || (new.target && new.target.name) || "BaseVariable";
+        super(client, tok, path, name, options);
+
+        BaseAbstraction.cache_instance(path, name, this);
 
         this._itemId = name;
         this._value = undefined;
-        this._path = this._normPath + "/" + name;
+        this._fullPath = path + "/" + name;
 
-        // Register change callback on Layer 1 provider
-        this.provider.add_callback((changes) => {
+        // Register change callback via ItemReader
+        this._reader.add_callback((changes) => {
             this._on_provider_update(changes);
         });
     }
@@ -41,14 +52,17 @@ export class BaseVariable extends BaseAbstraction {
      * @type {*}
      * @readonly
      */
-    get value() { return this._value; }
+    get value() {
+        this._refresh_value();
+        return this._value;
+    }
 
     /**
      * Full path identifying this variable (`path/name`).
      * @type {string}
      * @readonly
      */
-    get path() { return this._path; }
+    get path() { return this._fullPath; }
 
     /**
      * Gets the current value of the variable.
@@ -62,9 +76,7 @@ export class BaseVariable extends BaseAbstraction {
      * @returns {Promise<void>} Resolves when state update is processed
      */
     set(val) {
-        return this.provider.update_items({
-            insert: [{ id: this.name, state: val }]
-        });
+        return this._updater.set(val);
     }
 
     // internal event handler
@@ -77,7 +89,6 @@ export class BaseVariable extends BaseAbstraction {
     }
 
     _refresh_value() {
-        const item = this._provider.get_item(this._itemId);
-        this._value = item ? item.state : undefined;
+        this._value = this._reader.get();
     }
 }

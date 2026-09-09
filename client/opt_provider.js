@@ -1,8 +1,12 @@
-import { random_string } from "./util/util.js";
+import { random_string, isNumber } from "./util/util.js";
 import { sanitizeChanges } from "./common.js";
 
 export class OptimisticItemProvider {
     constructor(client, itemProvider, options = {}) {
+        if (!isNumber(options.failureTimeout)) {
+            options.failureTimeout = 10;
+        }
+
         this._client = client;
         this._itemProvider = itemProvider;
         this._proxyCollection = itemProvider; // Alias for internal properties
@@ -13,7 +17,6 @@ export class OptimisticItemProvider {
         this._overlay = new Map(); // id -> { item, update_count, is_delete, timestamp }
         this._last_acked_update_count = 0;
         this._handlers = [];
-        this._ttlMs = options.ttlMs || options.ttl || 10000;
     }
 
     get path() {
@@ -83,10 +86,12 @@ export class OptimisticItemProvider {
     }
 
     _cleanup_expired() {
-        if (this._ttlMs <= 0) return;
+        const { failureTimeout = 10 } = this._options;
+        if (failureTimeout <= 0) return;
         const now = Date.now();
+        const timeoutMs = failureTimeout * 1000;
         for (const [id, entry] of this._overlay.entries()) {
-            if (now - entry.timestamp > this._ttlMs) {
+            if (now - entry.timestamp > timeoutMs) {
                 this._overlay.delete(id);
             }
         }
@@ -154,7 +159,7 @@ export class OptimisticItemProvider {
         }
     }
 
-    update_items(changes = {}, options = {}) {
+    _update_items(changes = {}, options = {}) {
         if (this._terminated) {
             throw new Error("collection already terminated");
         }
@@ -172,7 +177,7 @@ export class OptimisticItemProvider {
         }
 
         // Delegate network batching & dispatch directly to ProxyCollection
-        const promise = this._proxyCollection.update_items({ insert, remove, reset }, options);
+        const promise = this._proxyCollection._update_items({ insert, remove, reset }, options);
 
         // Current pending batch will be dispatched at incremented _update_count
         const currentUpdateCount = ++this._client._update_count;

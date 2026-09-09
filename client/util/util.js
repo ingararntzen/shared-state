@@ -36,3 +36,7 @@ export function random_string(length) {
     }
     return text;
 }
+
+export function isNumber(val) {
+    return typeof val === "number" && !Number.isNaN(val);
+}
