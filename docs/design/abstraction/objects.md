@@ -7,7 +7,7 @@
 [Path]: /design/representation/item_collection#path
 [Item]: /design/representation/item_collection#item
 
-# Application Objects
+# Shared Objects Design
 
 
 > SharedState facilitates state sharing through a family of application objects.

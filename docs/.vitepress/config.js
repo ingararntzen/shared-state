@@ -35,32 +35,32 @@ export default defineConfig({
       {
         text: 'Design',
         items: [
-          { text: 'Overview', link: '/design/overview' },
+          { text: 'Overview', docFooterText: 'Design Overview', link: '/design/overview' },
           {
             text: 'Representation',
             collapsed: true,
             items: [
-              { text: 'Item Collection', link: '/design/representation/item_collection' },
-              { text: 'Item Store', link: '/design/representation/item_store' },
-              { text: 'Item Provider', link: '/design/representation/item_provider' }
+              { text: 'Item Collection Design', link: '/design/representation/item_collection' },
+              { text: 'Item Store Design ', link: '/design/representation/item_store' },
+              { text: 'Item Provider Design', link: '/design/representation/item_provider' }
             ]
           },
           {
             text: 'Mechanism',
             collapsed: true,
             items: [
-              { text: 'Communication', link: '/design/mechanism/communication' },
-              { text: 'Subscriptions', link: '/design/mechanism/subscriptions' },
-              { text: 'Consistency', link: '/design/mechanism/consistency' }
+              { text: 'Communication Design', link: '/design/mechanism/communication' },
+              { text: 'Subscriptions Design', link: '/design/mechanism/subscriptions' },
+              { text: 'Consistency Design', link: '/design/mechanism/consistency' }
             ]
           },
           {
             text: 'Abstraction',
             collapsed: true,
             items: [
-              { text: 'Connection', link: '/design/abstraction/connection' },
-              { text: 'Application Objects', link: '/design/abstraction/objects' },
-              { text: 'Shared Clock', link: '/design/abstraction/clock' }
+              { text: 'Shared Objects Design', link: '/design/abstraction/objects' },
+              { text: 'Connection Design', link: '/design/abstraction/connection' },
+              { text: 'Server Clock Design', link: '/design/abstraction/clock' }
             ]
           }
         ]
@@ -68,7 +68,7 @@ export default defineConfig({
       {
         text: 'Client API',
         items: [
-          { text: 'Overview', link: '/client_api/overview' },
+          { text: 'Overview', docFooterText: 'Client API Overview', link: '/client_api/overview' },
           {
             text: 'Client',
             collapsed: true,
@@ -82,7 +82,7 @@ export default defineConfig({
             text: 'Shared Objects',
             collapsed: true,
             items: [
-              { text: 'Events API', link: '/client_api/events' },
+              { text: 'Event API', link: '/client_api/events' },
               { text: 'SharedVariables API', link: '/client_api/variables' },
               { text: 'SharedMap API', link: '/client_api/map' },
               { text: 'SharedSet API', link: '/client_api/set' }

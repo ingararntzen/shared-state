@@ -5,7 +5,7 @@
 [ItemProvider]: /design/representation/item_provider
 [ItemProviders]: /design/representation/item_provider
 
-# Consistency
+# Consistency Design
 
 
 > The SharedState framework delivers Strong Eventual Consistency (SEC) paired with zero delay interactivity, through optimistic local updates.

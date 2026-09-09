@@ -10,7 +10,7 @@
 
 
 
-# Item Store
+# Item Store Design
 
 > The SharedState server hosts [ItemCollections] within [ItemStores].
 

@@ -1,7 +1,7 @@
 [SharedState Client]: /design/overview#sharedstate-client
 [SharedState Server]: /design/overview#sharedstate-server
 
-# Clock
+# Server Clock Design
 
 > The SharedState client provides a local clock synchronized to the clock of the SharedState server.
 

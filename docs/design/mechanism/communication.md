@@ -4,7 +4,7 @@
 [ItemCollections]: /design/representation/item_collection#itemcollection
 [Changes]: /design/representation/item_collection#changes
 
-# Communication
+# Communication Design
 
 > The SharedState framework uses the WebSocket Protocol for client-server communication.
 

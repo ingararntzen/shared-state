@@ -1,6 +1,6 @@
 [Connection]: /design/abstraction/connection 
 
-# Connection
+# Connection Design
 
 > The [Connection] object automatically reconnects to mask intermittent network failures.
 

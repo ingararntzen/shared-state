@@ -5,7 +5,7 @@
 
 
 
-# Subscriptions
+# Subscription Design
 
 > Client subscriptions are maintained by the client, and synchronized with the server when connected and after updates.
 

@@ -10,7 +10,7 @@
 [ItemProvider]: /design/representation/item_provider
 [ItemProviders]: /design/representation/item_provider
 
-# Item Collections
+# Item Collection Design
 
 > The SharedState framework organizes replication around [ItemCollections].
 

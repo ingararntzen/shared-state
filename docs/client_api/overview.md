@@ -1,4 +1,4 @@
-# SharedState Client API
+# Client API Overview
 
 The SharedState client is implemented in JavaScript. It encapsulates management of state replication, connection and client subscriptions, while providing easy-to-use programming abstractions modelling shared resources. The SharedState Client API is organized in two parts:
 

@@ -9,7 +9,7 @@
 [Conditional Updates]: /design/mechanism/consistency#conditional-updates
 
 
-# Item Provider
+# Item Provider Design
 
 > The SharedState client mirrors server-side [ItemCollections] locally, as [ItemProviders].
 
