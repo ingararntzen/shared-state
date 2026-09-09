@@ -1,7 +1,7 @@
 import { Connection, ConnectionState } from "./wsio.js";
 import { ItemProvider } from "./provider.js";
 import { OptimisticItemProvider } from "./opt_provider.js";
-import { ItemReader, ItemUpdater } from "./reader_updater.js";
+import { ItemResource } from "./item_resource.js";
 import { ServerClock } from "./server_clock.js";
 import { MsgType, MsgCmd, normalizePath, validatePath, sanitizeChanges } from "./common.js";
 import { random_string, resolvablePromise, isNumber } from "./util/util.js";
@@ -91,80 +91,88 @@ export class SharedStateClient {
     }
 
     /**
-     * Request access to resource, given token and resource identifier (path, ItemID).
-     * Returns [reader, updater] pair for resource, if access is granted.
+     * Request path-exclusive access to a PathResource given token and path.
+     * Returns PathResource (ItemProvider instance) if access is granted.
      * Throws error if access was already granted for another token.
-     * @param {string} token - Access token.
-     * @param {string} path - Path of ItemProvider (e.g. "/app/store/res")
-     * @param {string} [itemID] - ItemID within ItemProvider. Omit for path-exclusive resource access.
-     * @returns {Array<Object>} - Tuple [reader, updater] for resource.
-     * @throws {Error} - If access was already granted for another token.
+     * @param {string} token - Access token
+     * @param {string} path - Path of PathResource (e.g. "/app/store/res")
+     * @returns {Object} - PathResource handle for path
+     * @throws {Error} - If access was already granted for another token or item-exclusive scope exists
      */
-    get_resource(token, path, itemID = undefined) {
+    get_resource(token, path) {
         if (!token || typeof token !== "string") {
             throw new Error("Token must be a non-empty string.");
         }
         path = validatePath(path);
 
-        // Binding lock check & recording
-        if (itemID === undefined) {
-            // Path-exclusive binding
-            const existingPathToken = this._path_bindings.get(path);
-            if (existingPathToken !== undefined && existingPathToken !== token) {
-                throw new Error(`Path '${path}' is already bound to token '${existingPathToken}' (path-exclusive)`);
-            }
-            const itemMap = this._item_bindings.get(path);
-            if (itemMap && itemMap.size > 0) {
-                throw new Error(`Path '${path}' already has item-exclusive bindings; cannot bind path-exclusively`);
-            }
-            this._path_bindings.set(path, token);
-        } else {
-            // Item-exclusive binding
-            if (typeof itemID !== "string" || !itemID) {
-                throw new Error("itemID must be a non-empty string if provided.");
-            }
-            const existingPathToken = this._path_bindings.get(path);
-            if (existingPathToken !== undefined) {
-                throw new Error(`Path '${path}' is already bound to token '${existingPathToken}' (path-exclusive)`);
-            }
-            let itemMap = this._item_bindings.get(path);
-            if (itemMap) {
-                const existingItemToken = itemMap.get(itemID);
-                if (existingItemToken !== undefined && existingItemToken !== token) {
-                    throw new Error(`Path '${path}' item '${itemID}' is already bound to token '${existingItemToken}'`);
-                }
-                itemMap.set(itemID, token);
-            } else {
-                itemMap = new Map([[itemID, token]]);
-                this._item_bindings.set(path, itemMap);
-            }
+        const existingPathToken = this._path_bindings.get(path);
+        if (existingPathToken !== undefined && existingPathToken !== token) {
+            throw new Error(`Path '${path}' is already bound to token '${existingPathToken}' (path-exclusive)`);
         }
+        const itemMap = this._item_bindings.get(path);
+        if (itemMap && itemMap.size > 0) {
+            throw new Error(`Path '${path}' already has item-exclusive bindings; cannot bind path-exclusively`);
+        }
+        this._path_bindings.set(path, token);
 
-        // Set up provider
         if (!this._providers.has(path)) {
             const baseProvider = new ItemProvider(this, path);
             const providerInstance = new OptimisticItemProvider(this, baseProvider);
             this._providers.set(path, providerInstance);
         }
 
-        // Register subscriptions
+        this._subscriptions.set(path, {});
+        this._schedule_sub_sync();
+
+        return this._providers.get(path);
+    }
+
+    /**
+     * Request item-exclusive access to an ItemResource given token, path, and itemID.
+     * Returns ItemResource handle for (path, itemID) if access is granted.
+     * Throws error if access was already granted for another token.
+     * @param {string} token - Access token
+     * @param {string} path - Path of PathResource
+     * @param {string} itemID - Item identifier within path
+     * @returns {ItemResource} - ItemResource handle
+     * @throws {Error} - If access was already granted for another token or path-exclusive scope exists
+     */
+    get_item_resource(token, path, itemID) {
+        if (!token || typeof token !== "string") {
+            throw new Error("Token must be a non-empty string.");
+        }
+        if (!itemID || typeof itemID !== "string") {
+            throw new Error("itemID must be a non-empty string.");
+        }
+        path = validatePath(path);
+
+        const existingPathToken = this._path_bindings.get(path);
+        if (existingPathToken !== undefined) {
+            throw new Error(`Path '${path}' is already bound to token '${existingPathToken}' (path-exclusive)`);
+        }
+        let itemMap = this._item_bindings.get(path);
+        if (itemMap) {
+            const existingItemToken = itemMap.get(itemID);
+            if (existingItemToken !== undefined && existingItemToken !== token) {
+                throw new Error(`Path '${path}' item '${itemID}' is already bound to token '${existingItemToken}'`);
+            }
+            itemMap.set(itemID, token);
+        } else {
+            itemMap = new Map([[itemID, token]]);
+            this._item_bindings.set(path, itemMap);
+        }
+
+        if (!this._providers.has(path)) {
+            const baseProvider = new ItemProvider(this, path);
+            const providerInstance = new OptimisticItemProvider(this, baseProvider);
+            this._providers.set(path, providerInstance);
+        }
+
         this._subscriptions.set(path, {});
         this._schedule_sub_sync();
 
         const providerInstance = this._providers.get(path);
-
-        if (itemID === undefined) {
-            const reader = providerInstance;
-            const updater = {
-                update_items: (changes, opts) => providerInstance._update_items(changes, opts),
-                clear: () => providerInstance._update_items({ reset: true })
-            };
-            return [reader, updater];
-        } else {
-            const reader = new ItemReader(providerInstance, itemID);
-            const updater = new ItemUpdater(providerInstance, itemID);
-            return [reader, updater];
-        }
+        return new ItemResource(providerInstance, itemID);
     }
 
     /**

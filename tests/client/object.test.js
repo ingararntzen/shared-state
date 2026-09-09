@@ -1,6 +1,6 @@
 import { describe, test, expect, vi } from "vitest";
 import { ItemProvider } from "../../client/provider.js";
-import { ItemReader, ItemUpdater } from "../../client/reader_updater.js";
+import { ItemResource } from "../../client/item_resource.js";
 import {
     BaseTypedVariable,
     SharedTypedVariable,
@@ -26,26 +26,18 @@ describe("Layer 2 Domain Abstractions Unit Tests", () => {
             _item_bindings: new Map(),
             _subscriptions: new Map(),
             _update: vi.fn().mockResolvedValue({ ok: true }),
-            get_resource(token, path, itemID = undefined) {
+            get_resource(token, path) {
                 if (!path) {
                     path = token;
                 }
                 if (!this._providers.has(path)) {
                     this._providers.set(path, new ItemProvider(this, path));
                 }
-                const providerInstance = this._providers.get(path);
-                if (itemID === undefined) {
-                    const reader = providerInstance;
-                    const updater = {
-                        update_items: (changes, opts) => providerInstance._update_items(changes, opts),
-                        clear: () => providerInstance._update_items({ reset: true })
-                    };
-                    return [reader, updater];
-                } else {
-                    const reader = new ItemReader(providerInstance, itemID);
-                    const updater = new ItemUpdater(providerInstance, itemID);
-                    return [reader, updater];
-                }
+                return this._providers.get(path);
+            },
+            get_item_resource(token, path, itemID) {
+                const providerInstance = this.get_resource(token, path);
+                return new ItemResource(providerInstance, itemID);
             }
         };
         return client;

@@ -36,19 +36,32 @@ ServerClock object.
 
 ## Methods
 
-### `get_resource(token, path, itemID)`
+### `get_resource(token, path)`
 
-Request access to resource, given token and resource identifier (path, ItemID).
-Returns [reader, updater] pair for resource, if access is granted.
+Request path-exclusive access to a PathResource given token and path.
+Returns PathResource (ItemProvider instance) if access is granted.
 Throws error if access was already granted for another token.
 
 | Parameter | Type | Description |
 | --- | --- | --- |
-| `token` | `string` | Access token. |
-| `path` | `string` | Path to ItemProvider (e.g. "/app/store/res") |
-| `[itemID]` | `string` | ItemID within ItemProvider. Omit for path-exclusive resource access. |
+| `token` | `string` | Access token |
+| `path` | `string` | Path of PathResource (e.g. "/app/store/res") |
 
-**Returns**: `Array.<Object>` - - Tuple [reader, updater] for resource.
+**Returns**: `Object` - - PathResource handle for path
+
+### `get_item_resource(token, path, itemID)`
+
+Request item-exclusive access to an ItemResource given token, path, and itemID.
+Returns ItemResource handle for (path, itemID) if access is granted.
+Throws error if access was already granted for another token.
+
+| Parameter | Type | Description |
+| --- | --- | --- |
+| `token` | `string` | Access token |
+| `path` | `string` | Path of PathResource |
+| `itemID` | `string` | Item identifier within path |
+
+**Returns**: `ItemResource` - - ItemResource handle
 
 ### `terminate()`
 

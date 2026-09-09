@@ -3,7 +3,7 @@ import { ItemProvider } from "../../client/provider.js";
 import { OptimisticItemProvider } from "../../client/opt_provider.js";
 import { SharedInteger } from "../../client/objects/variables.js";
 import { SharedMap } from "../../client/objects/map.js";
-import { ItemReader, ItemUpdater } from "../../client/reader_updater.js";
+import { ItemResource } from "../../client/item_resource.js";
 
 import { SharedStateClient } from "../../client/client.js";
 
@@ -21,25 +21,17 @@ function createMockClient() {
         _reconnect: vi.fn(),
         _on_ack: SharedStateClient.prototype._on_ack,
         _check_pending_timeouts: SharedStateClient.prototype._check_pending_timeouts,
-        get_resource(token, collPath, itemID = undefined) {
+        get_resource(token, collPath) {
             if (!this._providers.has(collPath)) {
                 const baseColl = new ItemProvider(this, collPath);
                 const coll = new OptimisticItemProvider(this, baseColl);
                 this._providers.set(collPath, coll);
             }
-            const providerInstance = this._providers.get(collPath);
-            if (itemID === undefined) {
-                const reader = providerInstance;
-                const updater = {
-                    update_items: (changes, opts) => providerInstance._update_items(changes, opts),
-                    clear: () => providerInstance._update_items({ reset: true })
-                };
-                return [reader, updater];
-            } else {
-                const reader = new ItemReader(providerInstance, itemID);
-                const updater = new ItemUpdater(providerInstance, itemID);
-                return [reader, updater];
-            }
+            return this._providers.get(collPath);
+        },
+        get_item_resource(token, collPath, itemID) {
+            const providerInstance = this.get_resource(token, collPath);
+            return new ItemResource(providerInstance, itemID);
         }
     };
     client._request.mockImplementation(async (cmd, path, data) => {

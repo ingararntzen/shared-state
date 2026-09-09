@@ -79,6 +79,14 @@ export default defineConfig({
             ]
           },
           {
+            text: 'Resources',
+            collapsed: true,
+            items: [
+              { text: 'PathResource API', link: '/client_api/path_resource' },
+              { text: 'ItemResource API', link: '/client_api/item_resource' }
+            ]
+          },
+          {
             text: 'Shared Objects',
             collapsed: true,
             items: [

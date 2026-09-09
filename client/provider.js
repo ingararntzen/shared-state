@@ -96,6 +96,16 @@ export class UpdateBuilder {
     }
 }
 
+/**
+ * Path-exclusive state provider interface contract.
+ * @interface PathResource
+ */
+
+/**
+ * ItemProvider manages state replication, key-value item mapping, and update synchronization for a path.
+ * @class ItemProvider
+ * @implements {PathResource}
+ */
 export class ItemProvider {
 
     constructor(client, path) {
@@ -123,6 +133,16 @@ export class ItemProvider {
     has_item(id) { return this._map.has(id) }
     get_item(id) { return this._map.get(id) }
     get_items() { return [...this._map.values()] }
+
+    /**
+     * Updates items stored in the path resource across the network.
+     * @param {Object} [changes={}] - Delta changes object `{ insert, remove, reset }`
+     * @param {Object} [options={}] - Update options
+     * @returns {Promise<Object>} Resolves when state update is dispatched/processed
+     */
+    update_items(changes = {}, options = {}) {
+        return this._update_items(changes, options);
+    }
 
     /**
      * application dispatching update to server

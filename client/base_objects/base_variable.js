@@ -34,8 +34,8 @@ export class BaseVariable extends BaseAbstraction {
         this._value = undefined;
         this._fullPath = path + "/" + name;
 
-        // Register change callback via ItemReader
-        this._reader.add_callback((changes) => {
+        // Register change callback via ItemResource
+        this._resource.add_callback((changes) => {
             this._on_provider_update(changes);
         });
     }
@@ -76,7 +76,7 @@ export class BaseVariable extends BaseAbstraction {
      * @returns {Promise<void>} Resolves when state update is processed
      */
     set(val) {
-        return this._updater.set(val);
+        return this._resource.set(val);
     }
 
     // internal event handler
@@ -89,6 +89,6 @@ export class BaseVariable extends BaseAbstraction {
     }
 
     _refresh_value() {
-        this._value = this._reader.get();
+        this._value = this._resource.get();
     }
 }

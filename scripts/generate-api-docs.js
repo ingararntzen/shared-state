@@ -376,6 +376,66 @@ async function generateSetDoc() {
     console.log("Generated set.md");
 }
 
+async function generatePathResourceDoc() {
+    const files = [
+        path.join(rootDir, "client", "path_resource.js")
+    ];
+    const data = await jsdoc2md.getTemplateData({ files });
+
+    let md = `# PathResource API\n\n`;
+    md += `\`PathResource\` is an interface representing a path-exclusive state provider resource (\`ItemProvider\` or \`OptimisticItemProvider\`). It manages state replication, key-value item mapping, and real-time update synchronization for an entire path.\n\n`;
+    md += `\`PathResource\` instances are acquired via:\n\n\`\`\`javascript\nconst pathResource = client.get_resource(token, path);\n\`\`\`\n\n`;
+
+    const props = data.filter(d => d.memberof === "PathResource" && isPublic(d) && d.kind === "member");
+    if (props.length > 0) {
+        md += `## Properties\n\n`;
+        for (const p of props) {
+            md += formatProperty(p);
+        }
+    }
+
+    const methods = data.filter(d => d.memberof === "PathResource" && isPublic(d) && d.kind === "function");
+    if (methods.length > 0) {
+        md += `## Methods\n\n`;
+        for (const m of methods) {
+            md += formatMethod(m);
+        }
+    }
+
+    fs.writeFileSync(path.join(docsApiDir, "path_resource.md"), md, "utf8");
+    console.log("Generated path_resource.md");
+}
+
+async function generateItemResourceDoc() {
+    const files = [
+        path.join(rootDir, "client", "item_resource.js")
+    ];
+    const data = await jsdoc2md.getTemplateData({ files });
+
+    let md = `# ItemResource API\n\n`;
+    md += `\`ItemResource\` represents an item-exclusive state resource bound to a single \`itemID\` within a \`PathResource\`.\n\n`;
+    md += `\`ItemResource\` instances are acquired via:\n\n\`\`\`javascript\nconst itemResource = client.get_item_resource(token, path, itemID);\n\`\`\`\n\n`;
+
+    const props = data.filter(d => d.memberof === "ItemResource" && isPublic(d) && d.kind === "member");
+    if (props.length > 0) {
+        md += `## Properties\n\n`;
+        for (const p of props) {
+            md += formatProperty(p);
+        }
+    }
+
+    const methods = data.filter(d => d.memberof === "ItemResource" && isPublic(d) && d.kind === "function");
+    if (methods.length > 0) {
+        md += `## Methods\n\n`;
+        for (const m of methods) {
+            md += formatMethod(m);
+        }
+    }
+
+    fs.writeFileSync(path.join(docsApiDir, "item_resource.md"), md, "utf8");
+    console.log("Generated item_resource.md");
+}
+
 async function generateAll() {
     console.log("Generating structured Client API documentation...");
     await generateOverviewDoc();
@@ -383,6 +443,8 @@ async function generateAll() {
     await generateClientDoc();
     await generateConnectionDoc();
     await generateClockDoc();
+    await generatePathResourceDoc();
+    await generateItemResourceDoc();
     await generateVariablesDoc();
     await generateMapDoc();
     await generateSetDoc();

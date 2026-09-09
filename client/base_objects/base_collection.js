@@ -26,7 +26,7 @@ export class BaseCollection extends BaseAbstraction {
 
         BaseAbstraction.cache_instance(client, path, undefined, this);
 
-        this._reader.add_callback((changes) => {
+        this._resource.add_callback((changes) => {
             this._on_provider_update(changes);
         });
     }
@@ -36,7 +36,7 @@ export class BaseCollection extends BaseAbstraction {
      * @returns {Promise<void>} Resolves when clear operation completes
      */
     async clear() {
-        return await this._updater.clear();
+        return await this._resource.update_items({ reset: true });
     }
 
     _on_provider_update(changes) {
@@ -45,7 +45,7 @@ export class BaseCollection extends BaseAbstraction {
 
     get_state(name) {
         if (name === "change") {
-            const items = this._reader.get_items();
+            const items = this._resource.get_items();
             const insert = new Map(items.map((item) => [item.id, item]));
             return { remove: new Set(), insert, reset: true };
         }

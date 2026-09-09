@@ -1,6 +1,11 @@
 import { random_string, isNumber } from "./util/util.js";
 import { sanitizeChanges } from "./common.js";
 
+/**
+ * OptimisticItemProvider decorates an ItemProvider with optimistic local state overlays.
+ * @class OptimisticItemProvider
+ * @implements {PathResource}
+ */
 export class OptimisticItemProvider {
     constructor(client, itemProvider) {
         this._client = client;
@@ -152,6 +157,16 @@ export class OptimisticItemProvider {
         if (effectiveChanges.reset || effectiveChanges.insert.size > 0 || effectiveChanges.remove.size > 0) {
             this._notify_callbacks(effectiveChanges);
         }
+    }
+
+    /**
+     * Updates items stored in the path resource across the network.
+     * @param {Object} [changes={}] - Delta changes object `{ insert, remove, reset }`
+     * @param {Object} [options={}] - Update options
+     * @returns {Promise<Object>} Resolves when state update is dispatched/processed
+     */
+    update_items(changes = {}, options = {}) {
+        return this._update_items(changes, options);
     }
 
     _update_items(changes = {}, options = {}) {

@@ -95,8 +95,8 @@ export class BaseAbstraction {
      * @param {Object} [options] - Options passed to provider initialization
      */
     constructor(client, token, path, itemID = undefined, options = {}) {
-        if (typeof client?.get_resource !== "function") {
-            throw new Error(`Client must be an instance of SharedStateClient or implement get_resource().`);
+        if (!client || (typeof client.get_resource !== "function" && typeof client.get_item_resource !== "function")) {
+            throw new Error(`Client must be an instance of SharedStateClient or implement get_resource/get_item_resource.`);
         }
         path = validatePath(path);
         this._client = client;
@@ -104,10 +104,15 @@ export class BaseAbstraction {
         this._options = options;
         this._token = token;
 
-        const [reader, updater] = client.get_resource(token, path, itemID);
-        this._reader = reader;
-        this._updater = updater;
-        this._provider = reader.provider || reader;
+        if (itemID === undefined) {
+            this._resource = client.get_resource(token, path);
+            this._provider = this._resource;
+        } else {
+            this._resource = client.get_item_resource(token, path, itemID);
+            this._provider = this._resource.provider;
+        }
+        this._reader = this._resource;
+        this._updater = this._resource;
     }
 
     /**
@@ -118,25 +123,32 @@ export class BaseAbstraction {
     get path() { return this._path; }
 
     /**
-     * The underlying Layer 1 state provider.
+     * The underlying PathResource (ItemProvider instance).
      * @type {Object}
      * @readonly
      */
     get provider() { return this._provider; }
 
     /**
-     * The reader object (`ItemReader` or provider instance).
+     * The resource handle (`PathResource` or `ItemResource`).
      * @type {Object}
      * @readonly
      */
-    get reader() { return this._reader; }
+    get resource() { return this._resource; }
 
     /**
-     * The updater object (`ItemUpdater` or collection updater).
+     * Reader handle alias for resource.
      * @type {Object}
      * @readonly
      */
-    get updater() { return this._updater; }
+    get reader() { return this._resource; }
+
+    /**
+     * Updater handle alias for resource.
+     * @type {Object}
+     * @readonly
+     */
+    get updater() { return this._resource; }
 
     /**
      * The parent SharedState client instance.
