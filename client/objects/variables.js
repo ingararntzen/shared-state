@@ -130,13 +130,13 @@ export class SharedFloat extends BaseTypedVariable {
 }
 
 /**
- * Shared JSON object variable.
+ * Shared JSON record / object variable.
  * Extends {@link BaseVariable}.
- * @class SharedObject
+ * @class SharedRecord
  */
-export class SharedObject extends BaseTypedVariable {
+export class SharedRecord extends BaseTypedVariable {
     /**
-     * Initializes a SharedObject.
+     * Initializes a SharedRecord.
      * @param {SharedStateClient} client - SharedState client instance
      * @param {string} path - Path prefix
      * @param {string} name - Variable key name

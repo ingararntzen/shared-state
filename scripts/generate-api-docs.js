@@ -76,7 +76,7 @@ async function generateOverviewDoc() {
         "   - **[`ServerClock API`](/client_api/clock)**: The server clock object provides access to an approximation of the server clock.",
         "",
         "",
-        "### Abstractions API",
+        "### Shared Objects API",
         "",
         "   - **[`Event API`](/client_api/events)**: The event observation interface implemented by all SharedState abstractions.",
         "   - **[`SharedVariables API`](/client_api/variables)**: Abstractions representing shared, single-valued variables, typed and untyped.",
@@ -290,7 +290,7 @@ async function generateVariablesDoc() {
         { name: "SharedString", desc: "Shared string variable." },
         { name: "SharedInteger", desc: "Shared integer variable supporting increment and decrement operations." },
         { name: "SharedFloat", desc: "Shared floating-point number variable." },
-        { name: "SharedObject", desc: "Shared JSON object variable." },
+        { name: "SharedRecord", desc: "Shared JSON record / object variable." },
         { name: "SharedArray", desc: "Shared array variable." }
     ];
 

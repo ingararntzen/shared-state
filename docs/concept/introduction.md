@@ -53,7 +53,7 @@ For inspiration, these are common scenarios trivially addressed by SharedState:
 - `SharedList` to back a playlist, a feed, an activity log, or active data layers in a map. 
 - `SharedString` to manage the ID of the currently selected item in a `SharedList`, or who holds the presenter role in a slideshow presentation.
 - `SharedFloat` to represent offset in a media player, or scroll position in a document.
-- `SharedObject` to hold longitude, latitude, and extent of a map viewer.
+- `SharedRecord` to hold longitude, latitude, and extent of a map viewer.
 - `SharedMap` to hold live layout configuration options for a multi-screen presentation system.
 - `SharedSet` to hold active client sessions.
 - `SharedInteger` to control slide show progression.

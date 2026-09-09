@@ -6,7 +6,7 @@ import {
     SharedString,
     SharedInteger,
     SharedFloat,
-    SharedObject,
+    SharedRecord,
     SharedArray,
     SharedVariable
 } from "./objects/variables.js";
@@ -22,7 +22,8 @@ export const TYPE_REGISTRY = {
     String: SharedString,
     Integer: SharedInteger,
     Float: SharedFloat,
-    Object: SharedObject,
+    Record: SharedRecord,
+    Object: SharedRecord,
     Array: SharedArray,
     Variable: SharedVariable
 };
@@ -68,7 +69,7 @@ export function load(client, config) {
             SharedString,
             SharedInteger,
             SharedFloat,
-            SharedObject,
+            SharedRecord,
             SharedArray,
             SharedVariable
         ].some(ctor => ClassCtor === ctor || ClassCtor.prototype instanceof SharedVariable);

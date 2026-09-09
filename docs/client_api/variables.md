@@ -115,9 +115,9 @@ Decrements the float value by delta.
 
 **Returns**: `Promise.<void>` - Resolves when state update is processed
 
-## SharedObject
+## SharedRecord
 
-Shared JSON object variable.
+Shared JSON record / object variable.
 
 ## SharedArray
 

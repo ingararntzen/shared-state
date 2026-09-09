@@ -35,7 +35,7 @@
 
 
 - Typed variables are restricted to a single type, or `undefined`. 
-- The framework supports `SharedBoolean`, `SharedInteger`, `SharedFloat`, `SharedString`, `SharedObject`, and `SharedArray`. 
+- The framework supports `SharedBoolean`, `SharedInteger`, `SharedFloat`, `SharedString`, `SharedRecord`, and `SharedArray`. 
 - Type-checking is performed on assignment, throwing `TypeError` if the new value is not the correct type.
 - Special methods `inc(delta)` and `dec(delta)` are defined for `SharedInteger` and `SharedFloat`.
 

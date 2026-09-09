@@ -11,7 +11,7 @@ import {
     SharedInteger,
     SharedFloat,
     SharedString,
-    SharedObject,
+    SharedRecord,
     SharedArray
 } from "../../client/objects/variables.js";
 import { SharedSet } from "../../client/objects/set.js";
@@ -66,7 +66,7 @@ describe("Layer 2 Domain Abstractions Unit Tests", () => {
         const i = new SharedInteger(mockClient, "/app/store/vars", "i1", { allowUndefined: false });
         const f = new SharedFloat(mockClient, "/app/store/vars", "f1", { allowUndefined: false });
         const s = new SharedString(mockClient, "/app/store/vars", "s1", { allowUndefined: false });
-        const o = new SharedObject(mockClient, "/app/store/vars", "o1", { allowUndefined: false });
+        const o = new SharedRecord(mockClient, "/app/store/vars", "o1", { allowUndefined: false });
         const a = new SharedArray(mockClient, "/app/store/vars", "a1", { allowUndefined: false });
 
         // Verify untyped variable value is undefined
@@ -169,12 +169,12 @@ describe("Layer 2 Domain Abstractions Unit Tests", () => {
         });
     });
 
-    test("SharedString, SharedFloat, SharedObject, and SharedArray", async () => {
+    test("SharedString, SharedFloat, SharedRecord, and SharedArray", async () => {
         const mockClient = createMockClient();
 
         const str = new SharedString(mockClient, "/app/store/props", "title");
         const flt = new SharedFloat(mockClient, "/app/store/props", "ratio");
-        const obj = new SharedObject(mockClient, "/app/store/props", "config");
+        const obj = new SharedRecord(mockClient, "/app/store/props", "config");
         const arr = new SharedArray(mockClient, "/app/store/props", "tags");
 
         await str.set("Hello World");

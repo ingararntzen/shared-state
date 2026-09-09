@@ -58,7 +58,7 @@ Shared variables represent a single value which can be accessed (`.get()`, `.val
 - **`SharedInteger`**: Shared variable restricted to integer type (`0`). 
 - **`SharedFloat`**: Shared variable restricted to number type (`0.0`).
 - **`SharedString`**: Shared variable restricted to string type (`""`).
-- **`SharedObject`**: Shared variable restricted to object type (`{}`).
+- **`SharedRecord`**: Shared variable restricted to object type (`{}`).
 - **`SharedArray`**: Shared variable restricted to array type (`[]`).
 
 
@@ -90,7 +90,7 @@ Programming abstractions are exported as independent classes within the sharedst
     SharedInteger,
     SharedFloat,
     SharedString,
-    SharedObject,
+    SharedRecord,
     SharedArray,
     // Collections
     SharedSet, 

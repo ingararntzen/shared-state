@@ -7,7 +7,7 @@ export {
     SharedString,
     SharedInteger,
     SharedFloat,
-    SharedObject,
+    SharedRecord,
     SharedArray
 } from "./objects/variables.js";
 export { SharedSet } from "./objects/set.js";

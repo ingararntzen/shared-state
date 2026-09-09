@@ -70,7 +70,7 @@ export default defineConfig({
         items: [
           { text: 'Overview', link: '/client_api/overview' },
           {
-            text: 'Client API',
+            text: 'Client',
             collapsed: true,
             items: [
               { text: 'SharedStateClient API', link: '/client_api/client' },
@@ -79,7 +79,7 @@ export default defineConfig({
             ]
           },
           {
-            text: 'Objects API',
+            text: 'Shared Objects',
             collapsed: true,
             items: [
               { text: 'Events API', link: '/client_api/events' },

@@ -9,7 +9,7 @@ The SharedState client is implemented in JavaScript. It encapsulates management 
    - **[`ServerClock API`](/client_api/clock)**: The server clock object provides access to an approximation of the server clock.
 
 
-### Application Objects API
+### Shared Objects API
 
    - **[`Event API`](/client_api/events)**: The event observation interface implemented by all SharedState abstractions.
    - **[`SharedVariables API`](/client_api/variables)**: Abstractions representing shared, single-valued variables, typed and untyped.
