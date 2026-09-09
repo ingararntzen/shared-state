@@ -69,13 +69,25 @@ export default defineConfig({
         text: 'Client API',
         items: [
           { text: 'Overview', link: '/client_api/overview' },
-          { text: 'Events', link: '/client_api/events' },
-          { text: 'Connection', link: '/client_api/connection' },
-          { text: 'ServerClock', link: '/client_api/clock' },
-          { text: 'SharedStateClient', link: '/client_api/client' },
-          { text: 'SharedVariables', link: '/client_api/variables' },
-          { text: 'SharedMap', link: '/client_api/map' },
-          { text: 'SharedSet', link: '/client_api/set' }
+          {
+            text: 'Client API',
+            collapsed: true,
+            items: [
+              { text: 'SharedStateClient API', link: '/client_api/client' },
+              { text: 'Connection API', link: '/client_api/connection' },
+              { text: 'ServerClock API', link: '/client_api/clock' }
+            ]
+          },
+          {
+            text: 'Objects API',
+            collapsed: true,
+            items: [
+              { text: 'Events API', link: '/client_api/events' },
+              { text: 'SharedVariables API', link: '/client_api/variables' },
+              { text: 'SharedMap API', link: '/client_api/map' },
+              { text: 'SharedSet API', link: '/client_api/set' }
+            ]
+          }
         ]
       }
     ],
