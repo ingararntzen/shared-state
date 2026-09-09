@@ -145,12 +145,12 @@ describe("Client-Server Integration Tests", () => {
         clientB.terminate();
     });
 
-    test("client.get_provider(token, path) acquires and returns [reader, updater]", async () => {
+    test("client.get_resource(token, path) acquires and returns [reader, updater]", async () => {
         const client = new SharedStateClient(SERVER_URL);
         await client.connection.connectedPromise();
 
-        const [r1, u1] = client.get_provider("AppLayer", "/app/mitems/layer1");
-        const [r2, u2] = client.get_provider("AppLayer", "/app/mitems/layer1");
+        const [r1, u1] = client.get_resource("AppLayer", "/app/mitems/layer1");
+        const [r2, u2] = client.get_resource("AppLayer", "/app/mitems/layer1");
 
         expect(r1).toBeDefined();
         expect(u1).toBeDefined();
@@ -163,17 +163,17 @@ describe("Client-Server Integration Tests", () => {
         const client = new SharedStateClient(SERVER_URL);
 
         // Path-exclusive binding
-        client.get_provider("AppA", "/app/mitems/path1");
-        expect(() => client.get_provider("AppB", "/app/mitems/path1")).toThrow("is already bound to token 'AppA'");
-        expect(() => client.get_provider("AppA", "/app/mitems/path1", "item1")).toThrow("is already bound to token 'AppA' (path-exclusive)");
+        client.get_resource("AppA", "/app/mitems/path1");
+        expect(() => client.get_resource("AppB", "/app/mitems/path1")).toThrow("is already bound to token 'AppA'");
+        expect(() => client.get_resource("AppA", "/app/mitems/path1", "item1")).toThrow("is already bound to token 'AppA' (path-exclusive)");
 
         // Item-exclusive binding
-        client.get_provider("AppC", "/app/mitems/path2", "var1");
-        expect(() => client.get_provider("AppD", "/app/mitems/path2")).toThrow("already has item-exclusive bindings");
-        expect(() => client.get_provider("AppE", "/app/mitems/path2", "var1")).toThrow("item 'var1' is already bound to token 'AppC'");
+        client.get_resource("AppC", "/app/mitems/path2", "var1");
+        expect(() => client.get_resource("AppD", "/app/mitems/path2")).toThrow("already has item-exclusive bindings");
+        expect(() => client.get_resource("AppE", "/app/mitems/path2", "var1")).toThrow("item 'var1' is already bound to token 'AppC'");
 
         // Same token on same item -> succeeds
-        const [r, u] = client.get_provider("AppC", "/app/mitems/path2", "var1");
+        const [r, u] = client.get_resource("AppC", "/app/mitems/path2", "var1");
         expect(r).toBeDefined();
 
         client.terminate();

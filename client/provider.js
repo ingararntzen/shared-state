@@ -98,8 +98,7 @@ export class UpdateBuilder {
 
 export class ItemProvider {
 
-    constructor(client, path, options = {}) {
-        this._options = options;
+    constructor(client, path) {
         this._terminated = false;
         // sharedstate client
         this._client = client;

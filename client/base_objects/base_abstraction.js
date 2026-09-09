@@ -95,9 +95,8 @@ export class BaseAbstraction {
      * @param {Object} [options] - Options passed to provider initialization
      */
     constructor(client, token, path, itemID = undefined, options = {}) {
-        const getProvider = client.get_provider || client.provider;
-        if (typeof getProvider !== "function") {
-            throw new Error(`Client must be an instance of SharedStateClient or implement get_provider().`);
+        if (typeof client?.get_resource !== "function") {
+            throw new Error(`Client must be an instance of SharedStateClient or implement get_resource().`);
         }
         path = validatePath(path);
         this._client = client;
@@ -105,7 +104,7 @@ export class BaseAbstraction {
         this._options = options;
         this._token = token;
 
-        const [reader, updater] = getProvider.call(client, token, path, itemID, options);
+        const [reader, updater] = client.get_resource(token, path, itemID);
         this._reader = reader;
         this._updater = updater;
         this._provider = reader.provider || reader;

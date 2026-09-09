@@ -103,7 +103,7 @@ It would be a problem if two application objects were set up to mutate the same 
 ### Token-based Resource Access
 
 ```js
-const [reader, updater] = client.get_provider(token, path, itemID = undefined, options = {})
+const [reader, updater] = client.get_resource(token, path, itemID = undefined)
 ```
 
 This claims access for the resource identified by `(path, itemID)` for the given `token`:

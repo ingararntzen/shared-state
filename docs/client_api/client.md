@@ -36,19 +36,19 @@ ServerClock object.
 
 ## Methods
 
-### `get_provider(token, path, itemID, options)`
+### `get_resource(token, path, itemID)`
 
-Initializes or retrieves an existing state provider pair [reader, updater] for a path or (path, itemID).
-Locks the path or (path, itemID) to the given token to prevent type mismatches.
+Request access to resource, given token and resource identifier (path, ItemID).
+Returns [reader, updater] pair for resource, if access is granted.
+Throws error if access was already granted for another token.
 
 | Parameter | Type | Description |
 | --- | --- | --- |
-| `token` | `string` | Binding token reserving scope (e.g. "SharedMap", "MyCustomApp") |
-| `path` | `string` | Target path (e.g. "/app/store/res") |
-| `[itemID]` | `string` | Target item ID for item-exclusive binding (omit for path-exclusive) |
-| `[options]` | `Object` | Provider options |
+| `token` | `string` | Access token. |
+| `path` | `string` | Path to ItemProvider (e.g. "/app/store/res") |
+| `[itemID]` | `string` | ItemID within ItemProvider. Omit for path-exclusive resource access. |
 
-**Returns**: `Array.<Object>` - Tuple containing [reader, updater]
+**Returns**: `Array.<Object>` - - Tuple [reader, updater] for resource.
 
 ### `terminate()`
 

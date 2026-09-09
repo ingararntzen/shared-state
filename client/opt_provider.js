@@ -2,15 +2,10 @@ import { random_string, isNumber } from "./util/util.js";
 import { sanitizeChanges } from "./common.js";
 
 export class OptimisticItemProvider {
-    constructor(client, itemProvider, options = {}) {
-        if (!isNumber(options.failureTimeout)) {
-            options.failureTimeout = 10;
-        }
-
+    constructor(client, itemProvider) {
         this._client = client;
         this._itemProvider = itemProvider;
         this._proxyCollection = itemProvider; // Alias for internal properties
-        this._options = options;
         this._path = itemProvider._path;
         this._terminated = false;
 
@@ -86,7 +81,7 @@ export class OptimisticItemProvider {
     }
 
     _cleanup_expired() {
-        const { failureTimeout = 10 } = this._options;
+        const failureTimeout = (this._client && this._client._options && this._client._options.failureTimeout) || 10;
         if (failureTimeout <= 0) return;
         const now = Date.now();
         const timeoutMs = failureTimeout * 1000;

@@ -26,12 +26,12 @@ describe("Layer 2 Domain Abstractions Unit Tests", () => {
             _item_bindings: new Map(),
             _subscriptions: new Map(),
             _update: vi.fn().mockResolvedValue({ ok: true }),
-            get_provider(token, path, itemID = undefined, options = {}) {
+            get_resource(token, path, itemID = undefined) {
                 if (!path) {
                     path = token;
                 }
                 if (!this._providers.has(path)) {
-                    this._providers.set(path, new ItemProvider(this, path, options));
+                    this._providers.set(path, new ItemProvider(this, path));
                 }
                 const providerInstance = this._providers.get(path);
                 if (itemID === undefined) {
@@ -46,12 +46,6 @@ describe("Layer 2 Domain Abstractions Unit Tests", () => {
                     const updater = new ItemUpdater(providerInstance, itemID);
                     return [reader, updater];
                 }
-            },
-            provider(path) {
-                if (!this._providers.has(path)) {
-                    this._providers.set(path, new ItemProvider(this, path));
-                }
-                return this._providers.get(path);
             }
         };
         return client;
@@ -100,7 +94,7 @@ describe("Layer 2 Domain Abstractions Unit Tests", () => {
         expect(iInit.value).toBe(42);
 
         // Server sends valid state for iInit
-        const coll = mockClient.provider("/app/store/vars");
+        const coll = mockClient._providers.get("/app/store/vars");
         coll._client_update({
             insert: [{ id: "iInit", state: 99 }]
         });
@@ -119,7 +113,7 @@ describe("Layer 2 Domain Abstractions Unit Tests", () => {
             { insert: [{ id: "flag", state: true }], remove: [], reset: false }
         );
 
-        const coll = mockClient.provider("/app/store/vars");
+        const coll = mockClient._providers.get("/app/store/vars");
         coll._client_update({
             insert: [{ id: "flag", state: true }]
         });
@@ -135,7 +129,7 @@ describe("Layer 2 Domain Abstractions Unit Tests", () => {
     test("SharedInteger operations and eventify notifications", async () => {
         const mockClient = createMockClient();
         const num = new SharedInteger(mockClient, "/app/store/vars2", "score", { allowUndefined: false });
-        const coll = mockClient.provider("/app/store/vars2");
+        const coll = mockClient._providers.get("/app/store/vars2");
 
         expect(num.provider).toBe(coll);
         expect(num.value).toBe(0);
@@ -248,7 +242,7 @@ describe("Layer 2 Domain Abstractions Unit Tests", () => {
         });
 
         // Provider data update for mapObj and setObj
-        const mapProvider = mockClient.provider("/app/store/dict");
+        const mapProvider = mockClient._providers.get("/app/store/dict");
         mapProvider._client_update({
             insert: [
                 { id: "k1", state: "v1" },
@@ -256,7 +250,7 @@ describe("Layer 2 Domain Abstractions Unit Tests", () => {
             ]
         });
 
-        const setProvider = mockClient.provider("/app/store/members");
+        const setProvider = mockClient._providers.get("/app/store/members");
         setProvider._client_update({
             insert: [
                 { id: '"user1"', state: "user1" },

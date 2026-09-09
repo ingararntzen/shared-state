@@ -91,15 +91,16 @@ export class SharedStateClient {
     }
 
     /**
-     * Initializes or retrieves an existing state provider pair [reader, updater] for a path or (path, itemID).
-     * Locks the path or (path, itemID) to the given token to prevent type mismatches.
-     * @param {string} token - Binding token reserving scope (e.g. "SharedMap", "MyCustomApp")
-     * @param {string} path - Target path (e.g. "/app/store/res")
-     * @param {string} [itemID] - Target item ID for item-exclusive binding (omit for path-exclusive)
-     * @param {Object} [options={}] - Provider options
-     * @returns {Array<Object>} Tuple containing [reader, updater]
+     * Request access to resource, given token and resource identifier (path, ItemID).
+     * Returns [reader, updater] pair for resource, if access is granted.
+     * Throws error if access was already granted for another token.
+     * @param {string} token - Access token.
+     * @param {string} path - Path of ItemProvider (e.g. "/app/store/res")
+     * @param {string} [itemID] - ItemID within ItemProvider. Omit for path-exclusive resource access.
+     * @returns {Array<Object>} - Tuple [reader, updater] for resource.
+     * @throws {Error} - If access was already granted for another token.
      */
-    get_provider(token, path, itemID = undefined, options = {}) {
+    get_resource(token, path, itemID = undefined) {
         if (!token || typeof token !== "string") {
             throw new Error("Token must be a non-empty string.");
         }
@@ -141,8 +142,8 @@ export class SharedStateClient {
 
         // Set up provider
         if (!this._providers.has(path)) {
-            const baseProvider = new ItemProvider(this, path, options);
-            const providerInstance = new OptimisticItemProvider(this, baseProvider, options);
+            const baseProvider = new ItemProvider(this, path);
+            const providerInstance = new OptimisticItemProvider(this, baseProvider);
             this._providers.set(path, providerInstance);
         }
 
@@ -164,13 +165,6 @@ export class SharedStateClient {
             const updater = new ItemUpdater(providerInstance, itemID);
             return [reader, updater];
         }
-    }
-
-    /**
-     * Alias for `get_provider(token, path, itemID, options)`.
-     */
-    provider(...args) {
-        return this.get_provider(...args);
     }
 
     /**

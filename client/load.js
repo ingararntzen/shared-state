@@ -35,7 +35,7 @@ export const TYPE_REGISTRY = {
  * @returns {Object<string, *>} Map of bound abstraction instances
  */
 export function load(client, config) {
-    if (!client || (typeof client.get_provider !== "function" && typeof client.provider !== "function")) {
+    if (!client || typeof client.get_resource !== "function") {
         throw new Error("load() expects a SharedStateClient instance as first argument.");
     }
     if (!config || typeof config !== "object") {
@@ -53,9 +53,6 @@ export function load(client, config) {
         const typeName = def.type;
         const rawPath = def.path;
         const options = def.options || {};
-        if (def.optimistic !== undefined) {
-            options.optimistic = def.optimistic;
-        }
 
         if (!typeName || !TYPE_REGISTRY[typeName]) {
             throw new Error(`Unknown or missing type '${typeName}' for '${name}'. Supported types: ${Object.keys(TYPE_REGISTRY).join(", ")}`);
