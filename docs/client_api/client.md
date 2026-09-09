@@ -36,7 +36,7 @@ ServerClock object.
 
 ## Methods
 
-### `provider(token, path, itemID, options)`
+### `get_provider(token, path, itemID, options)`
 
 Initializes or retrieves an existing state provider pair [reader, updater] for a path or (path, itemID).
 Locks the path or (path, itemID) to the given token to prevent type mismatches.

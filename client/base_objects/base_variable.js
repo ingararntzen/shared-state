@@ -20,7 +20,7 @@ export class BaseVariable extends BaseAbstraction {
             throw new Error("Variable name must be a non-empty string");
         }
         path = validatePath(path);
-        const cached = BaseAbstraction.get_cached_instance(path, name);
+        const cached = BaseAbstraction.get_cached_instance(client, path, name);
         if (cached) {
             return cached;
         }
@@ -28,7 +28,7 @@ export class BaseVariable extends BaseAbstraction {
         const tok = token || (new.target && new.target.name) || "BaseVariable";
         super(client, tok, path, name, options);
 
-        BaseAbstraction.cache_instance(path, name, this);
+        BaseAbstraction.cache_instance(client, path, name, this);
 
         this._itemId = name;
         this._value = undefined;

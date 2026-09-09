@@ -16,7 +16,7 @@ export class BaseCollection extends BaseAbstraction {
      */
     constructor(client, path, options = {}, token = undefined) {
         path = validatePath(path);
-        const cached = BaseAbstraction.get_cached_instance(path);
+        const cached = BaseAbstraction.get_cached_instance(client, path);
         if (cached) {
             return cached;
         }
@@ -24,7 +24,7 @@ export class BaseCollection extends BaseAbstraction {
         const tok = token || (new.target && new.target.name) || "BaseCollection";
         super(client, tok, path, undefined, options);
 
-        BaseAbstraction.cache_instance(path, undefined, this);
+        BaseAbstraction.cache_instance(client, path, undefined, this);
 
         this._reader.add_callback((changes) => {
             this._on_provider_update(changes);

@@ -21,7 +21,7 @@ function createMockClient() {
         _reconnect: vi.fn(),
         _on_ack: SharedStateClient.prototype._on_ack,
         _check_pending_timeouts: SharedStateClient.prototype._check_pending_timeouts,
-        provider(token, collPath, itemID = undefined, options = {}) {
+        get_provider(token, collPath, itemID = undefined, options = {}) {
             if (!this._providers.has(collPath)) {
                 const baseColl = new ItemProvider(this, collPath, options);
                 const coll = new OptimisticItemProvider(this, baseColl, options);

@@ -99,7 +99,7 @@ export class SharedStateClient {
      * @param {Object} [options={}] - Provider options
      * @returns {Array<Object>} Tuple containing [reader, updater]
      */
-    provider(token, path, itemID = undefined, options = {}) {
+    get_provider(token, path, itemID = undefined, options = {}) {
         if (!token || typeof token !== "string") {
             throw new Error("Token must be a non-empty string.");
         }
@@ -164,6 +164,13 @@ export class SharedStateClient {
             const updater = new ItemUpdater(providerInstance, itemID);
             return [reader, updater];
         }
+    }
+
+    /**
+     * Alias for `get_provider(token, path, itemID, options)`.
+     */
+    provider(...args) {
+        return this.get_provider(...args);
     }
 
     /**

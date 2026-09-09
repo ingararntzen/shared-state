@@ -26,22 +26,14 @@ describe("Layer 2 Domain Abstractions Unit Tests", () => {
             _item_bindings: new Map(),
             _subscriptions: new Map(),
             _update: vi.fn().mockResolvedValue({ ok: true }),
-            provider(token, rawPath, itemID = undefined, options = {}) {
-                let path, id;
-                if (rawPath === undefined) {
+            get_provider(token, path, itemID = undefined, options = {}) {
+                if (!path) {
                     path = token;
-                    id = "test";
-                } else {
-                    path = rawPath;
-                    id = token;
                 }
                 if (!this._providers.has(path)) {
                     this._providers.set(path, new ItemProvider(this, path, options));
                 }
                 const providerInstance = this._providers.get(path);
-                if (rawPath === undefined) {
-                    return providerInstance;
-                }
                 if (itemID === undefined) {
                     const reader = providerInstance;
                     const updater = {
@@ -54,6 +46,12 @@ describe("Layer 2 Domain Abstractions Unit Tests", () => {
                     const updater = new ItemUpdater(providerInstance, itemID);
                     return [reader, updater];
                 }
+            },
+            provider(path) {
+                if (!this._providers.has(path)) {
+                    this._providers.set(path, new ItemProvider(this, path));
+                }
+                return this._providers.get(path);
             }
         };
         return client;

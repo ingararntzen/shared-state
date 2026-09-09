@@ -4,41 +4,49 @@ import { validatePath } from "../common.js";
 /**
  * Base class for all SharedState abstractions (Variables and Collections).
  * Extends objects with path/provider accessors and event handling (`on`, `off`, `once`).
- * Manages singleton instance caching via WeakRef.
+ * Manages per-client singleton instance caching via WeakMap and WeakRef.
  * @class BaseAbstraction
  */
 export class BaseAbstraction {
-    /** @type {Map<string, WeakRef>} */
-    static _path_instances = new Map();
+    /** @type {WeakMap<Object, Map<string, WeakRef>>} */
+    static _path_instances = new WeakMap();
 
-    /** @type {Map<string, Map<string, WeakRef>>} */
-    static _item_instances = new Map();
+    /** @type {WeakMap<Object, Map<string, Map<string, WeakRef>>>} */
+    static _item_instances = new WeakMap();
 
     /**
-     * Retrieves an active cached instance for a path or (path, itemID).
+     * Retrieves an active cached instance for a client and path or (path, itemID).
+     * @param {Object} client - Target SharedState client
      * @param {string} path - Canonical path
      * @param {string} [itemID] - Target item ID (omit for path-exclusive collections)
      * @returns {BaseAbstraction|null} Active cached instance or null
      */
-    static get_cached_instance(path, itemID = undefined) {
+    static get_cached_instance(client, path, itemID = undefined) {
+        if (!client) return null;
         path = validatePath(path);
         if (itemID === undefined) {
-            const ref = BaseAbstraction._path_instances.get(path);
-            if (ref) {
-                const inst = ref.deref();
-                if (inst) return inst;
-                BaseAbstraction._path_instances.delete(path);
-            }
-        } else {
-            const itemMap = BaseAbstraction._item_instances.get(path);
-            if (itemMap) {
-                const ref = itemMap.get(itemID);
+            const clientMap = BaseAbstraction._path_instances.get(client);
+            if (clientMap) {
+                const ref = clientMap.get(path);
                 if (ref) {
                     const inst = ref.deref();
                     if (inst) return inst;
-                    itemMap.delete(itemID);
-                    if (itemMap.size === 0) {
-                        BaseAbstraction._item_instances.delete(path);
+                    clientMap.delete(path);
+                }
+            }
+        } else {
+            const clientMap = BaseAbstraction._item_instances.get(client);
+            if (clientMap) {
+                const itemMap = clientMap.get(path);
+                if (itemMap) {
+                    const ref = itemMap.get(itemID);
+                    if (ref) {
+                        const inst = ref.deref();
+                        if (inst) return inst;
+                        itemMap.delete(itemID);
+                        if (itemMap.size === 0) {
+                            clientMap.delete(path);
+                        }
                     }
                 }
             }
@@ -47,20 +55,32 @@ export class BaseAbstraction {
     }
 
     /**
-     * Caches a new instance under path or (path, itemID) using WeakRef.
+     * Caches a new instance under client and path or (path, itemID) using WeakRef.
+     * @param {Object} client - Target SharedState client
      * @param {string} path - Canonical path
      * @param {string} [itemID] - Target item ID (omit for path-exclusive collections)
      * @param {BaseAbstraction} instance - Instance to cache
      */
-    static cache_instance(path, itemID, instance) {
+    static cache_instance(client, path, itemID, instance) {
+        if (!client) return;
         path = validatePath(path);
         if (itemID === undefined) {
-            BaseAbstraction._path_instances.set(path, new WeakRef(instance));
+            let clientMap = BaseAbstraction._path_instances.get(client);
+            if (!clientMap) {
+                clientMap = new Map();
+                BaseAbstraction._path_instances.set(client, clientMap);
+            }
+            clientMap.set(path, new WeakRef(instance));
         } else {
-            let itemMap = BaseAbstraction._item_instances.get(path);
+            let clientMap = BaseAbstraction._item_instances.get(client);
+            if (!clientMap) {
+                clientMap = new Map();
+                BaseAbstraction._item_instances.set(client, clientMap);
+            }
+            let itemMap = clientMap.get(path);
             if (!itemMap) {
                 itemMap = new Map();
-                BaseAbstraction._item_instances.set(path, itemMap);
+                clientMap.set(path, itemMap);
             }
             itemMap.set(itemID, new WeakRef(instance));
         }
@@ -75,8 +95,9 @@ export class BaseAbstraction {
      * @param {Object} [options] - Options passed to provider initialization
      */
     constructor(client, token, path, itemID = undefined, options = {}) {
-        if (!client || typeof client.provider !== "function") {
-            throw new Error(`Client must be an instance of SharedStateClient or implement provider().`);
+        const getProvider = client.get_provider || client.provider;
+        if (typeof getProvider !== "function") {
+            throw new Error(`Client must be an instance of SharedStateClient or implement get_provider().`);
         }
         path = validatePath(path);
         this._client = client;
@@ -84,7 +105,7 @@ export class BaseAbstraction {
         this._options = options;
         this._token = token;
 
-        const [reader, updater] = client.provider(token, path, itemID, options);
+        const [reader, updater] = getProvider.call(client, token, path, itemID, options);
         this._reader = reader;
         this._updater = updater;
         this._provider = reader.provider || reader;
