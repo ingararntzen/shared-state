@@ -47,14 +47,16 @@ describe("ServerClock Unit Tests", () => {
         const mockClient = createMockClient();
         const clock = new ServerClock(mockClient);
 
-        // sample 1: cs=10.0, ss=10.5, cr=10.2 -> trans=0.1, skew=0.4
+        // sample 1: cs=10.0, ss=10.5, cr=10.2 -> rtt=0.2, skew=0.4
         clock._add_sample(10.0, 10.5, 10.2);
-        // sample 2: cs=10.0, ss=10.7, cr=10.4 -> trans=0.2, skew=0.5
+        // sample 2: cs=10.0, ss=10.7, cr=10.4 -> rtt=0.4, skew=0.5
         clock._add_sample(10.0, 10.7, 10.4);
 
-        expect(clock.trans_range).toBeCloseTo(0.1);
+        expect(clock.last_rtt).toBeCloseTo(0.4);
+        expect(clock.last_skew).toBeCloseTo(0.5);
+        expect(clock.rtt_range).toBeCloseTo(0.2);
         expect(clock.skew_range).toBeCloseTo(0.1);
-        expect(clock.trans_std).toBeGreaterThan(0);
+        expect(clock.rtt_std).toBeGreaterThan(0);
         expect(clock.skew_std).toBeGreaterThan(0);
     });
 });

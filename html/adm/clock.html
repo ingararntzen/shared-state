@@ -90,20 +90,20 @@
                 <div class="metric-value" id="clock">--</div>
             </div>
 
-            <!-- RAW DELAY & SKEW -->
+            <!-- RAW RTT & SKEW -->
             <div class="metric-card">
-                <div class="metric-value" id="latest_trans">--</div>
-                <div class="metric-label">Latest Raw Ping Delay</div>
+                <div class="metric-value" id="last_rtt">--</div>
+                <div class="metric-label">Latest Raw RTT</div>
             </div>
             <div class="metric-card">
-                <div class="metric-value" id="latest_skew">--</div>
-                <div class="metric-label">Latest Raw Ping Skew</div>
+                <div class="metric-value" id="last_skew">--</div>
+                <div class="metric-label">Latest Raw Skew</div>
             </div>
 
-            <!-- FILTERED DELAY & SKEW -->
+            <!-- FILTERED RTT & SKEW -->
             <div class="metric-card">
-                <div class="metric-value warning" id="trans">--</div>
-                <div class="metric-label">Filtered Delay (Min RTT)</div>
+                <div class="metric-value warning" id="rtt">--</div>
+                <div class="metric-label">Filtered RTT (Min RTT)</div>
             </div>
             <div class="metric-card">
                 <div class="metric-value warning" id="skew">--</div>
@@ -112,8 +112,8 @@
 
             <!-- JITTER / VARIANCE -->
             <div class="metric-card">
-                <div class="metric-value muted" id="trans_var">--</div>
-                <div class="metric-label">Delay Jitter (StdDev / Range)</div>
+                <div class="metric-value muted" id="rtt_var">--</div>
+                <div class="metric-label">RTT Jitter (StdDev / Range)</div>
             </div>
             <div class="metric-card">
                 <div class="metric-value muted" id="skew_var">--</div>
@@ -130,28 +130,29 @@
         const client = new SharedStateClient(wsUrl);
 
         const elem_clock = document.querySelector("#clock");
-        const elem_latest_trans = document.querySelector("#latest_trans");
-        const elem_latest_skew = document.querySelector("#latest_skew");
-        const elem_trans = document.querySelector("#trans");
+        const elem_last_rtt = document.querySelector("#last_rtt");
+        const elem_last_skew = document.querySelector("#last_skew");
+        const elem_rtt = document.querySelector("#rtt");
         const elem_skew = document.querySelector("#skew");
-        const elem_trans_var = document.querySelector("#trans_var");
+        const elem_rtt_var = document.querySelector("#rtt_var");
         const elem_skew_var = document.querySelector("#skew_var");
 
         setInterval(() => {
             if (client.serverclock) {
-                elem_clock.textContent = client.serverclock.now() ? client.serverclock.now().toFixed(6) : "--";
-                elem_latest_trans.textContent = client.serverclock.latest_trans !== undefined ? `${(client.serverclock.latest_trans * 1000).toFixed(3)} ms` : "--";
-                elem_latest_skew.textContent = client.serverclock.latest_skew !== undefined ? `${(client.serverclock.latest_skew * 1000).toFixed(3)} ms` : "--";
-                elem_trans.textContent = client.serverclock.trans !== undefined ? `${(client.serverclock.trans * 1000).toFixed(3)} ms` : "--";
-                elem_skew.textContent = client.serverclock.skew !== undefined ? `${(client.serverclock.skew * 1000).toFixed(3)} ms` : "--";
+                const sc = client.serverclock;
+                elem_clock.textContent = sc.now() ? sc.now().toFixed(6) : "--";
+                elem_last_rtt.textContent = sc.last_rtt !== undefined ? `${(sc.last_rtt * 1000).toFixed(3)} ms` : "--";
+                elem_last_skew.textContent = sc.last_skew !== undefined ? `${(sc.last_skew * 1000).toFixed(3)} ms` : "--";
+                elem_rtt.textContent = sc.rtt !== undefined ? `${(sc.rtt * 1000).toFixed(3)} ms` : "--";
+                elem_skew.textContent = sc.skew !== undefined ? `${(sc.skew * 1000).toFixed(3)} ms` : "--";
 
-                const tStd = (client.serverclock.trans_std * 1000).toFixed(3);
-                const tRng = (client.serverclock.trans_range * 1000).toFixed(3);
-                elem_trans_var.textContent = client.serverclock.trans !== undefined ? `±${tStd} ms (Δ ${tRng} ms)` : "--";
+                const rStd = (sc.rtt_std * 1000).toFixed(3);
+                const rRng = (sc.rtt_range * 1000).toFixed(3);
+                elem_rtt_var.textContent = sc.rtt !== undefined ? `±${rStd} ms (Δ ${rRng} ms)` : "--";
 
-                const sStd = (client.serverclock.skew_std * 1000).toFixed(3);
-                const sRng = (client.serverclock.skew_range * 1000).toFixed(3);
-                elem_skew_var.textContent = client.serverclock.skew !== undefined ? `±${sStd} ms (Δ ${sRng} ms)` : "--";
+                const sStd = (sc.skew_std * 1000).toFixed(3);
+                const sRng = (sc.skew_range * 1000).toFixed(3);
+                elem_skew_var.textContent = sc.skew !== undefined ? `±${sStd} ms (Δ ${sRng} ms)` : "--";
             }
         }, 50);
     </script>

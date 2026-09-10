@@ -40,13 +40,14 @@ export const CLOCK = function () {
 const MAX_SAMPLE_COUNT = 30;
 
 /**
- * Server time synchronization provider calculating clock skew and network latency.
- * Access via `client.serverclock`.
+ * Approximates server clock by sampling server time and network latency.
+ * All time measurements are in seconds with sub millisecond precision.
  * @class ServerClock
  */
 export class ServerClock {
     /**
      * Initializes a ServerClock instance.
+     * @internal
      * @param {SharedStateClient} client - SharedState client instance
      */
     constructor(client) {
@@ -66,6 +67,7 @@ export class ServerClock {
     /**
      * Underlying Pinger instance.
      * @type {Object}
+     * @internal
      * @readonly
      */
     get pinger() {
@@ -74,6 +76,7 @@ export class ServerClock {
 
     /**
      * Restarts clock synchronization sampling.
+     * @internal
      * @returns {void}
      */
     restart() {
@@ -123,32 +126,18 @@ export class ServerClock {
     }
 
     /**
-     * Estimated clock skew relative to server in seconds.
+     * Clock skew estimate (in seconds) relative to server clock (`server clock == local clock + skew`).
      * @type {number}
      * @readonly
      */
     get skew() { return this._skew; }
 
     /**
-     * Estimated minimum transit delay in seconds.
+     * Latest skew estimate in seconds.
      * @type {number}
      * @readonly
      */
-    get trans() { return this._trans; }
-
-    /**
-     * Latest raw ping transit delay in seconds.
-     * @type {number}
-     * @readonly
-     */
-    get latest_trans() { return this._latest_trans !== undefined ? this._latest_trans : this._trans; }
-
-    /**
-     * Latest raw ping clock skew in seconds.
-     * @type {number}
-     * @readonly
-     */
-    get latest_skew() { return this._latest_skew !== undefined ? this._latest_skew : this._skew; }
+    get last_skew() { return this._latest_skew !== undefined ? this._latest_skew : this._skew; }
 
     /**
      * Estimated round trip time (RTT) in seconds.
@@ -158,16 +147,13 @@ export class ServerClock {
     get rtt() { return this._trans * 2.0; }
 
     /**
-     * Standard deviation of transit delay across current samples in seconds.
+     * Latest round trip time (RTT) measurment in seconds.
      * @type {number}
      * @readonly
      */
-    get trans_std() {
-        if (this._samples.length === 0) return 0.0;
-        const vals = this._samples.map(s => s[3]);
-        const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
-        const variance = vals.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / vals.length;
-        return Math.sqrt(variance);
+    get last_rtt() {
+        const latestTrans = this._latest_trans !== undefined ? this._latest_trans : this._trans;
+        return latestTrans * 2.0;
     }
 
     /**
@@ -184,14 +170,16 @@ export class ServerClock {
     }
 
     /**
-     * Transit delay range (max - min) across current samples in seconds.
+     * Standard deviation of round trip time (RTT) across current samples in seconds.
      * @type {number}
      * @readonly
      */
-    get trans_range() {
+    get rtt_std() {
         if (this._samples.length === 0) return 0.0;
-        const vals = this._samples.map(s => s[3]);
-        return Math.max(...vals) - Math.min(...vals);
+        const vals = this._samples.map(s => s[3] * 2.0);
+        const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
+        const variance = vals.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / vals.length;
+        return Math.sqrt(variance);
     }
 
     /**
@@ -206,7 +194,18 @@ export class ServerClock {
     }
 
     /**
-     * Returns current estimated server time in epoch seconds (high precision).
+     * Round trip time (RTT) range (max - min) across current samples in seconds.
+     * @type {number}
+     * @readonly
+     */
+    get rtt_range() {
+        if (this._samples.length === 0) return 0.0;
+        const vals = this._samples.map(s => s[3] * 2.0);
+        return Math.max(...vals) - Math.min(...vals);
+    }
+
+    /**
+     * Returns current estimated server time in seconds (after epoch).
      * @returns {number} Current estimated server timestamp in seconds
      */
     now() {

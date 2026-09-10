@@ -1,38 +1,21 @@
 # Server Clock
 
-The `client.serverclock` instance (`ServerClock`) estimates high-precision server time, clock skew, and transit latency.
+Approximates server clock by sampling server time and network latency.
+All time measurements are in seconds with sub millisecond precision.
 
 ## Properties
-
-### `pinger`
-
-**Type**: `Object`
-
-Underlying Pinger instance.
 
 ### `skew`
 
 **Type**: `number`
 
-Estimated clock skew relative to server in seconds.
+Clock skew estimate (in seconds) relative to server clock (`server clock == local clock + skew`).
 
-### `trans`
-
-**Type**: `number`
-
-Estimated minimum transit delay in seconds.
-
-### `latest_trans`
+### `last_skew`
 
 **Type**: `number`
 
-Latest raw ping transit delay in seconds.
-
-### `latest_skew`
-
-**Type**: `number`
-
-Latest raw ping clock skew in seconds.
+Latest skew estimate in seconds.
 
 ### `rtt`
 
@@ -40,11 +23,11 @@ Latest raw ping clock skew in seconds.
 
 Estimated round trip time (RTT) in seconds.
 
-### `trans_std`
+### `last_rtt`
 
 **Type**: `number`
 
-Standard deviation of transit delay across current samples in seconds.
+Latest round trip time (RTT) measurment in seconds.
 
 ### `skew_std`
 
@@ -52,11 +35,11 @@ Standard deviation of transit delay across current samples in seconds.
 
 Standard deviation of clock skew across current samples in seconds.
 
-### `trans_range`
+### `rtt_std`
 
 **Type**: `number`
 
-Transit delay range (max - min) across current samples in seconds.
+Standard deviation of round trip time (RTT) across current samples in seconds.
 
 ### `skew_range`
 
@@ -64,17 +47,17 @@ Transit delay range (max - min) across current samples in seconds.
 
 Clock skew range (max - min) across current samples in seconds.
 
+### `rtt_range`
+
+**Type**: `number`
+
+Round trip time (RTT) range (max - min) across current samples in seconds.
+
 ## Methods
-
-### `restart()`
-
-Restarts clock synchronization sampling.
-
-**Returns**: `void`
 
 ### `now()`
 
-Returns current estimated server time in epoch seconds (high precision).
+Returns current estimated server time in seconds (after epoch).
 
 **Returns**: `number` - Current estimated server timestamp in seconds
 

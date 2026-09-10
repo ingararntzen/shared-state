@@ -17,6 +17,7 @@ function isPublic(item) {
     if (item.name.startsWith("_")) return false;
     if (item.access === "private" || item.access === "protected" || item.access === "package" || item.ignore) return false;
     if (item.customTags && item.customTags.some(t => t.tag === "internal" || t.tag === "ignore")) return false;
+    if (item.tags && item.tags.some(t => t.title === "internal" || t.title === "ignore" || t.title === "private" || t.originalTitle === "internal")) return false;
     return true;
 }
 
@@ -335,7 +336,18 @@ async function generateClockDoc() {
     const data = await jsdoc2md.getTemplateData({ files });
     
     let md = `# Server Clock\n\n`;
-    md += `The \`client.serverclock\` instance (\`ServerClock\`) estimates high-precision server time, clock skew, and transit latency.\n\n`;
+    const classInfo = data.find(d => d.name === "ServerClock");
+    if (classInfo) {
+        const desc = classInfo.classdesc || classInfo.description;
+        if (desc) {
+            md += `${cleanDesc(desc)}\n\n`;
+        }
+        if (classInfo.see && classInfo.see.length > 0) {
+            for (const seeItem of classInfo.see) {
+                md += `**See**: ${cleanDesc(seeItem)}\n\n`;
+            }
+        }
+    }
     
     const props = data.filter(d => d.kind === "member" && d.memberof === "ServerClock" && isPublic(d));
     if (props.length > 0) {
