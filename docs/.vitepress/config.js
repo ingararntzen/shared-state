@@ -69,7 +69,15 @@ export default defineConfig({
         text: 'Client API',
         items: [
           { text: 'Overview', docFooterText: 'Client API Overview', link: '/client_api/overview' },
-          { text: 'Types & Structures', link: '/client_api/types' },
+          {
+            text: 'Definitions',
+            collapsed: true,
+            items: [
+              { text: 'Type Definitions', link: '/client_api/types' },
+              { text: 'CollectionResource API', link: '/client_api/collection_resource' },
+              { text: 'ValueResource API', link: '/client_api/value_resource' }
+            ]
+          },
           {
             text: 'Client',
             collapsed: true,
@@ -77,14 +85,6 @@ export default defineConfig({
               { text: 'SharedStateClient API', link: '/client_api/client' },
               { text: 'Connection API', link: '/client_api/connection' },
               { text: 'ServerClock API', link: '/client_api/clock' }
-            ]
-          },
-          {
-            text: 'Resources',
-            collapsed: true,
-            items: [
-              { text: 'CollectionResource API', link: '/client_api/collection_resource' },
-              { text: 'ValueResource API', link: '/client_api/value_resource' }
             ]
           },
           {
