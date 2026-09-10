@@ -70,19 +70,19 @@ Checks whether a key exists in the map.
 
 Returns an array of keys present in the map.
 
-**Returns**: `Array.<string>` - Array of keys
+**Returns**: `string[]` - Array of keys
 
 ### `values()`
 
 Returns an array of values present in the map.
 
-**Returns**: `Array.<*>` - Array of values
+**Returns**: `*[]` - Array of values
 
 ### `entries()`
 
 Returns an array of `[key, value]` pairs present in the map.
 
-**Returns**: `Array.<Array>` - Array of [key, value] pairs
+**Returns**: `Array[]` - Array of [key, value] pairs
 
 ### `forEach(callback, thisArg)`
 

@@ -1,46 +1,41 @@
 /**
- * Interface representing a single-value resource bound to a specific item name within a CollectionResource.
+ * Interface to resource that represents a single value.
  * @interface ValueResource
  */
 export class ValueResource {
-    /**
-     * Item name identifier.
-     * @type {string}
-     * @readonly
-     */
-    get name() { }
 
     /**
-     * Underlying CollectionResource (Layer 1 state provider).
+     * Underlying state provider instance.
      * @type {Object}
      * @readonly
      */
     get provider() { }
 
     /**
-     * Retrieves the current state/value of the item.
-     * @returns {*} Associated item state, or `undefined` if item is uninitialized
+     * Retrieves the current value of the resource.
+     * @returns {*} Current value or `undefined` if resource is not initialized
      */
     get() { }
 
     /**
-     * Checks whether the item has been initialized in provider state.
-     * @returns {boolean} `true` if item is initialized, `false` otherwise
+     * Checks whether the resource has been initialized.
+     * @returns {boolean} `true` if resource is initialized, `false` otherwise
      */
     is_initialized() { }
 
     /**
-     * Updates the item value across the network.
-     * @param {*} value - New item state value
+     * Request an update to the value of the resource.
+     * @param {*} value - New value
      * @param {Object} [options] - Update options
+     * @param {boolean} [options.conditional=false] - If true, request update request is applied only if no other updatas were interleaved on the server.
      * @returns {Promise<Object>} Resolves when state update is dispatched/processed
      */
     set(value, options = {}) { }
 
     /**
-     * Registers a callback invoked whenever this specific item is updated or reset.
-     * @param {Function} handler - Callback receiving changes payload
-     * @returns {Object} Subscription handle with `.off()` method
+     * Registers a callback invoked whenever the resource changes.
+     * @param {Function} handler() - Callback function receiving change event
+     * @returns {Object} Subscription handle with `.remove_callback()`
      */
     add_callback(handler) { }
 

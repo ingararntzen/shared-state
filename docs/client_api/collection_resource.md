@@ -1,6 +1,6 @@
 # CollectionResource API
 
-Interface representing a path-exclusive collection resource.
+Interface to resources that represent a collection of items.
 
 ## Properties
 
@@ -20,19 +20,19 @@ Total number of items in the resource.
 
 ### `get_item(id)`
 
-Retrieves an item state object by ID.
+Retrieves an item by ID.
 
 | Parameter | Type | Description |
 | --- | --- | --- |
 | `id` | `string` | Target item identifier |
 
-**Returns**: `Item` | `undefined` - Item state object `{ id, state }`, or `undefined` if not present
+**Returns**: [`Item`](/client_api/types#item) | `undefined`
 
 ### `get_items()`
 
-Retrieves all item state objects within the resource.
+Retrieves all items within the resource.
 
-**Returns**: `Array.<Item>` - Array of item state objects `{ id, state }`
+**Returns**: [`Item`](/client_api/types#item)[]
 
 ### `has_item(id)`
 
@@ -46,25 +46,25 @@ Checks if an item exists within the resource.
 
 ### `update_items(changes, options)`
 
-Updates items stored in the collection resource across the network.
+Request an update to items in the resource.
 
 | Parameter | Type | Description |
 | --- | --- | --- |
-| `[changes]` | `Changes` | Delta changes object `{ insert, remove, reset }` |
+| `changes` | [`Changes`](/client_api/types#changes) | Requested [`Changes`](/client_api/types#changes) |
 | `[options]` | `Object` | Update options |
-| `[options.conditional=false]` | `boolean` | If true, a conditional update will be performed |
+| `[options.conditional=false]` | `boolean` | If true, a conditional update will be performed based on server version |
 
-**Returns**: `Promise.<Object>` - Resolves when state update is dispatched/processed
+**Returns**: `Promise.<Object>` - Resolves when state update is acknowledged by the server
 
-### `add_callback(handler)`
+### `add_callback(handler(changes))`
 
-Registers a callback invoked whenever state changes on this path.
+Registers a callback invoked whenever the resource changes.
 
 | Parameter | Type | Description |
 | --- | --- | --- |
-| `handler` | `function` | Callback function receiving change events |
+| `handler(changes)` | `function` | Callback function receiving change event |
 
-**Returns**: `Object` - Subscription handle object with `.off()` or `.remove()` method
+**Returns**: `Object` - Subscription handle object with `.remove_callback()`.
 
 ### `remove_callback(handle)`
 

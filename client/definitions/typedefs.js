@@ -1,25 +1,15 @@
 /**
- * Represents an Item with an id and state property.
+ * Represents an Item with id and state properties.
  * @typedef {Object} Item
- * @property {string} id - Item's unique identifier
- * @property {*} state - Item's state value
+ * @property {string} id - The unique identifier of the item
+ * @property {*} state - The state of the item
  */
 
 /**
  * Represents changes to a collection of Items.
- * Changes are used to express a request for changes, or to report changes that were applied.
+ * Changes are used both to express a request for change and to report changes after the fact.
  * @typedef {Object} Changes
  * @property {Map<string, Item>} [insert] - Map of Items to be inserted or replaced in the collection - <Item.id, Item>
- * @property {Set<string>} [remove] - Set of Item.id's to be removed
- * @property {boolean} [reset=false] - If true, reset all items before insert and ignore remove. 
- */
-
-/**
- * Event info passed as second parameter to eventify callbacks.
- * @typedef {Object} EventInfo
- * @property {Object} src - Source state object emitting the event
- * @property {string} name - Event name string (e.g. "change")
- * @property {number} count - Total times this event listener has been invoked
- * @property {boolean} init - True if this is an initial event (count == 0)
- * @property {Object} handle - Subscription handle object
+ * @property {Set<string>} [remove] - Set of Item.id's to be removed from the collection
+ * @property {boolean} [reset=false] - If true, reset all items of the collection (ignore remove), before inserting new items 
  */

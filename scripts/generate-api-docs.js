@@ -20,9 +20,43 @@ function isPublic(item) {
     return true;
 }
 
+function formatSingleType(t) {
+    if (!t) return "";
+    let cleanName = t.replace(/^Array\.<(.*)>$/, '$1[]');
+    
+    if (cleanName === "Item") return `[\`Item\`](/client_api/types#item)`;
+    if (cleanName === "Changes") return `[\`Changes\`](/client_api/types#changes)`;
+    if (cleanName === "EventInfo") return `[\`EventInfo\`](/client_api/events#eventinfo)`;
+
+    if (cleanName === "Item[]" || cleanName === "Array<Item>") {
+        return `[\`Item\`](/client_api/types#item)[]`;
+    }
+    if (cleanName === "Changes[]" || cleanName === "Array<Changes>") {
+        return `[\`Changes\`](/client_api/types#changes)[]`;
+    }
+    if (cleanName === "EventInfo[]" || cleanName === "Array<EventInfo>") {
+        return `[\`EventInfo\`](/client_api/events#eventinfo)[]`;
+    }
+
+    let formatted = cleanName;
+    if (formatted.includes("Item")) formatted = formatted.replace("Item", "[\`Item\`](/client_api/types#item)");
+    if (formatted.includes("Changes")) formatted = formatted.replace("Changes", "[\`Changes\`](/client_api/types#changes)");
+    if (formatted.includes("EventInfo")) formatted = formatted.replace("EventInfo", "[\`EventInfo\`](/client_api/events#eventinfo)");
+
+    return `\`${formatted}\``.replace(/`\[/g, '[').replace(/\]\)`/g, '])');
+}
+
 function formatType(typeObj) {
     if (!typeObj || !typeObj.names) return "";
-    return typeObj.names.map(t => `\`${t}\``).join(" | ");
+    return typeObj.names.map(formatSingleType).join(" | ");
+}
+
+function cleanDesc(desc) {
+    if (!desc) return "";
+    return desc
+        .replace(/\{@link Item\}/g, "[`Item`](/client_api/types#item)")
+        .replace(/\{@link Changes\}/g, "[`Changes`](/client_api/types#changes)")
+        .replace(/\{@link EventInfo\}/g, "[`EventInfo`](/client_api/events#eventinfo)");
 }
 
 function formatParamsTable(params, headerName = "Parameter") {
@@ -33,7 +67,7 @@ function formatParamsTable(params, headerName = "Parameter") {
         const nameWithDefault = defaultVal !== undefined ? `${p.name}=${defaultVal}` : p.name;
         const pName = p.optional ? `\`[${nameWithDefault}]\`` : `\`${p.name}\``;
         const pType = formatType(p.type);
-        const pDesc = p.description || "";
+        const pDesc = cleanDesc(p.description || "");
         md += `| ${pName} | ${pType} | ${pDesc} |\n`;
     }
     return md + "\n";
@@ -41,12 +75,12 @@ function formatParamsTable(params, headerName = "Parameter") {
 
 function formatMethod(item) {
     const returnsType = item.returns && item.returns[0] ? formatType(item.returns[0].type) : "";
-    const returnsDesc = item.returns && item.returns[0] && item.returns[0].description ? ` - ${item.returns[0].description}` : "";
+    const returnsDesc = item.returns && item.returns[0] && item.returns[0].description ? ` - ${cleanDesc(item.returns[0].description)}` : "";
     
     const topParams = (item.params || []).filter(p => !p.name.includes("."));
     let md = `### \`${item.name}(${topParams.map(p => p.name).join(", ")})\`\n\n`;
     if (item.description) {
-        md += `${item.description}\n\n`;
+        md += `${cleanDesc(item.description)}\n\n`;
     }
     if (item.params && item.params.length > 0) {
         md += formatParamsTable(item.params);
@@ -72,18 +106,18 @@ async function generateOverviewDoc() {
         "",
         "The SharedState client is implemented in JavaScript. It encapsulates management of state replication, connection and client subscriptions, while providing easy-to-use programming abstractions modelling shared resources. The SharedState Client API is organized in two parts:",
         "",
+        "### Definitions API",
+        "",
+        "   - **[`Type Definitions`](/client_api/types)**: Common typedefs and data structure contracts.",
+        "   - **[`CollectionResource API`](/client_api/collection_resource)**: Path-exclusive collection interface contract.",
+        "   - **[`ValueResource API`](/client_api/value_resource)**: Single-value item resource interface contract.",
+        "",
+        "",
         "### Client API",
         "",
         "   - **[`SharedStateClient API`](/client_api/client)**: The client object maintains a WebSocket connection to a SharedState server.",
         "   - **[`Connection API`](/client_api/connection)**: The connection object provides access to the state of the connection.",
         "   - **[`ServerClock API`](/client_api/clock)**: The server clock object provides access to an approximation of the server clock.",
-        "",
-        "",
-        "### Definitions API",
-        "",
-        "   - **[`Types & Structures`](/client_api/types)**: Common typedefs, structs, and event info objects.",
-        "   - **[`CollectionResource API`](/client_api/collection_resource)**: Path-exclusive collection interface contract.",
-        "   - **[`ValueResource API`](/client_api/value_resource)**: Single-value item resource interface contract.",
         "",
         "",
         "### Shared Objects API",
@@ -101,7 +135,13 @@ async function generateOverviewDoc() {
 
 // 2. Events Dedicated Page
 async function generateEventsDoc() {
-    const eventsContent = [
+    const files = [
+        path.join(rootDir, "client", "util", "events.js")
+    ];
+    const data = await jsdoc2md.getTemplateData({ files });
+    const eventInfoTypedef = data.find(d => d.kind === "typedef" && d.name === "EventInfo");
+
+    let eventsContent = [
         "# Event Mechanism",
         "",
         "All SharedState state objects (`SharedVariables`, `SharedMap`, `SharedSet`) provide decoupled event handling capabilities (`.on`, `.off`, `.once`). They emit a **`\"change\"`** event whenever state updates locally or over the network.",
@@ -121,12 +161,7 @@ async function generateEventsDoc() {
         "1. **`valueOrChanges`**: Event payload.",
         "   - **For SharedVariables**: The newly updated variable value.",
         "   - **For SharedMap & SharedSet**: A delta change object `{ insert, remove, reset }`.",
-        "2. **`eInfo`**: Event metadata object containing:",
-        "   - `src`: Source state object instance emitting the event.",
-        "   - `name`: Event name string (`\"change\"`).",
-        "   - `count`: Number of times this event handler has executed.",
-        "   - `init`: Boolean indicating whether this invocation is the initial state snapshot.",
-        "   - `handle`: Subscription handle object.",
+        "2. **`eInfo`**: Event metadata object (`EventInfo`).",
         "",
         "### Subscription Options",
         "- **`options.init`** (`boolean`): When set to `true`, immediately delivers the current state snapshot to the callback upon subscription.",
@@ -154,6 +189,20 @@ async function generateEventsDoc() {
         "```",
         ""
     ].join("\n");
+
+    if (eventInfoTypedef) {
+        eventsContent += `## \`${eventInfoTypedef.name}\`\n\n`;
+        const itemType = formatType(eventInfoTypedef.type);
+        if (itemType) {
+            eventsContent += `**Type**: ${itemType}\n\n`;
+        }
+        if (eventInfoTypedef.description) {
+            eventsContent += `${eventInfoTypedef.description}\n\n`;
+        }
+        if (eventInfoTypedef.properties && eventInfoTypedef.properties.length > 0) {
+            eventsContent += formatParamsTable(eventInfoTypedef.properties, "Property");
+        }
+    }
 
     fs.writeFileSync(path.join(docsApiDir, "events.md"), eventsContent, "utf8");
     console.log("Generated events.md");
@@ -457,7 +506,7 @@ async function generateTypesDoc() {
     const data = await jsdoc2md.getTemplateData({ files });
     const typedefs = data.filter(d => d.kind === "typedef" && isPublic(d));
 
-    let md = `# Types & Data Structures\n\n`;
+    let md = `# Type Definitions\n\n`;
     md += `Common data structures and typedefs used throughout the SharedState Client API.\n\n`;
 
     for (const item of typedefs) {

@@ -1,11 +1,10 @@
 # Client API Overview
 
-The SharedState client is implemented in JavaScript. It encapsulates management of state replication, connection and client subscriptions, while providing easy-to-use programming abstractions modelling shared resources. The SharedState Client API is organized in three parts:
-
+The SharedState client is implemented in JavaScript. It encapsulates management of state replication, connection and client subscriptions, while providing easy-to-use programming abstractions modelling shared resources. The SharedState Client API is organized in two parts:
 
 ### Definitions API
 
-   - **[`Type Definitions`](/client_api/types)**: Common typedefs, structs, and event info objects.
+   - **[`Type Definitions`](/client_api/types)**: Common typedefs and data structure contracts.
    - **[`CollectionResource API`](/client_api/collection_resource)**: Path-exclusive collection interface contract.
    - **[`ValueResource API`](/client_api/value_resource)**: Single-value item resource interface contract.
 
@@ -15,7 +14,6 @@ The SharedState client is implemented in JavaScript. It encapsulates management 
    - **[`SharedStateClient API`](/client_api/client)**: The client object maintains a WebSocket connection to a SharedState server.
    - **[`Connection API`](/client_api/connection)**: The connection object provides access to the state of the connection.
    - **[`ServerClock API`](/client_api/clock)**: The server clock object provides access to an approximation of the server clock.
-
 
 
 ### Shared Objects API

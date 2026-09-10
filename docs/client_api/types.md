@@ -1,4 +1,4 @@
-# Types & Data Structures
+# Type Definitions
 
 Common data structures and typedefs used throughout the SharedState Client API.
 
@@ -6,37 +6,23 @@ Common data structures and typedefs used throughout the SharedState Client API.
 
 **Type**: `Object`
 
-Represents an Item with an id and state property.
+Represents an Item with id and state properties.
 
 | Property | Type | Description |
 | --- | --- | --- |
-| `id` | `string` | Item's unique identifier |
-| `state` | `*` | Item's state value |
+| `id` | `string` | The unique identifier of the item |
+| `state` | `*` | The state of the item |
 
 ## `Changes`
 
 **Type**: `Object`
 
 Represents changes to a collection of Items.
-Changes are used to express a request for changes, or to report changes that were applied.
+Changes are used both to express a request for change and to report changes after the fact.
 
 | Property | Type | Description |
 | --- | --- | --- |
-| `[insert]` | `Map.<string, Item>` | Map of Items to be inserted or replaced in the collection - <Item.id, Item> |
-| `[remove]` | `Set.<string>` | Set of Item.id's to be removed |
-| `[reset=false]` | `boolean` | If true, reset all items before insert and ignore remove. |
-
-## `EventInfo`
-
-**Type**: `Object`
-
-Event info passed as second parameter to eventify callbacks.
-
-| Property | Type | Description |
-| --- | --- | --- |
-| `src` | `Object` | Source state object emitting the event |
-| `name` | `string` | Event name string (e.g. "change") |
-| `count` | `number` | Total times this event listener has been invoked |
-| `init` | `boolean` | True if this is an initial event (count == 0) |
-| `handle` | `Object` | Subscription handle object |
+| `[insert]` | `Map.<string, [`Item`](/client_api/types#item)>` | Map of Items to be inserted or replaced in the collection - <Item.id, Item> |
+| `[remove]` | `Set.<string>` | Set of Item.id's to be removed from the collection |
+| `[reset=false]` | `boolean` | If true, reset all items of the collection (ignore remove), before inserting new items |
 

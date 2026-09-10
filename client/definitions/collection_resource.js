@@ -1,6 +1,8 @@
 /**
- * Interface representing a path-exclusive collection resource.
+ * Interface to resources that represent a collection of items.
  * @interface CollectionResource
+ * @see {@link Item}
+ * @see {@link Changes}
  */
 export class CollectionResource {
     /**
@@ -18,15 +20,15 @@ export class CollectionResource {
     get size() { }
 
     /**
-     * Retrieves an item state object by ID.
+     * Retrieves an item by ID.
      * @param {string} id - Target item identifier
-     * @returns {Item|undefined} Item state object `{ id, state }`, or `undefined` if not present
+     * @returns {Item|undefined} 
      */
     get_item(id) { }
 
     /**
-     * Retrieves all item state objects within the resource.
-     * @returns {Array<Item>} Array of item state objects `{ id, state }`
+     * Retrieves all items within the resource.
+     * @returns {Item[]}
      */
     get_items() { }
 
@@ -38,18 +40,18 @@ export class CollectionResource {
     has_item(id) { }
 
     /**
-     * Updates items stored in the collection resource across the network.
-     * @param {Changes} [changes] - Delta changes object `{ insert, remove, reset }`
+     * Request an update to items in the resource.
+     * @param {Changes} changes - Requested {@link Changes}
      * @param {Object} [options] - Update options
-     * @param {boolean} [options.conditional=false] - If true, a conditional update will be performed
-     * @returns {Promise<Object>} Resolves when state update is dispatched/processed
+     * @param {boolean} [options.conditional=false] - If true, request update request is applied only if no other updatas were interleaved on the server.
+     * @returns {Promise<Object>} Resolves when state update is acknowledged by the server
      */
-    update_items(changes = {}, options = {}) { }
+    update_items(changes, options = {}) { }
 
     /**
-     * Registers a callback invoked whenever state changes on this path.
-     * @param {Function} handler - Callback function receiving change events
-     * @returns {Object} Subscription handle object with `.off()` or `.remove()` method
+     * Registers a callback invoked whenever the resource changes.
+     * @param {Function} handler(changes) - Callback function receiving change event
+     * @returns {Object} Subscription handle object with `.remove_callback()`.
      */
     add_callback(handler) { }
 
@@ -59,3 +61,4 @@ export class CollectionResource {
      */
     remove_callback(handle) { }
 }
+

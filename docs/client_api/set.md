@@ -60,19 +60,19 @@ Checks whether an element exists in the set.
 
 Returns an array of elements in the set (alias for `values()`).
 
-**Returns**: `Array.<*>` - Array of set values
+**Returns**: `*[]` - Array of set values
 
 ### `values()`
 
 Returns an array of elements present in the set.
 
-**Returns**: `Array.<*>` - Array of set values
+**Returns**: `*[]` - Array of set values
 
 ### `entries()`
 
 Returns an array of `[value, value]` pairs present in the set.
 
-**Returns**: `Array.<Array>` - Array of value pairs
+**Returns**: `Array[]` - Array of value pairs
 
 ### `forEach(callback, thisArg)`
 

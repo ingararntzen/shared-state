@@ -59,6 +59,16 @@
  *      Where `eInfo = { src, name, count, init, handle }`.
  */
 
+/**
+ * Event info passed as second parameter to eventify callbacks.
+ * @typedef {Object} EventInfo
+ * @property {Object} src - Source state object emitting the event
+ * @property {string} name - Event name string (e.g. "change")
+ * @property {number} count - Total times this event listener has been invoked
+ * @property {boolean} init - True if this is an initial event (count == 1)
+ * @property {Object} handle - Subscription handle object
+ */
+
 class Subscription {
   constructor(eventTarget, name, callback, options = {}) {
     this.target = eventTarget;
