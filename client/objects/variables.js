@@ -2,15 +2,13 @@ import { BaseVariable } from "../base_objects/base_variable.js";
 import { BaseTypedVariable, VariableType } from "../base_objects/base_typed_variable.js";
 
 /**
- * Generic untyped shared variable holding any serializable value.
- * Extends {@link BaseVariable}.
+ * Generic *untyped* variable holding any serializable value.
  * @class SharedVariable
  */
 export class SharedVariable extends BaseVariable { }
 
 /**
- * Shared boolean variable.
- * Extends {@link BaseVariable}.
+ * Variable restricted to *boolean* values.
  * @class SharedBoolean
  */
 export class SharedBoolean extends BaseTypedVariable {
@@ -27,7 +25,7 @@ export class SharedBoolean extends BaseTypedVariable {
 
     /**
      * Toggles the boolean value (`true` -> `false`, `false` -> `true`).
-     * @returns {Promise<void>} Resolves when state update is processed
+     * @returns {Promise<void>} Resolves when update request is acknowledged by the server
      */
     toggle() {
         const current = this.value;
@@ -36,8 +34,7 @@ export class SharedBoolean extends BaseTypedVariable {
 }
 
 /**
- * Shared string variable.
- * Extends {@link BaseVariable}.
+ * Variable restricted to *string* values.
  * @class SharedString
  */
 export class SharedString extends BaseTypedVariable {
@@ -54,8 +51,8 @@ export class SharedString extends BaseTypedVariable {
 }
 
 /**
- * Shared integer variable supporting increment and decrement operations.
- * Extends {@link BaseVariable}.
+ * Variable restricted to *integer* values.
+ * Supports increment and decrement operations.
  * @class SharedInteger
  */
 export class SharedInteger extends BaseTypedVariable {
@@ -73,7 +70,7 @@ export class SharedInteger extends BaseTypedVariable {
     /**
      * Increments the integer value by delta.
      * @param {number} [delta=1] - Amount to increment
-     * @returns {Promise<void>} Resolves when state update is processed
+     * @returns {Promise<void>} Resolves when update request is acknowledged by the server
      */
     inc(delta = 1) {
         const current = this.value;
@@ -83,7 +80,7 @@ export class SharedInteger extends BaseTypedVariable {
     /**
      * Decrements the integer value by delta.
      * @param {number} [delta=1] - Amount to decrement
-     * @returns {Promise<void>} Resolves when state update is processed
+     * @returns {Promise<void>} Resolves when update request is acknowledged by the server
      */
     dec(delta = 1) {
         const current = this.value;
@@ -92,8 +89,8 @@ export class SharedInteger extends BaseTypedVariable {
 }
 
 /**
- * Shared floating-point number variable supporting numeric adjustments.
- * Extends {@link BaseVariable}.
+ * Variable restricted to floating-point values.
+ * Supports increment and decrement operations.
  * @class SharedFloat
  */
 export class SharedFloat extends BaseTypedVariable {
@@ -111,7 +108,7 @@ export class SharedFloat extends BaseTypedVariable {
     /**
      * Increments the float value by delta.
      * @param {number} [delta=1.0] - Amount to increment
-     * @returns {Promise<void>} Resolves when state update is processed
+     * @returns {Promise<void>} Resolves when update request is acknowledged by the server
      */
     inc(delta = 1.0) {
         const current = this.value;
@@ -121,7 +118,7 @@ export class SharedFloat extends BaseTypedVariable {
     /**
      * Decrements the float value by delta.
      * @param {number} [delta=1.0] - Amount to decrement
-     * @returns {Promise<void>} Resolves when state update is processed
+     * @returns {Promise<void>} Resolves when update request is acknowledged by the server
      */
     dec(delta = 1.0) {
         const current = this.value;
@@ -130,8 +127,7 @@ export class SharedFloat extends BaseTypedVariable {
 }
 
 /**
- * Shared JSON record / object variable.
- * Extends {@link BaseVariable}.
+ * Variable restricted to *object* values.
  * @class SharedRecord
  */
 export class SharedRecord extends BaseTypedVariable {
@@ -148,8 +144,7 @@ export class SharedRecord extends BaseTypedVariable {
 }
 
 /**
- * Shared array variable.
- * Extends {@link BaseVariable}.
+ * Variable restricted to *array* values.
  * @class SharedArray
  */
 export class SharedArray extends BaseTypedVariable {
@@ -164,5 +159,3 @@ export class SharedArray extends BaseTypedVariable {
         super(client, path, name, VariableType.ARRAY, options);
     }
 }
-
-

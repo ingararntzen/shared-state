@@ -2,8 +2,11 @@ import { BaseAbstraction } from "./base_abstraction.js";
 import { validatePath } from "../common.js";
 
 /**
- * Base class for all SharedState variables.
- * Extends {@link BaseAbstraction} with single-item state management and change events.
+ * SharedVariable represents an online-hosted value.
+ * Extends {@link BaseAbstraction}.
+ * 
+ * `SharedVariable` implements the {@link Events} interface.
+ * All state changes are emitted on the `"change"` event, with `{new: newValue, old: oldValue}` as callback payload.
  * @class BaseVariable
  */
 export class BaseVariable extends BaseAbstraction {
@@ -31,12 +34,10 @@ export class BaseVariable extends BaseAbstraction {
         BaseAbstraction.cache_instance(client, path, name, this);
 
         this._itemId = name;
-        this._value = undefined;
-        this._fullPath = path + "/" + name;
 
-        // Register change callback via ItemResource
-        this._resource.add_callback((changes) => {
-            this._on_provider_update(changes);
+        // Register change callback via ItemResource / ValueResource
+        this._resource.add_callback((diff) => {
+            this._on_resource_update(diff);
         });
     }
 
@@ -53,16 +54,8 @@ export class BaseVariable extends BaseAbstraction {
      * @readonly
      */
     get value() {
-        this._refresh_value();
-        return this._value;
+        return this._resource.get();
     }
-
-    /**
-     * Full path identifying this variable (`path/name`).
-     * @type {string}
-     * @readonly
-     */
-    get path() { return this._fullPath; }
 
     /**
      * Gets the current value of the variable.
@@ -73,22 +66,23 @@ export class BaseVariable extends BaseAbstraction {
     /**
      * Updates the variable value across the network.
      * @param {*} val - New value to set
-     * @returns {Promise<void>} Resolves when state update is processed
+     * @returns {Promise<void>} Resolves when update request is acknowledged by the server
      */
     set(val) {
         return this._resource.set(val);
     }
 
     // internal event handler
-    _on_provider_update(changes) {
-        const prev = this._value;
-        this._refresh_value();
-        if (this._value !== prev) {
-            this.emit("change", this._value, prev);
-        }
+    _on_resource_update(diff) {
+        this.emit("change", diff);
     }
 
-    _refresh_value() {
-        this._value = this._resource.get();
+    get_current_state(name) {
+        if (name === "change") {
+            const val = this.value;
+            if (val === undefined) return null;
+            return { new: val, old: undefined };
+        }
+        return null;
     }
 }

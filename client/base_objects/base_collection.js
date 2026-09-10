@@ -27,7 +27,7 @@ export class BaseCollection extends BaseAbstraction {
         BaseAbstraction.cache_instance(client, path, undefined, this);
 
         this._resource.add_callback((changes) => {
-            this._on_provider_update(changes);
+            this._on_resource_update(changes);
         });
     }
 
@@ -39,7 +39,7 @@ export class BaseCollection extends BaseAbstraction {
         return await this._resource.update_items({ reset: true });
     }
 
-    _on_provider_update(changes) {
+    _on_resource_update(changes) {
         this.emit("change", changes);
     }
 

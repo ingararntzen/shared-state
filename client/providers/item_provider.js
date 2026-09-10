@@ -125,6 +125,7 @@ export class ItemProvider {
     get path() { return this._path; }
     get size() { return this._map.size }
     get optimistic() { return false }
+    get provider() { return this; }
     has_item(id) { return this._map.has(id) }
     get_item(id) { return this._map.get(id) }
     get_items() { return [...this._map.values()] }

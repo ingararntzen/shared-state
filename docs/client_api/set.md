@@ -27,6 +27,12 @@ Initializes a SharedSet instance.
 
 Returns the number of elements in the set.
 
+### `provider`
+
+**Type**: `Object`
+
+The underlying PathResource (ItemProvider instance).
+
 ## Methods
 
 ### `add(elem)`

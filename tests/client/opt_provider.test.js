@@ -55,7 +55,7 @@ describe("OptimisticItemProvider Unit Tests", () => {
         expect(baseColl.optimistic).toBe(false);
         expect(specColl.optimistic).toBe(true);
         expect(specColl.path).toBe("/app/store/res1");
-        expect(specColl.provider).toBe(baseColl);
+        expect(specColl.provider).toBe(specColl);
         expect(specColl.size).toBe(0);
     });
 

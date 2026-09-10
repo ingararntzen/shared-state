@@ -56,7 +56,7 @@ export class SharedSet extends BaseCollection {
      * @readonly
      */
     get size() {
-        return this._provider.size;
+        return this._resource.size;
     }
 
     /**
@@ -67,7 +67,7 @@ export class SharedSet extends BaseCollection {
     async add(elem) {
         const id = this._getId(elem);
         const record = { id, state: elem };
-        return await this._provider.update_items({ insert: [record] });
+        return await this._resource.update_items({ insert: [record] });
     }
 
     /**
@@ -77,7 +77,7 @@ export class SharedSet extends BaseCollection {
      */
     async delete(elem) {
         const id = this._getId(elem);
-        return await this._provider.update_items({ remove: [id] });
+        return await this._resource.update_items({ remove: [id] });
     }
 
     /**
@@ -85,7 +85,7 @@ export class SharedSet extends BaseCollection {
      * @returns {Promise<void>} Resolves when update request is acknowledged by the server
      */
     async clear() {
-        return await this._provider.update_items({ reset: true });
+        return await this._resource.update_items({ reset: true });
     }
 
     /**
@@ -95,7 +95,7 @@ export class SharedSet extends BaseCollection {
      */
     has(elem) {
         const id = this._getId(elem);
-        return this._provider.has_item(id);
+        return this._resource.has_item(id);
     }
 
     /**
@@ -111,7 +111,7 @@ export class SharedSet extends BaseCollection {
      * @returns {Iterator<*>} Iterator for set values
      */
     values() {
-        return this._provider.get_items().map(item =>
+        return this._resource.get_items().map(item =>
             item.state !== undefined ? item.state : item.value
         )[Symbol.iterator]();
     }
@@ -121,7 +121,7 @@ export class SharedSet extends BaseCollection {
      * @returns {Iterator<Array>} Iterator for value pairs
      */
     entries() {
-        return this._provider.get_items().map(item => {
+        return this._resource.get_items().map(item => {
             const val = item.state !== undefined ? item.state : item.value;
             return [val, val];
         })[Symbol.iterator]();

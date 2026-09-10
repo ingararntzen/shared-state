@@ -138,7 +138,7 @@ describe("Layer 2 Domain Abstractions Unit Tests", () => {
         await Promise.resolve();
 
         expect(num.value).toBe(10);
-        expect(changeHandler).toHaveBeenCalledWith(10, expect.anything());
+        expect(changeHandler).toHaveBeenCalledWith({ new: 10, old: undefined }, expect.anything());
 
         // Test inc and dec
         await num.inc(5);
@@ -302,7 +302,7 @@ describe("Layer 2 Domain Abstractions Unit Tests", () => {
         const intA = new SharedInteger(mockClient, "/app/mitems/res", "counter", { allowUndefined: false });
         expect(intA).toBeDefined();
         expect(intA.get()).toBe(0); // get() alias matches .value
-        expect(intA.path).toBe("/app/mitems/res/counter");
+        expect(intA.path).toBe("/app/mitems/res");
 
         const mapA = new SharedMap(mockClient, "/app/mitems/settings");
         expect(mapA).toBeDefined();

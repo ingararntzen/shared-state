@@ -24,7 +24,7 @@ export class SharedMap extends BaseCollection {
      * @readonly
      */
     get size() {
-        return this._provider.size;
+        return this._resource.size;
     }
 
     /**
@@ -35,7 +35,7 @@ export class SharedMap extends BaseCollection {
      */
     async set(key, value) {
         const record = { id: key, state: value };
-        return await this._provider.update_items({ insert: [record] });
+        return await this._resource.update_items({ insert: [record] });
     }
 
     /**
@@ -44,7 +44,7 @@ export class SharedMap extends BaseCollection {
      * @returns {Promise<void>} Resolves when update request is acknowledged by the server
      */
     async delete(key) {
-        return await this._provider.update_items({ remove: [key] });
+        return await this._resource.update_items({ remove: [key] });
     }
 
     /**
@@ -52,7 +52,7 @@ export class SharedMap extends BaseCollection {
      * @returns {Promise<void>} Resolves when update request is acknowledged by the server
      */
     async clear() {
-        return await this._provider.update_items({ reset: true });
+        return await this._resource.update_items({ reset: true });
     }
 
     /**
@@ -61,7 +61,7 @@ export class SharedMap extends BaseCollection {
      * @returns {*} Associated value, or `undefined` if key does not exist
      */
     get(key) {
-        const item = this._provider.get_item(key);
+        const item = this._resource.get_item(key);
         if (!item) return undefined;
         return item.state !== undefined ? item.state : item.value;
     }
@@ -72,7 +72,7 @@ export class SharedMap extends BaseCollection {
      * @returns {boolean} `true` if key exists, `false` otherwise
      */
     has(key) {
-        return this._provider.has_item(key);
+        return this._resource.has_item(key);
     }
 
     /**
@@ -80,7 +80,7 @@ export class SharedMap extends BaseCollection {
      * @returns {Iterator<string>} Iterator for map keys
      */
     keys() {
-        return this._provider.get_items().map(item => item.id)[Symbol.iterator]();
+        return this._resource.get_items().map(item => item.id)[Symbol.iterator]();
     }
 
     /**
@@ -88,7 +88,7 @@ export class SharedMap extends BaseCollection {
      * @returns {Iterator<*>} Iterator for map values
      */
     values() {
-        return this._provider.get_items().map(item =>
+        return this._resource.get_items().map(item =>
             item.state !== undefined ? item.state : item.value
         )[Symbol.iterator]();
     }
@@ -98,7 +98,7 @@ export class SharedMap extends BaseCollection {
      * @returns {Iterator<Array>} Iterator for [key, value] pairs
      */
     entries() {
-        return this._provider.get_items().map(item => [
+        return this._resource.get_items().map(item => [
             item.id,
             item.state !== undefined ? item.state : item.value
         ])[Symbol.iterator]();

@@ -106,13 +106,9 @@ export class BaseAbstraction {
 
         if (itemID === undefined) {
             this._resource = client.get_collection_resource(token, path);
-            this._provider = this._resource;
         } else {
             this._resource = client.get_value_resource(token, path, itemID);
-            this._provider = this._resource.provider;
         }
-        this._reader = this._resource;
-        this._updater = this._resource;
     }
 
     /**
@@ -127,7 +123,7 @@ export class BaseAbstraction {
      * @type {Object}
      * @readonly
      */
-    get provider() { return this._provider; }
+    get provider() { return this._resource.provider; }
 
     /**
      * The resource handle (`PathResource` or `ItemResource`).
@@ -135,20 +131,6 @@ export class BaseAbstraction {
      * @readonly
      */
     get resource() { return this._resource; }
-
-    /**
-     * Reader handle alias for resource.
-     * @type {Object}
-     * @readonly
-     */
-    get reader() { return this._resource; }
-
-    /**
-     * Updater handle alias for resource.
-     * @type {Object}
-     * @readonly
-     */
-    get updater() { return this._resource; }
 
     /**
      * The parent SharedState client instance.

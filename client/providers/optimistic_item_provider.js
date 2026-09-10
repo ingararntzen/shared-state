@@ -43,7 +43,7 @@ export class OptimisticItemProvider {
     }
 
     get provider() {
-        return this._proxyCollection;
+        return this;
     }
 
 

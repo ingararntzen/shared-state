@@ -397,17 +397,18 @@ async function generateClockDoc() {
 async function generateVariablesDoc() {
     const files = [
         path.join(rootDir, "client", "objects", "variables.js"),
-        path.join(rootDir, "client", "base_objects", "base_variable.js")
+        path.join(rootDir, "client", "base_objects", "base_variable.js"),
+        path.join(rootDir, "client", "base_objects", "base_abstraction.js")
     ];
     const data = await jsdoc2md.getTemplateData({ files });
     
     let md = `# SharedVariables\n\n`;
-    md += `SharedVariables are reactive, single-value abstractions synchronized in real time across clients and server.\n\n`;
+    const classInfo = data.find(d => d.name === "BaseVariable") || data.find(d => d.name === "SharedVariable");
+    if (classInfo && classInfo.description) {
+        md += `${cleanDesc(classInfo.description)}\n\n`;
+    }
     
-    md += `> [!NOTE]\n`;
-    md += `> All SharedVariable instances emit a **\`"change"\`** event with callback signature \`callback(newValue, eInfo)\` whenever their local or remote value updates. See **[Event Mechanism](/client_api/events)** for details.\n\n`;
-    
-    const baseVarMethods = data.filter(d => d.memberof === "BaseVariable" && isPublic(d));
+    const baseVarMethods = data.filter(d => (d.memberof === "BaseVariable" || (d.memberof === "BaseAbstraction" && d.name === "provider")) && isPublic(d));
 
     // Common variable interface
     md += `## SharedVariable Common Interface\n\n`;
@@ -421,18 +422,23 @@ async function generateVariablesDoc() {
     }
 
     const varClasses = [
-        { name: "SharedVariable", desc: "Generic untyped shared variable holding any serializable value." },
-        { name: "SharedBoolean", desc: "Shared boolean variable." },
-        { name: "SharedString", desc: "Shared string variable." },
-        { name: "SharedInteger", desc: "Shared integer variable supporting increment and decrement operations." },
-        { name: "SharedFloat", desc: "Shared floating-point number variable." },
-        { name: "SharedRecord", desc: "Shared JSON record / object variable." },
-        { name: "SharedArray", desc: "Shared array variable." }
+        "SharedVariable",
+        "SharedBoolean",
+        "SharedString",
+        "SharedInteger",
+        "SharedFloat",
+        "SharedRecord",
+        "SharedArray"
     ];
 
-    for (const cls of varClasses) {
-        md += `## ${cls.name}\n\n${cls.desc}\n\n`;
-        const clsMethods = data.filter(d => d.memberof === cls.name && isPublic(d) && d.kind === "function");
+    for (const clsName of varClasses) {
+        const clsItem = data.find(d => d.name === clsName);
+        const clsDesc = clsItem && (clsItem.classdesc || clsItem.description) ? cleanDesc(clsItem.classdesc || clsItem.description) : "";
+        md += `## ${clsName}\n\n`;
+        if (clsDesc) {
+            md += `${clsDesc}\n\n`;
+        }
+        const clsMethods = data.filter(d => d.memberof === clsName && isPublic(d) && d.kind === "function");
         if (clsMethods.length > 0) {
             md += `### Specific Methods\n\n`;
             for (const m of clsMethods) {
@@ -448,7 +454,9 @@ async function generateVariablesDoc() {
 // 7. SharedMap Page
 async function generateMapDoc() {
     const files = [
-        path.join(rootDir, "client", "objects", "map.js")
+        path.join(rootDir, "client", "objects", "map.js"),
+        path.join(rootDir, "client", "base_objects", "base_collection.js"),
+        path.join(rootDir, "client", "base_objects", "base_abstraction.js")
     ];
     const data = await jsdoc2md.getTemplateData({ files });
     
@@ -472,7 +480,7 @@ async function generateMapDoc() {
         }
     }
     
-    const props = data.filter(d => d.memberof === "SharedMap" && isPublic(d) && d.kind === "member");
+    const props = data.filter(d => (d.memberof === "SharedMap" || d.memberof === "BaseCollection" || (d.memberof === "BaseAbstraction" && d.name === "provider")) && isPublic(d) && d.kind === "member");
     if (props.length > 0) {
         md += `## Properties\n\n`;
         for (const p of props) {
@@ -495,7 +503,9 @@ async function generateMapDoc() {
 // 8. SharedSet Page
 async function generateSetDoc() {
     const files = [
-        path.join(rootDir, "client", "objects", "set.js")
+        path.join(rootDir, "client", "objects", "set.js"),
+        path.join(rootDir, "client", "base_objects", "base_collection.js"),
+        path.join(rootDir, "client", "base_objects", "base_abstraction.js")
     ];
     const data = await jsdoc2md.getTemplateData({ files });
     
@@ -519,7 +529,7 @@ async function generateSetDoc() {
         }
     }
     
-    const props = data.filter(d => d.memberof === "SharedSet" && isPublic(d) && d.kind === "member");
+    const props = data.filter(d => (d.memberof === "SharedSet" || d.memberof === "BaseCollection" || (d.memberof === "BaseAbstraction" && d.name === "provider")) && isPublic(d) && d.kind === "member");
     if (props.length > 0) {
         md += `## Properties\n\n`;
         for (const p of props) {

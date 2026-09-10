@@ -1,9 +1,10 @@
 # SharedVariables
 
-SharedVariables are reactive, single-value abstractions synchronized in real time across clients and server.
+SharedVariable represents an online-hosted value.
+Extends {@link BaseAbstraction}.
 
-> [!NOTE]
-> All SharedVariable instances emit a **`"change"`** event with callback signature `callback(newValue, eInfo)` whenever their local or remote value updates. See **[Event Mechanism](/client_api/events)** for details.
+`SharedVariable` implements the [**Events**](/client_api/events) interface.
+All state changes are emitted on the `"change"` event, with `{new: newValue, old: oldValue}` as callback payload.
 
 ## SharedVariable Common Interface
 
@@ -21,11 +22,11 @@ The name/key of the variable.
 
 The current local value of the variable.
 
-### `path`
+### `provider`
 
-**Type**: `string`
+**Type**: `Object`
 
-Full path identifying this variable (`path/name`).
+The underlying PathResource (ItemProvider instance).
 
 ### `get()`
 
@@ -41,15 +42,15 @@ Updates the variable value across the network.
 | --- | --- | --- |
 | `val` | `*` | New value to set |
 
-**Returns**: `Promise.<void>` - Resolves when state update is processed
+**Returns**: `Promise.<void>` - Resolves when update request is acknowledged by the server
 
 ## SharedVariable
 
-Generic untyped shared variable holding any serializable value.
+Generic *untyped* variable holding any serializable value.
 
 ## SharedBoolean
 
-Shared boolean variable.
+Variable restricted to *boolean* values.
 
 ### Specific Methods
 
@@ -57,15 +58,16 @@ Shared boolean variable.
 
 Toggles the boolean value (`true` -> `false`, `false` -> `true`).
 
-**Returns**: `Promise.<void>` - Resolves when state update is processed
+**Returns**: `Promise.<void>` - Resolves when update request is acknowledged by the server
 
 ## SharedString
 
-Shared string variable.
+Variable restricted to *string* values.
 
 ## SharedInteger
 
-Shared integer variable supporting increment and decrement operations.
+Variable restricted to *integer* values.
+Supports increment and decrement operations.
 
 ### Specific Methods
 
@@ -77,7 +79,7 @@ Increments the integer value by delta.
 | --- | --- | --- |
 | `[delta=1]` | `number` | Amount to increment |
 
-**Returns**: `Promise.<void>` - Resolves when state update is processed
+**Returns**: `Promise.<void>` - Resolves when update request is acknowledged by the server
 
 ### `dec(delta)`
 
@@ -87,11 +89,12 @@ Decrements the integer value by delta.
 | --- | --- | --- |
 | `[delta=1]` | `number` | Amount to decrement |
 
-**Returns**: `Promise.<void>` - Resolves when state update is processed
+**Returns**: `Promise.<void>` - Resolves when update request is acknowledged by the server
 
 ## SharedFloat
 
-Shared floating-point number variable.
+Variable restricted to floating-point values.
+Supports increment and decrement operations.
 
 ### Specific Methods
 
@@ -103,7 +106,7 @@ Increments the float value by delta.
 | --- | --- | --- |
 | `[delta=1.0]` | `number` | Amount to increment |
 
-**Returns**: `Promise.<void>` - Resolves when state update is processed
+**Returns**: `Promise.<void>` - Resolves when update request is acknowledged by the server
 
 ### `dec(delta)`
 
@@ -113,13 +116,13 @@ Decrements the float value by delta.
 | --- | --- | --- |
 | `[delta=1.0]` | `number` | Amount to decrement |
 
-**Returns**: `Promise.<void>` - Resolves when state update is processed
+**Returns**: `Promise.<void>` - Resolves when update request is acknowledged by the server
 
 ## SharedRecord
 
-Shared JSON record / object variable.
+Variable restricted to *object* values.
 
 ## SharedArray
 
-Shared array variable.
+Variable restricted to *array* values.
 

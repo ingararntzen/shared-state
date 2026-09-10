@@ -25,6 +25,12 @@ Initializes a SharedMap instance.
 
 Returns the number of key-value entries in the map.
 
+### `provider`
+
+**Type**: `Object`
+
+The underlying PathResource (ItemProvider instance).
+
 ## Methods
 
 ### `set(key, value)`

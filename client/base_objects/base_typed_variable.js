@@ -97,9 +97,6 @@ export class BaseTypedVariable extends BaseVariable {
         this._allowUndefined = Boolean(allowUndefined);
         this._defaultValue = this._typeConfig.validate(defaultValue);
         this._initialValue = this._typeConfig.validate(initialValue);
-
-        // Initialise
-        this._refresh_value();
     }
 
     // accessors
@@ -108,7 +105,31 @@ export class BaseTypedVariable extends BaseVariable {
     get initialValue() { return this._initialValue; }
     get allowUndefined() { return this._allowUndefined; }
 
-    // public
+    get value() {
+        if (!this._resource) return undefined;
+        const exists = this._resource.is_initialized();
+        const raw = this._resource.get();
+
+        let val = exists ? this._typeConfig.validate(raw) : undefined;
+        const valid = (val !== undefined || this._allowUndefined);
+
+        if (!valid) {
+            val = this._defaultValue;
+        }
+
+        if (this._initialValue !== undefined && !this._isInitialised) {
+            if (!(exists && valid)) {
+                val = this._initialValue;
+            }
+        }
+
+        if (exists && valid && !this._isInitialised) {
+            this._isInitialised = true;
+        }
+
+        return val;
+    }
+
     set(val) {
         if (val === undefined) {
             if (!this._allowUndefined) {
@@ -123,36 +144,6 @@ export class BaseTypedVariable extends BaseVariable {
         }
 
         return super.set(value);
-    }
-
-    // internal
-    _refresh_value() {
-        if (!this._reader) return;
-        const exists = this._reader.is_initialized();
-        const raw = this._reader.get();
-
-        // Cast rawValue to the correct type of undefined
-        this._value = exists ? this._typeConfig.validate(raw) : undefined;
-
-        // Check if value is valid
-        const valid = (this._value !== undefined || this._allowUndefined);
-
-        // Use defaultValue
-        if (!valid) {
-            this._value = this._defaultValue;
-        }
-
-        // Use initialValue
-        if (this._initialValue !== undefined && !this._isInitialised) {
-            if (!(exists && valid)) {
-                this._value = this._initialValue;
-            }
-        }
-
-        // Update isInitialised
-        if (exists && valid && !this._isInitialised) {
-            this._isInitialised = true;
-        }
     }
 }
 
