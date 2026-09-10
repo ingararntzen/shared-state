@@ -24,7 +24,7 @@ Register an event handler for a named event.
 | `[options]` | `Object` | Subscription options |
 | `[options.init=false]` | `boolean` | If true, requests immediate event delivery upon subscription |
 
-**Returns**: `Object` - Subscription handle object (supports `.off()`)
+<span style="color: red;">**Returns**:</span> `Object` - Subscription handle object (supports `.off()`)
 
 ## `handler(eArg, eInfo)` Callback Signature
 

@@ -1,4 +1,9 @@
 /**
+ * Common data structures and typedefs used throughout the SharedState Client API.
+ * @module TypeDefinitions
+ */
+
+/**
  * Represents an Item with id and state properties.
  * @typedef {Object} Item
  * @property {string} id - The unique identifier of the item

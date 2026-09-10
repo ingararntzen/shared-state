@@ -165,7 +165,10 @@ async function generateEventsDoc() {
     const data = await jsdoc2md.getTemplateData({ files });
 
     let md = `# Events\n\n`;
-    md += `The \`eventify\` decorator can be used on objects or class prototype objects in order to imbue the target object with event capabilities.\n\n`;
+    const moduleInfo = data.find(d => d.kind === "module" || d.kind === "file");
+    if (moduleInfo && moduleInfo.description) {
+        md += `${cleanDesc(moduleInfo.description)}\n\n`;
+    }
 
     const eventifyFunc = data.find(d => d.name === "eventify");
     if (eventifyFunc) {
@@ -182,7 +185,7 @@ async function generateEventsDoc() {
         if (onMethod.returns && onMethod.returns[0]) {
             const retType = formatType(onMethod.returns[0].type);
             const retDesc = onMethod.returns[0].description ? ` - ${cleanDesc(onMethod.returns[0].description)}` : "";
-            md += `**Returns**: ${retType}${retDesc}\n\n`;
+            md += `<span style="color: red;">**Returns**:</span> ${retType}${retDesc}\n\n`;
         }
     }
 
@@ -258,7 +261,10 @@ async function generateClientDoc() {
     const data = await jsdoc2md.getTemplateData({ files });
     
     let md = `# SharedStateClient\n\n`;
-    md += `The \`SharedStateClient\` manages logical network connections, subscriptions, state providers, and application objects.\n\n`;
+    const classInfo = data.find(d => d.name === "SharedStateClient");
+    if (classInfo && (classInfo.classdesc || classInfo.description)) {
+        md += `${cleanDesc(classInfo.classdesc || classInfo.description)}\n\n`;
+    }
     
     // Constructor
     const ctor = data.find(d => d.kind === "constructor" && d.memberof === "SharedStateClient#SharedStateClient");
@@ -635,7 +641,10 @@ async function generateTypesDoc() {
     const typedefs = data.filter(d => d.kind === "typedef" && isPublic(d));
 
     let md = `# Type Definitions\n\n`;
-    md += `Common data structures and typedefs used throughout the SharedState Client API.\n\n`;
+    const fileInfo = data.find(d => d.kind === "module" || d.kind === "file");
+    if (fileInfo && fileInfo.description) {
+        md += `${cleanDesc(fileInfo.description)}\n\n`;
+    }
 
     for (const item of typedefs) {
         md += `## \`${item.name}\`\n\n`;

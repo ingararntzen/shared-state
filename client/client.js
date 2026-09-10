@@ -9,8 +9,7 @@ import { random_string, resolvablePromise, isNumber } from "./util/util.js";
 const DEFAULT_FAILURE_TIMEOUT = 10;
 
 /**
- * SharedStateClient manages network connections, subscriptions,
- * state providers, and application objects.
+ * The `SharedStateClient` manages logical network connections, subscriptions, state providers, and application objects.
  * @class SharedStateClient
  * @see {@link Connection}
  * @see {@link ServerClock}

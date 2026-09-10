@@ -1,7 +1,9 @@
 /**
- * @file client/util/events.js
- * @description Decoupled, state-oriented event and subscription system.
- * 
+ * The `eventify` decorator can be used on objects or class prototype objects in order to imbue the target object with event capabilities.
+ * @module Events
+ */
+
+/*
  * ============================================================================
  * OVERVIEW & USAGE
  * ============================================================================
