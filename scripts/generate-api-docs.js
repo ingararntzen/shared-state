@@ -30,7 +30,9 @@ function formatSingleType(t) {
     if (cleanName === "CollectionResource") return `[\`CollectionResource\`](/client_api/collection_resource)`;
     if (cleanName === "ValueResource") return `[\`ValueResource\`](/client_api/value_resource)`;
     if (cleanName === "Connection") return `[\`Connection\`](/client_api/connection)`;
+    if (cleanName === "ConnectionState") return `[\`ConnectionState\`](/client_api/connection#connectionstate-enum)`;
     if (cleanName === "ServerClock") return `[\`ServerClock\`](/client_api/clock)`;
+    if (cleanName === "SharedStateClient") return `[\`SharedStateClient\`](/client_api/client)`;
 
     if (cleanName === "Item[]" || cleanName === "Array<Item>") {
         return `[\`Item\`](/client_api/types#item)[]`;
@@ -66,7 +68,10 @@ function cleanDesc(desc) {
         .replace(/\{@link CollectionResource\}/g, "[`CollectionResource`](/client_api/collection_resource)")
         .replace(/\{@link ValueResource\}/g, "[`ValueResource`](/client_api/value_resource)")
         .replace(/\{@link Connection\}/g, "[`Connection`](/client_api/connection)")
+        .replace(/\{@link ConnectionState ConnectionState\.CONNECTED\}/g, "[`ConnectionState.CONNECTED`](/client_api/connection#connectionstate-enum)")
+        .replace(/\{@link ConnectionState\}/g, "[`ConnectionState`](/client_api/connection#connectionstate-enum)")
         .replace(/\{@link ServerClock\}/g, "[`ServerClock`](/client_api/clock)")
+        .replace(/\{@link SharedStateClient\}/g, "[`SharedStateClient`](/client_api/client)")
         .replace(/\{@link TokenAccess Token-based Resource Access\}/g, "[`Token-based Resource Access`](/design/abstraction/objects#token-based-resource-access)")
         .replace(/\{@link TokenAccess\}/g, "[`Token-based Resource Access`](/design/abstraction/objects#token-based-resource-access)");
 }
@@ -264,16 +269,43 @@ async function generateClientDoc() {
 // 4. Connection Dedicated Page
 async function generateConnectionDoc() {
     const files = [
-        path.join(rootDir, "client", "wsio.js")
+        path.join(rootDir, "client", "connection.js")
     ];
     const data = await jsdoc2md.getTemplateData({ files });
     
     let md = `# Connection\n\n`;
-    md += `The \`client.connection\` instance (\`Connection\`) manages transport connection state, automatic reconnects, and connection lifecycle events.\n\n`;
-    
-    md += `## ConnectionState Enum\n\n`;
-    md += `Valid connection state strings:\n`;
-    md += `- \`\"disconnected\"\`\n- \`\"connecting\"\`\n- \`\"connected\"\`\n- \`\"terminated\"\`\n\n`;
+    const classInfo = data.find(d => d.name === "Connection");
+    if (classInfo) {
+        const desc = classInfo.classdesc || classInfo.description;
+        if (desc) {
+            md += `${cleanDesc(desc)}\n\n`;
+        }
+        if (classInfo.see && classInfo.see.length > 0) {
+            for (const seeItem of classInfo.see) {
+                md += `**See**: ${cleanDesc(seeItem)}\n\n`;
+            }
+        }
+    }
+
+    const enumInfo = data.find(d => d.name === "ConnectionState");
+    if (enumInfo) {
+        md += `## ConnectionState Enum\n\n`;
+        if (enumInfo.description) {
+            md += `${cleanDesc(enumInfo.description)}\n\n`;
+        }
+        if (enumInfo.properties && enumInfo.properties.length > 0) {
+            md += formatParamsTable(enumInfo.properties, "Property");
+        }
+    }
+
+    // Constructor (only if public)
+    const ctor = data.find(d => d.kind === "constructor" && d.memberof === "Connection" && isPublic(d));
+    if (ctor) {
+        md += `## Constructor\n\n`;
+        md += `### \`new Connection(url, [options])\`\n\n`;
+        if (ctor.description) md += `${cleanDesc(ctor.description)}\n\n`;
+        if (ctor.params) md += formatParamsTable(ctor.params);
+    }
 
     const props = data.filter(d => d.kind === "member" && d.memberof === "Connection" && isPublic(d));
     if (props.length > 0) {

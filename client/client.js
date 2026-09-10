@@ -1,4 +1,4 @@
-import { Connection, ConnectionState } from "./wsio.js";
+import { Connection, ConnectionState } from "./connection.js";
 import { ItemProvider } from "./providers/item_provider.js";
 import { OptimisticItemProvider } from "./providers/optimistic_item_provider.js";
 import { SingleItemProvider } from "./providers/single_item_provider.js";
@@ -424,7 +424,7 @@ export class SharedStateClient {
     _reconnect(reason = "unknown") {
         console.warn(`Reconnect (reason: ${reason})`);
         if (this._connection && this._connection.state === ConnectionState.CONNECTED) {
-            this._connection.reconnect(true);
+            this._connection.reconnect({ immediate: true });
         }
     }
 

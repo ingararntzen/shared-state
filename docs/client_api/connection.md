@@ -1,66 +1,54 @@
 # Connection
 
-The `client.connection` instance (`Connection`) manages transport connection state, automatic reconnects, and connection lifecycle events.
+Connection manages connection state during automated reconnect cycles.
 
 ## ConnectionState Enum
 
-Valid connection state strings:
-- `"disconnected"`
-- `"connecting"`
-- `"connected"`
-- `"terminated"`
+Connection states enum for the Connection manager.
+
+| Property | Type | Description |
+| --- | --- | --- |
+| `DISCONNECTED` | `string` | Connection is closed pending connect (INITIAL STATE). |
+| `CONNECTING` | `string` | Connection attempt in progress |
+| `CONNECTED` | `string` | Connection is active |
+| `TERMINATED` | `string` | Connection was closed and will not reconnect (FINAL STATE). |
+
+## Constructor
+
+### `new Connection(url, [options])`
+
+Connection manages connection state during automated reconnect cycles.
 
 ## Properties
 
 ### `state`
 
-**Type**: `ConnectionState`
+**Type**: [`ConnectionState`](/client_api/connection#connectionstate-enum)
 
-Current connection state (`"disconnected"`, `"connecting"`, `"connected"`, `"terminated"`).
+Current connection state.
 
 ### `url`
 
 **Type**: `string`
 
-Target WebSocket URL.
-
-### `options`
-
-**Type**: `Object`
-
-Connection configuration options.
+WebSocket URL.
 
 ## Methods
 
-### `send(data)`
-
-Sends raw text data over the WebSocket connection.
-
-| Parameter | Type | Description |
-| --- | --- | --- |
-| `data` | `string` | Payload string to send |
-
-**Returns**: `void`
-
 ### `connectedPromise()`
 
-Returns a Promise that resolves when the WebSocket reaches the CONNECTED state.
+Returns a Promise that resolves when the WebSocket reaches the [`ConnectionState.CONNECTED`](/client_api/connection#connectionstate-enum) state.
 
 **Returns**: `Promise.<void>` - Resolves upon successful connection
 
-### `close()`
-
-Closes the WebSocket connection and marks state as TERMINATED (disables auto-reconnect).
-
-**Returns**: `void`
-
-### `reconnect(immediate)`
+### `reconnect(options)`
 
 Triggers a manual connection reset and reconnect.
 
 | Parameter | Type | Description |
 | --- | --- | --- |
-| `[immediate=true]` | `boolean` | Whether to reconnect immediately or after a 1s delay |
+| `[options]` | `Object` | Configuration options |
+| `[options.immediate=true]` | `boolean` | Whether to reconnect immediately or after a 1s delay |
 
 **Returns**: `void`
 

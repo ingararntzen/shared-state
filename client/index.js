@@ -1,6 +1,6 @@
 export { SharedStateClient } from "./client.js";
 export { load } from "./load.js";
-export { Connection, ConnectionState } from "./wsio.js";
+export { Connection, ConnectionState } from "./connection.js";
 export { CollectionResource } from "./definitions/collection_resource.js";
 export { ValueResource } from "./definitions/value_resource.js";
 export { ItemProvider } from "./providers/item_provider.js";
