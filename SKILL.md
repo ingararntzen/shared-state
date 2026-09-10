@@ -1,21 +1,22 @@
 ---
 name: shared-state
-description: Guidelines and examples for using the JavaScript client library of the Shared State real-time sharing service.
+description: Guidelines and code examples for using the JavaScript client library of the Shared State real-time sharing service.
 ---
 
 # Shared State JS Client Guide
 
-This guide covers the usage of the JavaScript client bindings for the Shared State real-time data sharing service.
+This guide provides context, API definitions, and code examples for working with the JavaScript client library of the SharedState real-time data sharing service.
 
-## Installation and Setup
+## Client Setup and Connection
 
-The JavaScript client can be imported either as an ES6 module or via a global variable.
+The JavaScript client can be imported either as an ES module or via global variable script import (IIFE).
 
-### ES6 Module Import
+### ES Module Import
 
 ```html
 <script type="module">
-    import { SharedStateClient } from "./libs/sharedstate.es.js";
+    import { SharedStateClient, SharedMap, SharedSet, SharedVariable, SharedInteger, SharedArray } from "./libs/sharedstate.es.js";
+
     const client = new SharedStateClient("ws://localhost:9000", {
         debug: true,  // Optional: enable console log debugging
         retries: 5    // Optional: max reconnection attempts (default: 4)
@@ -23,7 +24,7 @@ The JavaScript client can be imported either as an ES6 module or via a global va
 </script>
 ```
 
-### Global Variable Import (IIFE)
+### Global Script Import (IIFE)
 
 ```html
 <script src="./libs/sharedstate.iife.js"></script>
@@ -32,174 +33,137 @@ The JavaScript client can be imported either as an ES6 module or via a global va
 </script>
 ```
 
-### Waiting for Connection
+### Connection Management
 
-You can wait for the connection to be successfully established using the `connectedPromise()` method:
+Use `client.connection` to inspect connection state or wait for a successful WebSocket connection:
 
 ```javascript
-client.connectedPromise().then(() => {
-    console.log("Client connected to Shared State server!");
-});
+// Wait for initial connection to complete
+await client.connection.connectedPromise();
+console.log("Client connected to SharedState server!");
+
+// Connection lifecycle event callbacks
+client.connection.on_connect = () => console.log("Connected");
+client.connection.on_disconnect = () => console.log("Disconnected");
 ```
 
 ---
 
-## Proxy Collections
+## High-Level Data Abstractions
 
-Proxy Collections manage local collections serving as proxies to server-side collections. They automatically synchronize with server-side changes and support update actions.
+SharedState provides high-level reactive data structures that synchronize automatically with server-side collection paths.
 
-### Acquiring and Releasing Collections
+### SharedMap
 
-```javascript
-// Acquire a collection
-const coll = client.acquire_collection("/myapp/items/mycollection");
-
-// Release a collection (stops synchronizing and updates)
-client.release("/myapp/items/mycollection");
-```
-
-### Accessing Items
-
-Proxy Collections provide the following methods to query local items:
+Manages key-value item collections backed by a server path:
 
 ```javascript
-// Return a single item, given id
-const item = coll.get_item(id);
+import { SharedMap } from "./libs/sharedstate.es.js";
 
-// Return true if the collection contains an item with id
-const ok = coll.has_item(id);
+// Instantiate SharedMap for a given path
+const map = new SharedMap(client, "/myapp/items/slides");
 
-// Return list of all items in the collection
-const items = coll.get_items();
+// Wait until initial server sync finishes
+await map.ready();
 
-// Return the size (number of items) in the collection
-const size = coll.size;
-```
+// Map operations
+map.set("slide1", { title: "Introduction", page: 1 });
+const slide = map.get("slide1");
+const exists = map.has("slide1");
+const count = map.size;
 
-### Updates
-
-Modifications are performed as batch operations using `update_items(changes)`:
-
-```javascript
-coll.update_items({
-    remove: ["id1", "id2"], // List of IDs to remove (performed first)
-    insert: [{ id: "id3", state: "value" }], // List of items to insert or replace
-    reset: false // If true, removes all pre-existing items before inserting
-});
-```
-
-* `remove`: Default is `[]`.
-* `insert`: Default is `[]`. If items do not have an `id` property, a random string ID is auto-generated.
-* `reset`: Default is `false`.
-
-### Callback Subscriptions
-
-Callbacks are notified on membership and property changes:
-
-```javascript
-const handle = coll.add_callback((diffs) => {
+// React to changes
+map.add_callback((diffs) => {
     for (const diff of diffs) {
-        console.log(`Item ID: ${diff.id}`);
-        console.log(`New value:`, diff.new);
-        console.log(`Old value:`, diff.old);
+        console.log(`Changed key: ${diff.id}, New:`, diff.new, `Old:`, diff.old);
     }
 });
 
-// Unsubscribe
-coll.remove_callback(handle);
+// Clean up when finished
+map.destroy();
 ```
 
-#### Diff Types
+### SharedVariable & SharedInteger
 
-| Event Type | Condition |
-|---|---|
-| **INSERT** | `diff.new` is defined, `diff.old` is `undefined` |
-| **REPLACE** | Both `diff.new` and `diff.old` are defined |
-| **DELETE** | `diff.new` is `undefined`, `diff.old` is defined |
-
----
-
-## Proxy Objects
-
-Proxy Objects manage a set of items (an array) stored within a single server-side item on the service.
-
-The ProxyObject interface implements the same querying methods as ItemProviders:
-
-* `set_items(items)`: Sets the entire array of items. Returns a Promise resolved after the set operation has taken effect on the server.
-* `get_items()`: Returns all items in the array.
-* `get_item(id)`: Returns a single item from the array, given its ID.
-* `has_item(id)`: Returns true if an item with the given ID exists in the array.
-
-### Acquiring a Proxy Object
+Represent single reactive values stored at a specific item resource path:
 
 ```javascript
-// acquire_object(path, objectId, options)
-const myobj = client.acquire_object("/myapp/items/mycollection", "myobj");
-```
+import { SharedVariable, SharedInteger } from "./libs/sharedstate.es.js";
 
-### Accessing and Modifying the Object
+const titleVar = new SharedVariable(client, "/myapp/mitems/title");
+await titleVar.ready();
 
-```javascript
-// set items
-myobj.set_items([
-    {id: "sub_id_1", state: "foo"},
-    {id: "sub_id_2", state: "bar"}
-]);
+// Get / Set variable value
+titleVar.set("My Presentation");
+console.log(titleVar.get()); // "My Presentation"
 
-// get all items
-const items = myobj.get_items();
-
-// get a single item by id
-const item = myobj.get_item("sub_id_1");
-```
-
-### Callbacks for Proxy Objects
-
-Like ItemProviders, changes are reported through callback subscriptions.
-
-```javascript
-const handle = myobj.add_callback((diff) => {
-    console.log("Object changed from", diff.old, "to", diff.new);
+// Reactive listener
+titleVar.add_callback((val) => {
+    console.log("Title updated to:", val);
 });
 
-// Unsubscribe
-myobj.remove_callback(handle);
+// Integer counter with atomic increment operations
+const counter = new SharedInteger(client, "/myapp/mitems/likes");
+await counter.ready();
+
+counter.increment(); // Increments value by 1
+counter.decrement(); // Decrements value by 1
 ```
 
 ---
 
+## Low-Level Collection Resources
 
+For direct manipulation of raw collection items and batch update operations:
+
+### Acquiring Collection Resources
+
+```javascript
+// Acquire a collection resource
+const coll = client.get_collection_resource("adm", "/myapp/items/mycollection");
+
+// Query local items
+const items = coll.get_items();
+const item = coll.get_item("item123");
+const exists = coll.has_item("item123");
+
+// Perform batch updates
+coll.update_items({
+    remove: ["old_id"],                           // List of IDs to remove
+    insert: [{ id: "item123", status: "active" }], // Items to insert/replace
+    reset: false                                   // Set true to clear all prior items
+});
+
+// Subscribe to item collection changes
+const callbackHandle = coll.add_callback((diffs) => {
+    for (const diff of diffs) {
+        if (diff.old === undefined && diff.new !== undefined) {
+            console.log("Item inserted:", diff.id);
+        } else if (diff.old !== undefined && diff.new !== undefined) {
+            console.log("Item replaced:", diff.id);
+        } else if (diff.old !== undefined && diff.new === undefined) {
+            console.log("Item deleted:", diff.id);
+        }
+    }
+});
+
+// Remove callback when finished
+coll.remove_callback(callbackHandle);
+```
+
+---
 
 ## Server Clock Synchronization
 
-The SharedState client includes a built-in mechanism to estimate the server's clock and synchronize time. The client automatically sends ping requests to keep a sliding window of time samples. The server clock is represented as a standardized UTC timestamp expressed in seconds after the Unix epoch (float/fractional seconds since January 1, 1970 00:00:00 UTC).
-
-### Accessing the Synchronized Clock
-
-The synchronized clock is accessed via the `serverclock` property on the `SharedStateClient` instance:
+The client maintains high-precision server clock estimation with latency calculation:
 
 ```javascript
-// Get the current estimated server UTC time (in seconds since epoch)
+// Get estimated current server UTC time in seconds since epoch
 const serverTime = client.serverclock.now();
 
-// Get the estimated transit delay (one-way round-trip latency in seconds)
-const transitTime = client.serverclock.trans;
+// One-way transit latency in seconds
+const latency = client.serverclock.trans;
 
-// Get the estimated skew between the local client and the server clock (in seconds)
+// Estimated clock skew between client and server in seconds
 const skew = client.serverclock.skew;
-```
-
-### Pausing and Resuming Synchronization
-
-By default, the clock starts synchronizing when the connection is established. You can manually pause, resume, or restart the background pinging/sampling mechanism by interacting with the `pinger` object exposed by the clock:
-
-```javascript
-// Pause background pinging/sampling
-client.serverclock.pinger.pause();
-
-// Resume background pinging/sampling
-client.serverclock.pinger.resume();
-
-// Restart the background pinging/sampling sequence
-client.serverclock.pinger.restart();
 ```

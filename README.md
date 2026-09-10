@@ -1,352 +1,73 @@
+# SharedState
 
-# Shared State
+[![Documentation](https://img.shields.io/badge/docs-online-blue.svg)](https://ingararntzen.github.io/shared-state/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-Python server and JavaScript client for real-time data sharing. 
+> 📖 **Full Documentation**: Visit the official [SharedState Documentation](https://ingararntzen.github.io/shared-state/) for comprehensive guides, tutorials, architecture overviews, and API references.
 
-## Documentation
+---
 
-Full documentation is available at: https://ingararntzen.github.io/shared-state/
+## Overview
 
+**SharedState** is a lightweight real-time state synchronization framework consisting of a high-performance Python server and a modern JavaScript client library.
 
-## Intro
+It enables web applications and microservices to maintain local data models that stay automatically synchronized across multiple clients in real-time over WebSocket connections. When any client modifies a shared resource, all connected clients immediately observe the update.
 
-This project provides a Python server and JavaScript client for real-time data
-sharing. Shared state implies that multiple (Web) clients may connect to a
-shared resource on a server, and maintain a local proxy, which is automatically
-kept in sync with the server-side resource. If a client requests modification of
-the shared resource, all clients will observe the modification. Importantly,
-applications define the data-format for resource and what role resources play in
-the application. As such, Share State is a generic tool for state sharing.
-Communication between client and server is implemented over websocket
-connections.
+---
 
+## Key Features
 
-### Script Downloads
+- **Automatic Synchronization**: Local proxy models automatically sync with server-side resources.
+- **Multiplexed WebSockets**: Efficiently handle multiple state subscriptions and high-frequency updates over a single WebSocket connection.
+- **High-Precision Clock Sync**: Built-in server clock estimation and round-trip time latency tracking for coordinated playback and synchronized user experiences.
+- **Flexible Persistence**: Built-in support for SQLite (in-memory or file-backed) and MySQL storage backends.
+- **Rich Data Abstractions**: High-level structures including `SharedMap`, `SharedSet`, `SharedVariable`, `SharedInteger`, and `SharedArray`.
+- **Browser & Node Support**: Bundled as standard ES modules and IIFE scripts for browser runtime or Node.js environments.
 
-You can download JavaScript bundles directly from the following links:
+---
 
-- [sharedstate.es.js](https://github.com/ingararntzen/shared-state/raw/main/dist/sharedstate.es.js)
-- [sharedstate.iife.js](https://github.com/ingararntzen/shared-state/raw/main/dist/sharedstate.iife.js)
-- [sharedstate.es.min.js](https://github.com/ingararntzen/shared-state/raw/main/dist/sharedstate.es.min.js)
-- [sharedstate.iife.min.js](https://github.com/ingararntzen/shared-state/raw/main/dist/sharedstate.iife.min.js)
+## Project Origins & Status
 
+- **Origins**: SharedState was created by Ingar Arntzen to simplify real-time interactive web applications, collaborative interfaces, and multi-screen synchronization without requiring heavy database sync infrastructure.
+- **Status**: Active development (v1.0 architecture). The Python server and JavaScript client APIs are fully functional and tested across continuous integration test suites.
 
-### Script Includes
+---
 
-ES6 Module Import 
+## Quick Download & Script Includes
+
+You can import the JavaScript client directly into your browser applications using standard module imports or global bundle tags:
+
+### ES6 Module Import
 
 ```html
 <script type="module">
-    import {SharedStateClient} from "https://github.com/ingararntzen/shared-state/raw/main/dist/sharedstate.es.js";
-    const client = new SharedStateClient("ws://host:port");
+    import { SharedStateClient } from "https://github.com/ingararntzen/shared-state/raw/main/dist/sharedstate.es.js";
+    const client = new SharedStateClient("ws://localhost:9000");
 </script>
 ```
 
-Import into global variable
+### Global Script Import (IIFE)
 
 ```html
 <script src="https://github.com/ingararntzen/shared-state/raw/main/dist/sharedstate.iife.js"></script>
 <script>
-const client = new SHAREDSTATE.SharedStateClient("ws://host:port");
+    const client = new SHAREDSTATE.SharedStateClient("ws://localhost:9000");
 </script>
 ```
 
+---
 
-# Server setup
+## Documentation & Developer Resources
 
-### Database setup
+For detailed instructions on installation, configuration, client APIs, and contributing:
 
-To make use of the built-in mysql support, follow steps below.
-Alternatively, create a new service based on a different database.
+- 📚 **User Guide & API Docs**: [https://ingararntzen.github.io/shared-state/](https://ingararntzen.github.io/shared-state/)
+- 🛠️ **Development Guide**: See [DEVELOP.md](DEVELOP.md) for environment setup, building client bundles, running tests, and folder organization.
+- 📋 **Project Roadmap & Todo List**: See [TODO.md](TODO.md) for planned tasks and future extension ideas.
 
-**Mysql**
-```sh
-mysql -u root -p 
-```
+---
 
-**Mariadb/MySQL 8.x**
-```sh
-sudo mysql 
-```
+## Authorship & License
 
-Create a user and a database.
-
-```sh
-create user if not exists myuser@localhost identified by 'mypassword';
-create database if not exists sharedstate;
-grant all on sharedstate.* to myuser@localhost;
-flush privileges;
-```
-
-### Server Config
-
-The following config file defines stores for the SharedState server.
-The store named _items_ is based on MySQL. The second store is named
-_mitems_ and is based on an in-memory sqlite database.
-
-```json
-{
-    "service": {"host": "0.0.0.0", "port": 9000},
-    "stores": [
-        {
-            "name": "items", "module": "item_store", 
-            "config": {
-                "db_type": "mysql",
-                "db_name": "sharedstate",
-                "db_table": "items",
-                "db_host": "localhost",
-                "db_user": "myuser",
-                "db_password": "mypassord",
-                "ssl.enabled": false,
-                "ssl.key": null,
-                "ssl.ca": null,
-                "ssl.cert": null
-            }
-        },
-        {
-            "name": "mitems", "module": "item_store", 
-            "config": {
-                "db_type": "sqlite",
-                "db_name": ":memory:",
-                "db_table": "items"
-            }
-        }
-
-    ]
-}
-```
-
-### Poetry
-
-```sh
-poetry install
-poetry run sharedstate-server myconfig.json
-```
-
-
-# Concepts
-
-### Collections
-
-The SharedState server hosts named collections of items, and allow
-clients to monitor dynamic changes within these collections, including removal,
-addition or modifications of items. Communication is multiplexed over a single
-websocket connection, even if clients monitor multiple item collections on the
-server.
-
-
-### Items
-
-Items are JSON-serializeable objects with an _"id"_ property.
-The _id_ must be a string, and is assumed to be unique within the
-collection. Otherwise, applications are free to specify the contents 
-of items as needed. 
-
-
-### Update
-Items can be *removed*, *inserted* or *replaced*. Modifications are performed as
-a batch operation, allowing the *removal* and *insertion* of multiple items in a
-single operation.
-
-```javascript
-collection.update_items({remove:[], insert:[], reset:false}) {}
-```
-
-* _remove_ lists _id's_ of items to be removed from the collection. 
-Removal is performed ahead of insertion.
-* _insert_ is a list of _items_ to be inserted into the collection. Inserted _items_ will replace pre-existing items with same _id_.
-* _reset_ (boolean). If true, all pre-existing items will be removed
-  ahead of insertion  (_remove_ is ignored).
-* defaults for _remove_ and _insert_ is [], implying that they can be
-  omitted if there are no items to remove or insert.
-* default for _reset_ is false.
-
-| UPDATE ARGUMENT                           | EFFECT                 |
-|-------------------------------------------|------------------------|
-| {remove:[], insert:[], reset:false}       | NOOP                   |
-| {remove:[], insert:[...], reset:false}    | INSERT ITEMS           |
-| {remove:[...], insert:[], reset:false}    | REMOVE ITEMS           |
-| {remove:[...], insert:[...], reset:false} | REMOVE + INSERT ITEMS  |
-| {insert:[], reset:true}                   | RESET                  |
-| {insert:[...], reset:true}                | RESET INSERT           |
-
-
-
-### Services
-
-The SharedState server provides built-in support for independent 
-services responsible for item storage. The default service implementation
-is based on MySQL and Sqlite, where Sqlite particularly supports in-memory item
-collections. Additional services may be added.
-
-
-### Paths
-
-Item collections hosted by the SharedState server are identified by a _path_.
-
-```text
-/app/service/collection/
-```
-
-* app - distinct namespace for each application
-* service - name of service
-* collection - named item collection  
-
-*collections* and *apps* are automatically created when referenced.  
-
-
-
-# Shared State Client
-
-The SharedState client allows application to monitor server-side
-collections. The client maintains a local _collection_ for each referenced _path_. This local _collection_ acts as a proxy to the server-side collection, and is automatically synchronized with server-side state changes.
-Additionally, the _collection_ provides an update_items method - which forwards update
-requests to the SharedState server.
-
-### Example
-
-The following example shows a minimal application toggling item.state between 
-true and false, for a given item within a specific item collection.
-
-```html
-<!DOCTYPE html>
-<meta charset="utf-8" />
-<head>
-    <script type="module">
-        import {SharedStateClient} from "https://github.com/ingararntzen/shared-state/raw/main/libs/sharedstate.es.js";
-        const client = new SharedStateClient("ws://0.0.0.0:9000");
-
-        // Collection
-        const coll = client.acquire_collection("/app/items/chnl")
-
-        // Collection Change Handler
-        coll.add_callback(function (eArgs) {
-            const item = coll.get_item("myid");
-            if (item != undefined) {
-                console.log(coll.get_item("myid").state)
-            }
-        });
-
-        // Update Button
-        document.querySelector("#updateBtn").onclick = () => {
-            const item = coll.get_item("myid");
-            if (item != undefined) {
-                // toggle state
-                coll.update_items({insert:[{id:"myid", state:!(item.state)}]});
-            } else {
-                // initialize state
-                coll.update_items({insert:[{id: "myid", state:true}]});
-            }
-        }
-        // Reset Button
-        document.querySelector("#resetBtn").onclick = () => {
-            coll.update_items({reset:true});
-        }
-    </script>
-</head>
-<body>
-    <button id="updateBtn">Update</button>
-    <button id="resetBtn">Reset</button>
-</body>
-</html> 
-```
-
-### ItemProvider
-
-The SharedState client manages local collections serving as proxies to server-side collections.
-
-ItemProviders may be acquired (and released) by application code. A released ItemProvider 
-is no longer kept in sync with the corresponding server-side collection, and does no longer accept updates.
-
-```javascript
-// acquire
-const ds = client.acquire_collection("/myapp/items/mycollection")
-// release
-client.release("/myapp/items/mycollection");
-```
-
-ItemProviders provide the following methods. 
-
-```javascript
-// return a single item, given id
-const item = ds.get_item(id)
-// return true if collection has item with id
-const ok = ds.has_item(id)
-// return list of all items in collection
-const items = ds.get_items()
-// return size of collection
-const size = ds.size;
-```
-
-ItemProvider changes reported through callback.
-Changes include both membership changes (INSERT, DELETE) and item changes (REPLACE).
-
-```javascript
-const handle = ds.add_callback(function (diffs) {
-    // handle diffs
-});
-ds.remove_callback(handle);
-
-// diffs
-[
-    {id: "id", new: {id, ...}, old: {id, ...}},
-    ...
-]
-```
-
-The callback argument is a list of diffs, one for each items which have
-been changed. *new* gives the new state of the item, whereas *old* gives the
-state of the item before the update. When a new item has been added, 
-*old* is undefined. Similarly, when an item has been remove, *new* is undefined.  
-
-| DIFF                                        | EFFECT   |
-|---------------------------------------------|----------|
-| {id: "id", new: {id, ...}, old: undefined}  | INSERT   |
-| {id: "id", new: {id, ...}, old: {id, ...}}  | REPLACE  |
-| {id: "id", new: undefined, old: {id, ...}}  | DELETE   |
-
-
-### Proxy Objects
-
-ProxyObjects manage a set of items (an array) stored within a single server-side item on the service.
-
-The ProxyObject interface implements the same querying methods as ItemProviders:
-
-* `set_items(items)`: Sets the entire array of items. Returns a Promise resolved after the set operation has taken effect on the server.
-* `get_items()`: Returns all items in the array.
-* `get_item(id)`: Returns a single item from the array, given its ID.
-* `has_item(id)`: Returns true if an item with the given ID exists in the array.
-
-Like ItemProviders, changes are reported through callback subscriptions.
-
-```javascript
-const myobj = client.acquire_object("/myapp/items/mycollection", "myobj");
-
-// set items
-myobj.set_items([
-    {id: "sub_id_1", state: "foo"},
-    {id: "sub_id_2", state: "bar"}
-]);
-
-// get all items
-const items = myobj.get_items();
-
-// get a single item by id
-const item = myobj.get_item("sub_id_1");
-
-// releases proxy collection and associated proxy objects
-client.release("/myapp/items/mycollection");
-```
-
-# SharedState Server
-
-Async websocket server.
-
-
-# Limitations
-
-* Currently, communication is plain text. SSL support has not been tested.
-
-* Currently no support for server-side filtering, though the server design is open to this feature being added as a future extension.
-
-* The provided client code is limited to JavaScript, implying that state sharing is limited the Web platform and nodejs environments. However, the concept itself is open to state sharing across any connected platform, provided only that a client implementation exists for the given platform.
+- **Author**: Ingar Mæhlum Arntzen
+- **License**: Released under the [MIT License](LICENSE).
