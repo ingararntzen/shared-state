@@ -1,5 +1,5 @@
-import { random_string, resolvablePromise } from "./util/util.js";
-import { sanitizeChanges, serializeChanges } from "./common.js";
+import { random_string, resolvablePromise } from "../util/util.js";
+import { sanitizeChanges, serializeChanges } from "../common.js";
 
 export class UpdateBuilder {
     constructor(proxyCollection) {
@@ -95,11 +95,6 @@ export class UpdateBuilder {
         }
     }
 }
-
-/**
- * Path-exclusive state provider interface contract.
- * @interface PathResource
- */
 
 /**
  * ItemProvider manages state replication, key-value item mapping, and update synchronization for a path.

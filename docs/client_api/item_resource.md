@@ -1,32 +1,14 @@
 # ItemResource API
 
-`ItemResource` represents an item-exclusive state resource bound to a single `itemID` within a `PathResource`.
-
-`ItemResource` instances are acquired via:
-
-```javascript
-const itemResource = client.get_item_resource(token, path, itemID);
-```
+Interface representing an item-exclusive resource bound to a single item name within a PathResource.
 
 ## Properties
 
-### `path`
+### `name`
 
 **Type**: `string`
 
-The full canonical path of the underlying state provider.
-
-### `itemID`
-
-**Type**: `string`
-
-Target item identifier.
-
-### `itemId`
-
-**Type**: `string`
-
-Alias for itemID.
+Item name identifier.
 
 ### `provider`
 
@@ -40,13 +22,13 @@ Underlying PathResource (Layer 1 state provider).
 
 Retrieves the current state/value of the item.
 
-**Returns**: `*` - Associated item state, or `undefined` if item does not exist
+**Returns**: `*` - Associated item state, or `undefined` if item is uninitialized
 
-### `item_exists()`
+### `is_initialized()`
 
-Checks whether the item exists in provider state.
+Checks whether the item has been initialized in provider state.
 
-**Returns**: `boolean` - `true` if item exists, `false` otherwise
+**Returns**: `boolean` - `true` if item is initialized, `false` otherwise
 
 ### `set(value, options)`
 
@@ -59,19 +41,9 @@ Updates the item value across the network.
 
 **Returns**: `Promise.<Object>` - Resolves when state update is dispatched/processed
 
-### `delete(options)`
-
-Removes the item from the provider state across the network.
-
-| Parameter | Type | Description |
-| --- | --- | --- |
-| `[options]` | `Object` | Update options |
-
-**Returns**: `Promise.<Object>` - Resolves when delete update is dispatched/processed
-
 ### `add_callback(handler)`
 
-Registers a callback invoked whenever this specific item is inserted, removed, or reset.
+Registers a callback invoked whenever this specific item is updated or reset.
 
 | Parameter | Type | Description |
 | --- | --- | --- |

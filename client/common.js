@@ -16,6 +16,8 @@ export const MsgCmd = {
     NOTIFY: "NOTIFY"
 };
 
+
+
 /**
  * Normalizes a path string to ensure a leading slash.
  * @param {string} rawPath
@@ -63,7 +65,7 @@ export function sanitizeItem(rawItem) {
  * Sanitizes any changes payload (arrays, Sets, Maps, or objects) into canonical runtime format:
  * { insert: Map(id -> item), remove: Set(id), reset: boolean, version?: number }
  * @param {Object} rawChanges
- * @returns {{ insert: Map, remove: Set, reset: boolean, version?: number }}
+ * @returns {Changes}
  */
 export function sanitizeChanges(rawChanges) {
     if (!rawChanges || typeof rawChanges !== "object") {

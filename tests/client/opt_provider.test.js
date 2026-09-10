@@ -1,9 +1,9 @@
 import { describe, test, expect, vi } from "vitest";
-import { ItemProvider } from "../../client/provider.js";
-import { OptimisticItemProvider } from "../../client/opt_provider.js";
+import { ItemProvider } from "../../client/providers/item_provider.js";
+import { OptimisticItemProvider } from "../../client/providers/optimistic_provider.js";
 import { SharedInteger } from "../../client/objects/variables.js";
 import { SharedMap } from "../../client/objects/map.js";
-import { ItemResource } from "../../client/item_resource.js";
+import { SingleItemProvider } from "../../client/providers/single_item_provider.js";
 
 import { SharedStateClient } from "../../client/client.js";
 
@@ -31,7 +31,7 @@ function createMockClient() {
         },
         get_item_resource(token, collPath, itemID) {
             const providerInstance = this.get_resource(token, collPath);
-            return new ItemResource(providerInstance, itemID);
+            return new SingleItemProvider(providerInstance, itemID);
         }
     };
     client._request.mockImplementation(async (cmd, path, data) => {

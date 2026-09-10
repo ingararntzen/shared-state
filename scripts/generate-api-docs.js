@@ -25,11 +25,13 @@ function formatType(typeObj) {
     return typeObj.names.map(t => `\`${t}\``).join(" | ");
 }
 
-function formatParamsTable(params) {
+function formatParamsTable(params, headerName = "Parameter") {
     if (!params || params.length === 0) return "";
-    let md = "| Parameter | Type | Description |\n| --- | --- | --- |\n";
+    let md = `| ${headerName} | Type | Description |\n| --- | --- | --- |\n`;
     for (const p of params) {
-        const pName = p.optional ? `\`[${p.name}]\`` : `\`${p.name}\``;
+        const defaultVal = p.defaultvalue !== undefined ? p.defaultvalue : p.defaultValue;
+        const nameWithDefault = defaultVal !== undefined ? `${p.name}=${defaultVal}` : p.name;
+        const pName = p.optional ? `\`[${nameWithDefault}]\`` : `\`${p.name}\``;
         const pType = formatType(p.type);
         const pDesc = p.description || "";
         md += `| ${pName} | ${pType} | ${pDesc} |\n`;
@@ -41,7 +43,8 @@ function formatMethod(item) {
     const returnsType = item.returns && item.returns[0] ? formatType(item.returns[0].type) : "";
     const returnsDesc = item.returns && item.returns[0] && item.returns[0].description ? ` - ${item.returns[0].description}` : "";
     
-    let md = `### \`${item.name}(${(item.params || []).map(p => p.name).join(", ")})\`\n\n`;
+    const topParams = (item.params || []).filter(p => !p.name.includes("."));
+    let md = `### \`${item.name}(${topParams.map(p => p.name).join(", ")})\`\n\n`;
     if (item.description) {
         md += `${item.description}\n\n`;
     }
@@ -378,13 +381,15 @@ async function generateSetDoc() {
 
 async function generatePathResourceDoc() {
     const files = [
-        path.join(rootDir, "client", "path_resource.js")
+        path.join(rootDir, "client", "definitions", "path_resource.js")
     ];
     const data = await jsdoc2md.getTemplateData({ files });
 
     let md = `# PathResource API\n\n`;
-    md += `\`PathResource\` is an interface representing a path-exclusive state provider resource (\`ItemProvider\` or \`OptimisticItemProvider\`). It manages state replication, key-value item mapping, and real-time update synchronization for an entire path.\n\n`;
-    md += `\`PathResource\` instances are acquired via:\n\n\`\`\`javascript\nconst pathResource = client.get_resource(token, path);\n\`\`\`\n\n`;
+    const classInfo = data.find(d => d.name === "PathResource");
+    if (classInfo && classInfo.description) {
+        md += `${classInfo.description}\n\n`;
+    }
 
     const props = data.filter(d => d.memberof === "PathResource" && isPublic(d) && d.kind === "member");
     if (props.length > 0) {
@@ -408,13 +413,15 @@ async function generatePathResourceDoc() {
 
 async function generateItemResourceDoc() {
     const files = [
-        path.join(rootDir, "client", "item_resource.js")
+        path.join(rootDir, "client", "definitions", "item_resource.js")
     ];
     const data = await jsdoc2md.getTemplateData({ files });
 
     let md = `# ItemResource API\n\n`;
-    md += `\`ItemResource\` represents an item-exclusive state resource bound to a single \`itemID\` within a \`PathResource\`.\n\n`;
-    md += `\`ItemResource\` instances are acquired via:\n\n\`\`\`javascript\nconst itemResource = client.get_item_resource(token, path, itemID);\n\`\`\`\n\n`;
+    const classInfo = data.find(d => d.name === "ItemResource" || d.memberof === "ItemResource");
+    if (classInfo && classInfo.description) {
+        md += `${classInfo.description}\n\n`;
+    }
 
     const props = data.filter(d => d.memberof === "ItemResource" && isPublic(d) && d.kind === "member");
     if (props.length > 0) {
@@ -436,10 +443,39 @@ async function generateItemResourceDoc() {
     console.log("Generated item_resource.md");
 }
 
+async function generateTypesDoc() {
+    const files = [
+        path.join(rootDir, "client", "definitions", "typedefs.js")
+    ];
+    const data = await jsdoc2md.getTemplateData({ files });
+    const typedefs = data.filter(d => d.kind === "typedef" && isPublic(d));
+
+    let md = `# Types & Data Structures\n\n`;
+    md += `Common data structures and typedefs used throughout the SharedState Client API.\n\n`;
+
+    for (const item of typedefs) {
+        md += `## \`${item.name}\`\n\n`;
+        const itemType = formatType(item.type);
+        if (itemType) {
+            md += `**Type**: ${itemType}\n\n`;
+        }
+        if (item.description) {
+            md += `${item.description}\n\n`;
+        }
+        if (item.properties && item.properties.length > 0) {
+            md += formatParamsTable(item.properties, "Property");
+        }
+    }
+
+    fs.writeFileSync(path.join(docsApiDir, "types.md"), md, "utf8");
+    console.log("Generated types.md");
+}
+
 async function generateAll() {
     console.log("Generating structured Client API documentation...");
     await generateOverviewDoc();
     await generateEventsDoc();
+    await generateTypesDoc();
     await generateClientDoc();
     await generateConnectionDoc();
     await generateClockDoc();

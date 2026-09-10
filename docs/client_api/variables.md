@@ -75,7 +75,7 @@ Increments the integer value by delta.
 
 | Parameter | Type | Description |
 | --- | --- | --- |
-| `[delta]` | `number` | Amount to increment |
+| `[delta=1]` | `number` | Amount to increment |
 
 **Returns**: `Promise.<void>` - Resolves when state update is processed
 
@@ -85,7 +85,7 @@ Decrements the integer value by delta.
 
 | Parameter | Type | Description |
 | --- | --- | --- |
-| `[delta]` | `number` | Amount to decrement |
+| `[delta=1]` | `number` | Amount to decrement |
 
 **Returns**: `Promise.<void>` - Resolves when state update is processed
 
@@ -101,7 +101,7 @@ Increments the float value by delta.
 
 | Parameter | Type | Description |
 | --- | --- | --- |
-| `[delta]` | `number` | Amount to increment |
+| `[delta=1.0]` | `number` | Amount to increment |
 
 **Returns**: `Promise.<void>` - Resolves when state update is processed
 
@@ -111,7 +111,7 @@ Decrements the float value by delta.
 
 | Parameter | Type | Description |
 | --- | --- | --- |
-| `[delta]` | `number` | Amount to decrement |
+| `[delta=1.0]` | `number` | Amount to decrement |
 
 **Returns**: `Promise.<void>` - Resolves when state update is processed
 

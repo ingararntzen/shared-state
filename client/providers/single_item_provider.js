@@ -1,43 +1,25 @@
 /**
- * Class representing an item-exclusive state resource bound to a single itemID within a PathResource.
- * Returned by `client.get_item_resource(token, path, itemID)`.
- * @class ItemResource
+ * Concrete provider representing a single item bound within a PathResource.
+ * Implements ItemResource.
+ * @class SingleItemProvider
  */
-export class ItemResource {
+export class SingleItemProvider {
     /**
      * @param {Object} provider - Parent PathResource (ItemProvider or OptimisticItemProvider)
-     * @param {string} itemID - Target item identifier
+     * @param {string} name - Target item identifier/name
      */
-    constructor(provider, itemID) {
+    constructor(provider, name) {
         this._provider = provider;
-        this._itemID = itemID;
+        this._name = name;
     }
 
     /**
-     * The full canonical path of the underlying state provider.
+     * Target item identifier name.
      * @type {string}
      * @readonly
      */
-    get path() {
-        return this._provider.path;
-    }
-
-    /**
-     * Target item identifier.
-     * @type {string}
-     * @readonly
-     */
-    get itemID() {
-        return this._itemID;
-    }
-
-    /**
-     * Alias for itemID.
-     * @type {string}
-     * @readonly
-     */
-    get itemId() {
-        return this._itemID;
+    get name() {
+        return this._name;
     }
 
     /**
@@ -51,20 +33,20 @@ export class ItemResource {
 
     /**
      * Retrieves the current state/value of the item.
-     * @returns {*} Associated item state, or `undefined` if item does not exist
+     * @returns {*} Associated item state, or `undefined` if item is uninitialized
      */
     get() {
-        const item = this._provider.get_item(this._itemID);
+        const item = this._provider.get_item(this._name);
         if (!item) return undefined;
         return item.state !== undefined ? item.state : item.value;
     }
 
     /**
-     * Checks whether the item exists in provider state.
-     * @returns {boolean} `true` if item exists, `false` otherwise
+     * Checks whether the item has been initialized in provider state.
+     * @returns {boolean} `true` if item is initialized, `false` otherwise
      */
-    item_exists() {
-        return this._provider.has_item(this._itemID);
+    is_initialized() {
+        return this._provider.has_item(this._name);
     }
 
     /**
@@ -75,23 +57,12 @@ export class ItemResource {
      */
     set(value, options = {}) {
         return this._provider.update_items({
-            insert: [{ id: this._itemID, state: value }]
+            insert: [{ id: this._name, state: value }]
         }, options);
     }
 
     /**
-     * Removes the item from the provider state across the network.
-     * @param {Object} [options] - Update options
-     * @returns {Promise<Object>} Resolves when delete update is dispatched/processed
-     */
-    delete(options = {}) {
-        return this._provider.update_items({
-            remove: [this._itemID]
-        }, options);
-    }
-
-    /**
-     * Registers a callback invoked whenever this specific item is inserted, removed, or reset.
+     * Registers a callback invoked whenever this specific item is updated or reset.
      * @param {Function} handler - Callback receiving changes payload
      * @returns {Object} Subscription handle with `.off()` method
      */
@@ -99,8 +70,8 @@ export class ItemResource {
         const wrappedHandler = (changes) => {
             const { insert, remove, reset } = changes;
             const itemTouched = reset ||
-                (remove && remove.has(this._itemID)) ||
-                (insert && insert.has(this._itemID));
+                (remove && remove.has(this._name)) ||
+                (insert && insert.has(this._name));
 
             if (itemTouched) {
                 handler(changes);

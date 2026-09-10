@@ -60,7 +60,7 @@ Triggers a manual connection reset and reconnect.
 
 | Parameter | Type | Description |
 | --- | --- | --- |
-| `[immediate]` | `boolean` | Whether to reconnect immediately or after a 1s delay |
+| `[immediate=true]` | `boolean` | Whether to reconnect immediately or after a 1s delay |
 
 **Returns**: `void`
 

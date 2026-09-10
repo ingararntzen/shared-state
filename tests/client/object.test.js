@@ -1,6 +1,6 @@
 import { describe, test, expect, vi } from "vitest";
-import { ItemProvider } from "../../client/provider.js";
-import { ItemResource } from "../../client/item_resource.js";
+import { ItemProvider } from "../../client/providers/item_provider.js";
+import { SingleItemProvider } from "../../client/providers/single_item_provider.js";
 import {
     BaseTypedVariable,
     SharedTypedVariable,
@@ -37,7 +37,7 @@ describe("Layer 2 Domain Abstractions Unit Tests", () => {
             },
             get_item_resource(token, path, itemID) {
                 const providerInstance = this.get_resource(token, path);
-                return new ItemResource(providerInstance, itemID);
+                return new SingleItemProvider(providerInstance, itemID);
             }
         };
         return client;

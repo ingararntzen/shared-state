@@ -1,20 +1,14 @@
 # PathResource API
 
-`PathResource` is an interface representing a path-exclusive state provider resource (`ItemProvider` or `OptimisticItemProvider`). It manages state replication, key-value item mapping, and real-time update synchronization for an entire path.
-
-`PathResource` instances are acquired via:
-
-```javascript
-const pathResource = client.get_resource(token, path);
-```
+Interface representing a path-exclusive resource.
 
 ## Properties
 
-### `path`
+### `provider`
 
-**Type**: `string`
+**Type**: `Object`
 
-Canonical path of the state provider.
+Underlying state provider instance.
 
 ### `size`
 
@@ -32,13 +26,13 @@ Retrieves an item state object by ID.
 | --- | --- | --- |
 | `id` | `string` | Target item identifier |
 
-**Returns**: `Object` | `undefined` - Item state object `{ id, state }`, or `undefined` if not present
+**Returns**: `Item` | `undefined` - Item state object `{ id, state }`, or `undefined` if not present
 
 ### `get_items()`
 
 Retrieves all item state objects within the resource.
 
-**Returns**: `Array.<Object>` - Array of item state objects `{ id, state }`
+**Returns**: `Array.<Item>` - Array of item state objects `{ id, state }`
 
 ### `has_item(id)`
 
@@ -56,8 +50,9 @@ Updates items stored in the path resource across the network.
 
 | Parameter | Type | Description |
 | --- | --- | --- |
-| `[changes]` | `Object` | Delta changes object `{ insert, remove, reset }` |
+| `[changes]` | `Changes` | Delta changes object `{ insert, remove, reset }` |
 | `[options]` | `Object` | Update options |
+| `[options.conditional=false]` | `boolean` | If true, a conditional update will be performed |
 
 **Returns**: `Promise.<Object>` - Resolves when state update is dispatched/processed
 

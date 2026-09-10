@@ -1,7 +1,7 @@
 import { Connection, ConnectionState } from "./wsio.js";
-import { ItemProvider } from "./provider.js";
-import { OptimisticItemProvider } from "./opt_provider.js";
-import { ItemResource } from "./item_resource.js";
+import { ItemProvider } from "./providers/item_provider.js";
+import { OptimisticItemProvider } from "./providers/optimistic_provider.js";
+import { SingleItemProvider } from "./providers/single_item_provider.js";
 import { ServerClock } from "./server_clock.js";
 import { MsgType, MsgCmd, normalizePath, validatePath, sanitizeChanges } from "./common.js";
 import { random_string, resolvablePromise, isNumber } from "./util/util.js";
@@ -172,7 +172,7 @@ export class SharedStateClient {
         this._schedule_sub_sync();
 
         const providerInstance = this._providers.get(path);
-        return new ItemResource(providerInstance, itemID);
+        return new SingleItemProvider(providerInstance, itemID);
     }
 
     /**

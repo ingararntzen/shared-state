@@ -1,5 +1,5 @@
 import { describe, test, expect, vi } from "vitest";
-import { ItemProvider } from "../../client/provider.js";
+import { ItemProvider } from "../../client/providers/item_provider.js";
 
 describe("ItemProvider Unit Tests", () => {
     function createMockClient() {

@@ -128,7 +128,7 @@ export class BaseTypedVariable extends BaseVariable {
     // internal
     _refresh_value() {
         if (!this._reader) return;
-        const exists = this._reader.item_exists();
+        const exists = this._reader.is_initialized();
         const raw = this._reader.get();
 
         // Cast rawValue to the correct type of undefined

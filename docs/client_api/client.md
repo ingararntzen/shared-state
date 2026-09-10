@@ -12,7 +12,7 @@ Initializes the SharedStateClient.
 | --- | --- | --- |
 | `url` | `string` | WebSocket server URL (ws://host:port/) |
 | `[options]` | `Object` | Configuration options |
-| `[options.failureTimeout]` | `number` | Time in seconds before unacknowledged updates trigger a timeout reconnect |
+| `[options.failureTimeout=10]` | `number` | Time in seconds before unacknowledged updates trigger a timeout reconnect |
 
 ## Accessors & Properties
 

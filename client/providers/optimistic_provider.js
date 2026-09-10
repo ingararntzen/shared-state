@@ -1,5 +1,5 @@
-import { random_string, isNumber } from "./util/util.js";
-import { sanitizeChanges } from "./common.js";
+import { random_string, isNumber } from "../util/util.js";
+import { sanitizeChanges } from "../common.js";
 
 /**
  * OptimisticItemProvider decorates an ItemProvider with optimistic local state overlays.

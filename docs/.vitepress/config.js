@@ -69,6 +69,7 @@ export default defineConfig({
         text: 'Client API',
         items: [
           { text: 'Overview', docFooterText: 'Client API Overview', link: '/client_api/overview' },
+          { text: 'Types & Structures', link: '/client_api/types' },
           {
             text: 'Client',
             collapsed: true,
