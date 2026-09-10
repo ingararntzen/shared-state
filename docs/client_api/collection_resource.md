@@ -52,7 +52,7 @@ Request an update to items in the resource.
 | --- | --- | --- |
 | `changes` | [`Changes`](/client_api/types#changes) | Requested [`Changes`](/client_api/types#changes) |
 | `[options]` | `Object` | Update options |
-| `[options.conditional=false]` | `boolean` | If true, a conditional update will be performed based on server version |
+| `[options.dropIfModified=false]` | `boolean` | If true, server drops the update request if resource has been modified by other client in the mean time. |
 
 **Returns**: `Promise.<Object>` - Resolves when state update is acknowledged by the server
 

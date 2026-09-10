@@ -168,7 +168,7 @@ describe("ItemProvider Unit Tests", () => {
         expect(mockClient._reconnect).toHaveBeenCalledWith("version_gap");
     });
 
-    test("conditional option attaches last_version to payload data", async () => {
+    test("dropIfModified option attaches last_version to payload data", async () => {
         const mockClient = createMockClient();
         const coll = new ItemProvider(mockClient, "/app/mitems/chnl");
 
@@ -176,8 +176,8 @@ describe("ItemProvider Unit Tests", () => {
         coll._client_update({ version: 10, reset: true });
         expect(coll._version).toBe(10);
 
-        // Perform conditional update
-        await coll._update_items({ insert: [{ id: "i1", state: "v1" }] }, { conditional: true });
+        // Perform update with dropIfModified: true
+        await coll._update_items({ insert: [{ id: "i1", state: "v1" }] }, { dropIfModified: true });
 
         expect(mockClient._update).toHaveBeenCalledWith("/app/mitems/chnl", {
             insert: [{ id: "i1", state: "v1" }],

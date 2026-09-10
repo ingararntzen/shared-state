@@ -27,7 +27,7 @@ export class ValueResource {
      * Request an update to the value of the resource.
      * @param {*} value - New value
      * @param {Object} [options] - Update options
-     * @param {boolean} [options.conditional=false] - If true, request update request is applied only if no other updatas were interleaved on the server.
+     * @param {boolean} [options.dropIfModified=false] - If true, server drops the update request if resource has been modified by other client in the mean time.
      * @returns {Promise<Object>} Resolves when state update is dispatched/processed
      */
     set(value, options = {}) { }

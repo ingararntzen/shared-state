@@ -43,7 +43,7 @@ export class CollectionResource {
      * Request an update to items in the resource.
      * @param {Changes} changes - Requested {@link Changes}
      * @param {Object} [options] - Update options
-     * @param {boolean} [options.conditional=false] - If true, request update request is applied only if no other updatas were interleaved on the server.
+     * @param {boolean} [options.dropIfModified=false] - If true, server drops the update request if resource has been modified by other client in the mean time.
      * @returns {Promise<Object>} Resolves when state update is acknowledged by the server
      */
     update_items(changes, options = {}) { }

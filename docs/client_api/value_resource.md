@@ -1,55 +1,50 @@
 # ValueResource API
 
-Interface representing a single-value resource bound to a specific item name within a CollectionResource.
+Interface to resource that represents a single value.
 
 ## Properties
-
-### `name`
-
-**Type**: `string`
-
-Item name identifier.
 
 ### `provider`
 
 **Type**: `Object`
 
-Underlying CollectionResource (Layer 1 state provider).
+Underlying state provider instance.
 
 ## Methods
 
 ### `get()`
 
-Retrieves the current state/value of the item.
+Retrieves the current value of the resource.
 
-**Returns**: `*` - Associated item state, or `undefined` if item is uninitialized
+**Returns**: `*` - Current value or `undefined` if resource is not initialized
 
 ### `is_initialized()`
 
-Checks whether the item has been initialized in provider state.
+Checks whether the resource has been initialized.
 
-**Returns**: `boolean` - `true` if item is initialized, `false` otherwise
+**Returns**: `boolean` - `true` if resource is initialized, `false` otherwise
 
 ### `set(value, options)`
 
-Updates the item value across the network.
+Request an update to the value of the resource.
 
 | Parameter | Type | Description |
 | --- | --- | --- |
-| `value` | `*` | New item state value |
+| `value` | `*` | New value |
 | `[options]` | `Object` | Update options |
+| `[options.dropIfModified=false]` | `boolean` | If true, server drops the update request if resource has been modified by other client in the mean time. |
 
 **Returns**: `Promise.<Object>` - Resolves when state update is dispatched/processed
 
-### `add_callback(handler)`
+### `add_callback(handler())`
 
-Registers a callback invoked whenever this specific item is updated or reset.
+Registers a callback invoked whenever the resource changes.
 
 | Parameter | Type | Description |
 | --- | --- | --- |
-| `handler` | `function` | Callback receiving changes payload |
+| `handler()` | `function` | Callback function receiving change event |
 
-**Returns**: `Object` - Subscription handle with `.off()` method
+**Returns**: `Object` - Subscription handle with `.remove_callback()`
 
 ### `remove_callback(handle)`
 

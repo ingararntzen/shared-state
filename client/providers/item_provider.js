@@ -18,7 +18,7 @@ export class UpdateBuilder {
     add_change(rawChanges = {}, options = {}) {
         const sanitized = sanitizeChanges(rawChanges);
         const { insert, remove, reset } = sanitized;
-        const conditional = Boolean(rawChanges.conditional || options.conditional);
+        const conditional = Boolean(rawChanges.dropIfModified || rawChanges.ifUnmodified || rawChanges.conditional || options.dropIfModified || options.ifUnmodified || options.conditional);
 
         if (conditional) {
             this._pendingConditional = true;
