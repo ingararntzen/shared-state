@@ -65,7 +65,7 @@
  */
 
 /**
- * Callback function signature invoked when an event fires.
+ * Callback function signature invoked when an event is emitted.
  * Handlers default to having `this` bound to the event source instance.
  * 
  * @callback handler
@@ -76,21 +76,23 @@
 /**
  * Optional method implemented by stateful event sources to provide state snapshots for initial state events.
  * 
+ * This method is not provided by the decorator, and must therefore be manually implemented.
+ * 
  * If implemented, `get_current_state(name)` returns the current state snapshot for the given event `name`.
  * If it returns `null`, initial state event delivery (`options.init = true`) is deferred until the first `emit(name, ...)` call occurs.
- * If not implemented on the target, subscribing with `options.init = true` delivers an initial event immediately with `eArg = undefined`.
+ * If not implemented, subscribing with `options.init = true` delivers an initial event with `eArg = undefined`.
  * 
  * @function get_current_state
  * @param {string} name - Event name string
- * @returns {*|null} Current state snapshot or null if uninitialized
+ * @returns {*|null} Current state for given event name, or null if uninitialized
  */
 
 /**
  * Event info passed as second parameter (`eInfo`) to event callbacks.
  * @typedef {Object} EventInfo
- * @property {Object} src - Source state object emitting the event
+ * @property {Object} src - Object emitting the event
  * @property {string} name - Event name string (e.g. "change")
- * @property {number} count - Total times this event listener has been invoked
+ * @property {number} count - Total times this event handler has been invoked
  * @property {boolean} init - True if this is an initial state event (count === 1)
  * @property {Object} handle - Subscription handle object (supports `.off()`)
  */
@@ -241,12 +243,13 @@ class EventManager {
   }
 
   /**
-   * Emits an event with an event argument, to event handlers subscribed to the same event name.
-   * @param {string} name - Event name (e.g. "change")
-   * @param {*} eArg - Event argument that is delivered to event handlers
+   * Emits an event with the specified name and optional payload argument to subscribed handlers.
+   * 
+   * @param {string} name - Event name string (e.g. "change")
+   * @param {*} [eArg] - Optional event payload data delivered to handlers
    * @returns {void}
    */
-  emit(name, eArg) {
+  emit(name, eArg = undefined) {
     this.emitBuffer.push({ name, eArg });
 
     if (!this.flushScheduled) {
@@ -334,7 +337,7 @@ export function eventify(target) {
     return getManager(this).once(name, callback, options);
   };
 
-  target.emit = function (name, eArg) {
+  target.emit = function (name, eArg = undefined) {
     return getManager(this).emit(name, eArg);
   };
 

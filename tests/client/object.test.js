@@ -252,20 +252,22 @@ describe("Layer 2 Domain Abstractions Unit Tests", () => {
             ]
         });
 
-        // Test SharedMap iteration methods
-        expect(mapObj.keys()).toEqual(["k1", "k2"]);
-        expect(mapObj.values()).toEqual(["v1", "v2"]);
-        expect(mapObj.entries()).toEqual([["k1", "v1"], ["k2", "v2"]]);
+        // Test SharedMap iteration methods (returns iterators matching standard Map)
+        expect(typeof mapObj.keys().next).toBe("function");
+        expect([...mapObj.keys()]).toEqual(["k1", "k2"]);
+        expect([...mapObj.values()]).toEqual(["v1", "v2"]);
+        expect([...mapObj.entries()]).toEqual([["k1", "v1"], ["k2", "v2"]]);
         expect([...mapObj]).toEqual([["k1", "v1"], ["k2", "v2"]]);
 
         const mapEntries = [];
         mapObj.forEach((val, key) => mapEntries.push([key, val]));
         expect(mapEntries).toEqual([["k1", "v1"], ["k2", "v2"]]);
 
-        // Test SharedSet iteration methods
-        expect(setObj.keys()).toEqual(["user1", "user2"]);
-        expect(setObj.values()).toEqual(["user1", "user2"]);
-        expect(setObj.entries()).toEqual([["user1", "user1"], ["user2", "user2"]]);
+        // Test SharedSet iteration methods (returns iterators matching standard Set)
+        expect(typeof setObj.values().next).toBe("function");
+        expect([...setObj.keys()]).toEqual(["user1", "user2"]);
+        expect([...setObj.values()]).toEqual(["user1", "user2"]);
+        expect([...setObj.entries()]).toEqual([["user1", "user1"], ["user2", "user2"]]);
         expect([...setObj]).toEqual(["user1", "user2"]);
 
         const setValues = [];

@@ -1,26 +1,37 @@
 import { BaseCollection } from "../base_objects/base_collection.js";
 
 /**
- * Replicated map data structure mimicking the standard JavaScript `Map` interface.
+ * Online-hosted key-value store emulating the standard JavaScript `Map` interface.
  * Extends {@link BaseCollection}.
+ * 
+ * `SharedMap` implements the {@link Events} interface. 
+ * All state changes are emitted on the `"change"` event, with {@link Changes changes} as callback payload.
  * @class SharedMap
  */
 export class SharedMap extends BaseCollection {
     /**
      * Initializes a SharedMap instance.
      * @param {SharedStateClient} client - SharedState client instance
-     * @param {string} path - Target path prefix for the map
-     * @param {Object} [options] - Configuration options
+     * @param {string} path - Resource [Path](/design/representation/item_collection#path)
      */
-    constructor(client, path, options = {}) {
-        super(client, path, options, "SharedMap");
+    constructor(client, path) {
+        super(client, path, {}, "SharedMap");
     }
 
     /**
-     * Sets a key-value pair in the map across the network.
-     * @param {string} key - Map key
+     * Returns the number of key-value entries in the map.
+     * @type {number}
+     * @readonly
+     */
+    get size() {
+        return this._provider.size;
+    }
+
+    /**
+     * Sets a key-value pair.
+     * @param {string} key - Key
      * @param {*} value - Value to associate with key
-     * @returns {Promise<void>} Resolves when update is processed
+     * @returns {Promise<void>} Resolves when update request is acknowledged by the server
      */
     async set(key, value) {
         const record = { id: key, state: value };
@@ -30,7 +41,7 @@ export class SharedMap extends BaseCollection {
     /**
      * Removes an entry specified by key from the map.
      * @param {string} key - Key to delete
-     * @returns {Promise<void>} Resolves when update is processed
+     * @returns {Promise<void>} Resolves when update request is acknowledged by the server
      */
     async delete(key) {
         return await this._provider.update_items({ remove: [key] });
@@ -38,7 +49,7 @@ export class SharedMap extends BaseCollection {
 
     /**
      * Removes all key-value entries from the map.
-     * @returns {Promise<void>} Resolves when map is reset
+     * @returns {Promise<void>} Resolves when update request is acknowledged by the server
      */
     async clear() {
         return await this._provider.update_items({ reset: true });
@@ -65,32 +76,32 @@ export class SharedMap extends BaseCollection {
     }
 
     /**
-     * Returns an array of keys present in the map.
-     * @returns {string[]} Array of keys
+     * Returns an iterator over keys present in the map.
+     * @returns {Iterator<string>} Iterator for map keys
      */
     keys() {
-        return this._provider.get_items().map(item => item.id);
+        return this._provider.get_items().map(item => item.id)[Symbol.iterator]();
     }
 
     /**
-     * Returns an array of values present in the map.
-     * @returns {Array<*>} Array of values
+     * Returns an iterator over values present in the map.
+     * @returns {Iterator<*>} Iterator for map values
      */
     values() {
         return this._provider.get_items().map(item =>
             item.state !== undefined ? item.state : item.value
-        );
+        )[Symbol.iterator]();
     }
 
     /**
-     * Returns an array of `[key, value]` pairs present in the map.
-     * @returns {Array<Array>} Array of [key, value] pairs
+     * Returns an iterator over `[key, value]` pairs present in the map.
+     * @returns {Iterator<Array>} Iterator for [key, value] pairs
      */
     entries() {
         return this._provider.get_items().map(item => [
             item.id,
             item.state !== undefined ? item.state : item.value
-        ]);
+        ])[Symbol.iterator]();
     }
 
     /**
@@ -106,9 +117,9 @@ export class SharedMap extends BaseCollection {
 
     /**
      * Returns an iterator over `[key, value]` entries.
-     * @returns {Iterator} Iterator for map entries
+     * @returns {Iterator<Array>} Iterator for map entries
      */
     [Symbol.iterator]() {
-        return this.entries()[Symbol.iterator]();
+        return this.entries();
     }
 }

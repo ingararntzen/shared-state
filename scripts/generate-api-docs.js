@@ -34,6 +34,7 @@ function formatSingleType(t) {
     if (cleanName === "ConnectionState") return `[\`ConnectionState\`](/client_api/connection#connectionstate-enum)`;
     if (cleanName === "ServerClock") return `[\`ServerClock\`](/client_api/clock)`;
     if (cleanName === "SharedStateClient") return `[\`SharedStateClient\`](/client_api/client)`;
+    if (cleanName === "KeyFunction") return `[\`KeyFunction\`](#keyfunction-callback)`;
 
     if (cleanName === "Item[]" || cleanName === "Array<Item>") {
         return `[\`Item\`](/client_api/types#item)[]`;
@@ -63,10 +64,15 @@ function formatType(typeObj) {
 function cleanDesc(desc) {
     if (!desc) return "";
     return desc
+        .replace(/\{@link Path\}/g, "[`Path`](/design/representation/item_collection#path)")
+        .replace(/\{@link Events\}/g, "[**Events**](/client_api/events)")
+        .replace(/\{@link Changes changes\}/g, "[`changes`](/client_api/types#changes)")
         .replace(/\{@link Item\}/g, "[`Item`](/client_api/types#item)")
         .replace(/\{@link Changes\}/g, "[`Changes`](/client_api/types#changes)")
         .replace(/\{@link EventInfo\}/g, "[`EventInfo`](/client_api/events#eventinfo)")
         .replace(/\{@link CollectionResource\}/g, "[`CollectionResource`](/client_api/collection_resource)")
+        .replace(/Extends \{@link BaseCollection\}\./g, "")
+        .replace(/\{@link BaseCollection\}/g, "`BaseCollection`")
         .replace(/\{@link ValueResource\}/g, "[`ValueResource`](/client_api/value_resource)")
         .replace(/\{@link Connection\}/g, "[`Connection`](/client_api/connection)")
         .replace(/\{@link ConnectionState ConnectionState\.CONNECTED\}/g, "[`ConnectionState.CONNECTED`](/client_api/connection#connectionstate-enum)")
@@ -180,9 +186,9 @@ async function generateEventsDoc() {
         }
     }
 
-    const handlerCallback = data.find(d => d.name === "handler" && d.kind === "callback");
+    const handlerCallback = data.find(d => d.name === "handler" && (d.kind === "typedef" || d.kind === "callback"));
     if (handlerCallback) {
-        md += `## \`handler(eArg, eInfo)\` Callback\n\n`;
+        md += `## \`handler(eArg, eInfo)\` Callback Signature\n\n`;
         if (handlerCallback.description) md += `${cleanDesc(handlerCallback.description)}\n\n`;
         if (handlerCallback.params) md += formatParamsTable(handlerCallback.params);
     }
@@ -215,9 +221,14 @@ async function generateEventsDoc() {
 
     const getStateFunc = data.find(d => d.name === "get_current_state");
     if (getStateFunc) {
-        md += `## Initial State & \`get_current_state(name)\` Requirement\n\n`;
+        md += `## \`get_current_state(name)\` (Optional)\n\n`;
         if (getStateFunc.description) md += `${cleanDesc(getStateFunc.description)}\n\n`;
         if (getStateFunc.params) md += formatParamsTable(getStateFunc.params);
+        if (getStateFunc.returns && getStateFunc.returns[0]) {
+            const retType = formatType(getStateFunc.returns[0].type);
+            const retDesc = getStateFunc.returns[0].description ? ` - ${cleanDesc(getStateFunc.returns[0].description)}` : "";
+            md += `**Returns**: ${retType}${retDesc}\n\n`;
+        }
     }
 
     const eventInfoTypedef = data.find(d => d.kind === "typedef" && d.name === "EventInfo");
@@ -442,18 +453,32 @@ async function generateMapDoc() {
     const data = await jsdoc2md.getTemplateData({ files });
     
     let md = `# SharedMap\n\n`;
-    md += `\`SharedMap\` is a replicated map data structure mirroring the standard JavaScript \`Map\` interface with real-time network synchronization.\n\n`;
+    const classInfo = data.find(d => d.name === "SharedMap");
+    if (classInfo && classInfo.description) {
+        md += `${cleanDesc(classInfo.description)}\n\n`;
+    }
     
-    md += `> [!NOTE]\n`;
-    md += `> \`SharedMap\` emits a **\`"change"\`** event with callback signature \`callback(changes, eInfo)\` where \`changes\` is a delta object containing \`{ insert, remove, reset }\`. See **[Event Mechanism](/client_api/events)** for details.\n\n`;
+    const ctor = data.find(d => d.kind === "constructor" && d.params && d.params.length > 0) || data.find(d => d.kind === "constructor");
+    if (ctor) {
+        md += `## Constructor\n\n`;
+        const topParams = (ctor.params || []).filter(p => !p.name.includes("."));
+        const paramNames = topParams.map(p => p.optional ? `[${p.name}]` : p.name).join(", ");
+        md += `### \`new SharedMap(${paramNames})\`\n\n`;
+        if (ctor.description && (!classInfo || ctor.description !== classInfo.description)) {
+            md += `${cleanDesc(ctor.description)}\n\n`;
+        }
+        if (ctor.params && ctor.params.length > 0) {
+            md += formatParamsTable(ctor.params);
+        }
+    }
     
-    md += `## Constructor\n\n`;
-    md += `### \`new SharedMap(client, path, [options])\`\n\n`;
-    md += `Initializes a new \`SharedMap\` instance.\n\n`;
-    md += `| Parameter | Type | Description |\n| --- | --- | --- |\n`;
-    md += `| \`client\` | \`SharedStateClient\` | Parent SharedState client instance |\n`;
-    md += `| \`path\` | \`string\` | Target path prefix for the map |\n`;
-    md += `| \`[options]\` | \`Object\` | Configuration options |\n\n`;
+    const props = data.filter(d => d.memberof === "SharedMap" && isPublic(d) && d.kind === "member");
+    if (props.length > 0) {
+        md += `## Properties\n\n`;
+        for (const p of props) {
+            md += formatProperty(p);
+        }
+    }
     
     const methods = data.filter(d => d.memberof === "SharedMap" && isPublic(d) && d.kind === "function");
     if (methods.length > 0) {
@@ -475,19 +500,32 @@ async function generateSetDoc() {
     const data = await jsdoc2md.getTemplateData({ files });
     
     let md = `# SharedSet\n\n`;
-    md += `\`SharedSet\` is a replicated set data structure mirroring the standard JavaScript \`Set\` interface with real-time network synchronization.\n\n`;
+    const classInfo = data.find(d => d.name === "SharedSet");
+    if (classInfo && classInfo.description) {
+        md += `${cleanDesc(classInfo.description)}\n\n`;
+    }
     
-    md += `> [!NOTE]\n`;
-    md += `> \`SharedSet\` emits a **\`"change"\`** event with callback signature \`callback(changes, eInfo)\` where \`changes\` is a delta object containing \`{ insert, remove, reset }\`. See **[Event Mechanism](/client_api/events)** for details.\n\n`;
+    const ctor = data.find(d => d.kind === "constructor" && d.params && d.params.length > 0) || data.find(d => d.kind === "constructor");
+    if (ctor) {
+        md += `## Constructor\n\n`;
+        const topParams = (ctor.params || []).filter(p => !p.name.includes("."));
+        const paramNames = topParams.map(p => p.optional ? `[${p.name}]` : p.name).join(", ");
+        md += `### \`new SharedSet(${paramNames})\`\n\n`;
+        if (ctor.description && (!classInfo || ctor.description !== classInfo.description)) {
+            md += `${cleanDesc(ctor.description)}\n\n`;
+        }
+        if (ctor.params && ctor.params.length > 0) {
+            md += formatParamsTable(ctor.params);
+        }
+    }
     
-    md += `## Constructor\n\n`;
-    md += `### \`new SharedSet(client, path, [options])\`\n\n`;
-    md += `Initializes a new \`SharedSet\` instance.\n\n`;
-    md += `| Parameter | Type | Description |\n| --- | --- | --- |\n`;
-    md += `| \`client\` | \`SharedStateClient\` | Parent SharedState client instance |\n`;
-    md += `| \`path\` | \`string\` | Target path prefix for the set |\n`;
-    md += `| \`[options]\` | \`Object\` | Configuration options |\n`;
-    md += `| \`[options.key]\` | \`Function\` | Custom identity key function \`(elem) => id\` |\n\n`;
+    const props = data.filter(d => d.memberof === "SharedSet" && isPublic(d) && d.kind === "member");
+    if (props.length > 0) {
+        md += `## Properties\n\n`;
+        for (const p of props) {
+            md += formatProperty(p);
+        }
+    }
     
     const methods = data.filter(d => d.memberof === "SharedSet" && isPublic(d) && d.kind === "function");
     if (methods.length > 0) {
@@ -496,7 +534,21 @@ async function generateSetDoc() {
             md += formatMethod(m);
         }
     }
-    
+
+    const callbacks = data.filter(d => (d.kind === "typedef" || d.kind === "callback") && isPublic(d));
+    if (callbacks.length > 0) {
+        md += `## Callbacks\n\n`;
+        for (const cb of callbacks) {
+            md += `### \`${cb.name}(${(cb.params || []).map(p => p.name).join(", ")})\` Callback\n\n`;
+            if (cb.description) md += `${cleanDesc(cb.description)}\n\n`;
+            if (cb.params && cb.params.length > 0) md += formatParamsTable(cb.params);
+            if (cb.returns && cb.returns[0]) {
+                const retType = formatType(cb.returns[0].type);
+                const retDesc = cb.returns[0].description ? ` - ${cleanDesc(cb.returns[0].description)}` : "";
+                md += `**Returns**: ${retType}${retDesc}\n\n`;
+            }
+        }
+    }
     fs.writeFileSync(path.join(docsApiDir, "set.md"), md, "utf8");
     console.log("Generated set.md");
 }

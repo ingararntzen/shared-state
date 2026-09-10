@@ -1,34 +1,42 @@
 # SharedMap
 
-`SharedMap` is a replicated map data structure mirroring the standard JavaScript `Map` interface with real-time network synchronization.
+Online-hosted key-value store emulating the standard JavaScript `Map` interface.
 
-> [!NOTE]
-> `SharedMap` emits a **`"change"`** event with callback signature `callback(changes, eInfo)` where `changes` is a delta object containing `{ insert, remove, reset }`. See **[Event Mechanism](/client_api/events)** for details.
+
+`SharedMap` implements the [**Events**](/client_api/events) interface. 
+All state changes are emitted on the `"change"` event, with [`changes`](/client_api/types#changes) as callback payload.
 
 ## Constructor
 
-### `new SharedMap(client, path, [options])`
+### `new SharedMap(client, path)`
 
-Initializes a new `SharedMap` instance.
+Initializes a SharedMap instance.
 
 | Parameter | Type | Description |
 | --- | --- | --- |
-| `client` | `SharedStateClient` | Parent SharedState client instance |
-| `path` | `string` | Target path prefix for the map |
-| `[options]` | `Object` | Configuration options |
+| `client` | [`SharedStateClient`](/client_api/client) | SharedState client instance |
+| `path` | `string` | Resource [Path](/design/representation/item_collection#path) |
+
+## Properties
+
+### `size`
+
+**Type**: `number`
+
+Returns the number of key-value entries in the map.
 
 ## Methods
 
 ### `set(key, value)`
 
-Sets a key-value pair in the map across the network.
+Sets a key-value pair.
 
 | Parameter | Type | Description |
 | --- | --- | --- |
-| `key` | `string` | Map key |
+| `key` | `string` | Key |
 | `value` | `*` | Value to associate with key |
 
-**Returns**: `Promise.<void>` - Resolves when update is processed
+**Returns**: `Promise.<void>` - Resolves when update request is acknowledged by the server
 
 ### `delete(key)`
 
@@ -38,13 +46,13 @@ Removes an entry specified by key from the map.
 | --- | --- | --- |
 | `key` | `string` | Key to delete |
 
-**Returns**: `Promise.<void>` - Resolves when update is processed
+**Returns**: `Promise.<void>` - Resolves when update request is acknowledged by the server
 
 ### `clear()`
 
 Removes all key-value entries from the map.
 
-**Returns**: `Promise.<void>` - Resolves when map is reset
+**Returns**: `Promise.<void>` - Resolves when update request is acknowledged by the server
 
 ### `get(key)`
 
@@ -68,21 +76,21 @@ Checks whether a key exists in the map.
 
 ### `keys()`
 
-Returns an array of keys present in the map.
+Returns an iterator over keys present in the map.
 
-**Returns**: `string[]` - Array of keys
+**Returns**: `Iterator.<string>` - Iterator for map keys
 
 ### `values()`
 
-Returns an array of values present in the map.
+Returns an iterator over values present in the map.
 
-**Returns**: `*[]` - Array of values
+**Returns**: `Iterator.<*>` - Iterator for map values
 
 ### `entries()`
 
-Returns an array of `[key, value]` pairs present in the map.
+Returns an iterator over `[key, value]` pairs present in the map.
 
-**Returns**: `Array[]` - Array of [key, value] pairs
+**Returns**: `Iterator.<Array>` - Iterator for [key, value] pairs
 
 ### `forEach(callback, thisArg)`
 
