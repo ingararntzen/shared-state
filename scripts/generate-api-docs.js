@@ -157,72 +157,85 @@ async function generateEventsDoc() {
         path.join(rootDir, "client", "util", "events.js")
     ];
     const data = await jsdoc2md.getTemplateData({ files });
-    const eventInfoTypedef = data.find(d => d.kind === "typedef" && d.name === "EventInfo");
 
-    let eventsContent = [
-        "# Event Mechanism",
-        "",
-        "All SharedState state objects (`SharedVariables`, `SharedMap`, `SharedSet`) provide decoupled event handling capabilities (`.on`, `.off`, `.once`). They emit a **`\"change\"`** event whenever state updates locally or over the network.",
-        "",
-        "## Subscribing (`.on`)",
-        "",
-        "Subscribe to state change events on any variable, map, or set.",
-        "",
-        "```javascript",
-        "const handle = stateObject.on(\"change\", (valueOrChanges, eInfo) => {",
-        "    console.log(\"Updated Payload:\", valueOrChanges);",
-        "    console.log(\"Is Initial Snapshot:\", eInfo.init);",
-        "});",
-        "```",
-        "",
-        "### Callback Arguments",
-        "1. **`valueOrChanges`**: Event payload.",
-        "   - **For SharedVariables**: The newly updated variable value.",
-        "   - **For SharedMap & SharedSet**: A delta change object `{ insert, remove, reset }`.",
-        "2. **`eInfo`**: Event metadata object (`EventInfo`).",
-        "",
-        "### Subscription Options",
-        "- **`options.init`** (`boolean`): When set to `true`, immediately delivers the current state snapshot to the callback upon subscription.",
-        "",
-        "## Unsubscribing (`.off`)",
-        "",
-        "Unsubscribe from event updates.",
-        "",
-        "```javascript",
-        "// Option A: Unsubscribe via handle",
-        "handle.off();",
-        "",
-        "// Option B: Unsubscribe by event name and callback reference",
-        "stateObject.off(\"change\", callback);",
-        "```",
-        "",
-        "## One-Time Listeners (`.once`)",
-        "",
-        "Subscribe to a single state change execution.",
-        "",
-        "```javascript",
-        "stateObject.once(\"change\", (eArg, eInfo) => {",
-        "    console.log(\"Received first update:\", eArg);",
-        "});",
-        "```",
-        ""
-    ].join("\n");
+    let md = `# Events\n\n`;
+    md += `The \`eventify\` decorator can be used on objects or class prototype objects in order to imbue the target object with event capabilities.\n\n`;
 
-    if (eventInfoTypedef) {
-        eventsContent += `## \`${eventInfoTypedef.name}\`\n\n`;
-        const itemType = formatType(eventInfoTypedef.type);
-        if (itemType) {
-            eventsContent += `**Type**: ${itemType}\n\n`;
-        }
-        if (eventInfoTypedef.description) {
-            eventsContent += `${eventInfoTypedef.description}\n\n`;
-        }
-        if (eventInfoTypedef.properties && eventInfoTypedef.properties.length > 0) {
-            eventsContent += formatParamsTable(eventInfoTypedef.properties, "Property");
+    const eventifyFunc = data.find(d => d.name === "eventify");
+    if (eventifyFunc) {
+        md += `## \`eventify(target)\`\n\n`;
+        if (eventifyFunc.description) md += `${cleanDesc(eventifyFunc.description)}\n\n`;
+        if (eventifyFunc.params) md += formatParamsTable(eventifyFunc.params);
+    }
+
+    const onMethod = data.find(d => d.name === "on");
+    if (onMethod) {
+        md += `## \`on(name, handler, [options])\`\n\n`;
+        if (onMethod.description) md += `${cleanDesc(onMethod.description)}\n\n`;
+        if (onMethod.params) md += formatParamsTable(onMethod.params);
+        if (onMethod.returns && onMethod.returns[0]) {
+            const retType = formatType(onMethod.returns[0].type);
+            const retDesc = onMethod.returns[0].description ? ` - ${cleanDesc(onMethod.returns[0].description)}` : "";
+            md += `**Returns**: ${retType}${retDesc}\n\n`;
         }
     }
 
-    fs.writeFileSync(path.join(docsApiDir, "events.md"), eventsContent, "utf8");
+    const handlerCallback = data.find(d => d.name === "handler" && d.kind === "callback");
+    if (handlerCallback) {
+        md += `## \`handler(eArg, eInfo)\` Callback\n\n`;
+        if (handlerCallback.description) md += `${cleanDesc(handlerCallback.description)}\n\n`;
+        if (handlerCallback.params) md += formatParamsTable(handlerCallback.params);
+    }
+
+    const offMethod = data.find(d => d.name === "off");
+    if (offMethod) {
+        md += `## \`off(handle)\`\n\n`;
+        if (offMethod.description) md += `${cleanDesc(offMethod.description)}\n\n`;
+        if (offMethod.params) md += formatParamsTable(offMethod.params);
+    }
+
+    const onceMethod = data.find(d => d.name === "once");
+    if (onceMethod) {
+        md += `## \`once(name, handler, [options])\`\n\n`;
+        if (onceMethod.description) md += `${cleanDesc(onceMethod.description)}\n\n`;
+        if (onceMethod.params) md += formatParamsTable(onceMethod.params);
+        if (onceMethod.returns && onceMethod.returns[0]) {
+            const retType = formatType(onceMethod.returns[0].type);
+            const retDesc = onceMethod.returns[0].description ? ` - ${cleanDesc(onceMethod.returns[0].description)}` : "";
+            md += `**Returns**: ${retType}${retDesc}\n\n`;
+        }
+    }
+
+    const emitMethod = data.find(d => d.name === "emit");
+    if (emitMethod) {
+        md += `## \`emit(name, eArg)\`\n\n`;
+        if (emitMethod.description) md += `${cleanDesc(emitMethod.description)}\n\n`;
+        if (emitMethod.params) md += formatParamsTable(emitMethod.params);
+    }
+
+    const getStateFunc = data.find(d => d.name === "get_current_state");
+    if (getStateFunc) {
+        md += `## Initial State & \`get_current_state(name)\` Requirement\n\n`;
+        if (getStateFunc.description) md += `${cleanDesc(getStateFunc.description)}\n\n`;
+        if (getStateFunc.params) md += formatParamsTable(getStateFunc.params);
+    }
+
+    const eventInfoTypedef = data.find(d => d.kind === "typedef" && d.name === "EventInfo");
+    if (eventInfoTypedef) {
+        md += `## \`${eventInfoTypedef.name}\`\n\n`;
+        const itemType = formatType(eventInfoTypedef.type);
+        if (itemType) {
+            md += `**Type**: ${itemType}\n\n`;
+        }
+        if (eventInfoTypedef.description) {
+            md += `${cleanDesc(eventInfoTypedef.description)}\n\n`;
+        }
+        if (eventInfoTypedef.properties && eventInfoTypedef.properties.length > 0) {
+            md += formatParamsTable(eventInfoTypedef.properties, "Property");
+        }
+    }
+
+    fs.writeFileSync(path.join(docsApiDir, "events.md"), md, "utf8");
     console.log("Generated events.md");
 }
 

@@ -35,7 +35,7 @@ describe("Event & Subscription System (client/util/events.js)", () => {
       constructor(val) {
         this.val = val;
       }
-      get_state(name) {
+      get_current_state(name) {
         return this.val;
       }
     }
@@ -68,39 +68,35 @@ describe("Event & Subscription System (client/util/events.js)", () => {
     expect(fn2).toHaveBeenCalledTimes(1);
   });
 
-  test("behavior when target does not implement get_state()", async () => {
-    const src = eventify({}); // No get_state method
+  test("Mode 1: behavior when target does not implement get_current_state()", async () => {
+    const src = eventify({}); // No get_current_state method (Mode 1: signal-only)
     const fnInit = vi.fn();
     const fnNormal = vi.fn();
 
-    // Subscribe with init: true
+    // Subscribe with init: true (Mode 1: delivers immediately with undefined eArg)
     src.on("ping", fnInit, { init: true });
+    // Subscribe with init: false (Mode 4: regular event, fires on emit)
     src.on("ping", fnNormal, { init: false });
 
     await Promise.resolve();
-    // Neither should have fired yet
-    expect(fnInit).not.toHaveBeenCalled();
+    
+    // Mode 1: fnInit fires immediately with undefined eArg and init: true
+    expect(fnInit).toHaveBeenCalledTimes(1);
+    expect(fnInit).toHaveBeenCalledWith(undefined, expect.objectContaining({ count: 1, init: true }));
     expect(fnNormal).not.toHaveBeenCalled();
 
-    // Emitting first event
+    // Emitting event
     src.emit("ping", "payload1");
 
     await Promise.resolve();
 
-    // First emit acts as init for fnInit (count === 1, init === true)
-    expect(fnInit).toHaveBeenCalledTimes(1);
-    expect(fnInit).toHaveBeenCalledWith("payload1", expect.objectContaining({ count: 1, init: true }));
+    // Second event for fnInit (count === 2, init === false)
+    expect(fnInit).toHaveBeenCalledTimes(2);
+    expect(fnInit).toHaveBeenLastCalledWith("payload1", expect.objectContaining({ count: 2, init: false }));
 
+    // First event for fnNormal (count === 1, init === true)
     expect(fnNormal).toHaveBeenCalledTimes(1);
     expect(fnNormal).toHaveBeenCalledWith("payload1", expect.objectContaining({ count: 1, init: true }));
-
-    // Second emit
-    src.emit("ping", "payload2");
-
-    await Promise.resolve();
-
-    expect(fnInit).toHaveBeenCalledTimes(2);
-    expect(fnInit).toHaveBeenLastCalledWith("payload2", expect.objectContaining({ count: 2, init: false }));
   });
 
   test("unsubscribe via handle.off() vs target.off(handle)", async () => {
@@ -177,7 +173,7 @@ describe("Event & Subscription System (client/util/events.js)", () => {
       constructor() {
         eventify(this);
       }
-      get_state(name) {
+      get_current_state(name) {
         return { count: 10 };
       }
     }
@@ -193,13 +189,13 @@ describe("Event & Subscription System (client/util/events.js)", () => {
     expect(fn).not.toHaveBeenCalled();
   });
 
-  test("init: true delivers initial state via get_state(name)", async () => {
+  test("init: true delivers initial state via get_current_state(name)", async () => {
     class Stateful {
       constructor() {
         eventify(this);
         this.counter = 5;
       }
-      get_state(name) {
+      get_current_state(name) {
         if (name === "counter") return this.counter;
         return null;
       }
@@ -230,7 +226,7 @@ describe("Event & Subscription System (client/util/events.js)", () => {
         this.ready = false;
         this.data = null;
       }
-      get_state(name) {
+      get_current_state(name) {
         return this.ready ? this.data : null;
       }
     }
@@ -306,7 +302,7 @@ describe("Event & Subscription System (client/util/events.js)", () => {
       constructor() {
         eventify(this);
       }
-      get_state(name) {
+      get_current_state(name) {
         return "initial";
       }
     }
@@ -326,14 +322,14 @@ describe("Event & Subscription System (client/util/events.js)", () => {
     expect(fn).toHaveBeenCalledTimes(1);
   });
 
-  test("get_state(name) supports multiple independent event states", async () => {
+  test("get_current_state(name) supports multiple independent event states", async () => {
     class MultiState {
       constructor() {
         eventify(this);
         this.foo = "foo_state";
         this.bar = "bar_state";
       }
-      get_state(name) {
+      get_current_state(name) {
         if (name === "foo") return this.foo;
         if (name === "bar") return this.bar;
         return null;
@@ -353,24 +349,24 @@ describe("Event & Subscription System (client/util/events.js)", () => {
     expect(fnBar).toHaveBeenCalledWith("bar_state", expect.objectContaining({ name: "bar", init: true }));
   });
 
-  test("target.off('name', callback) and target.off('name')", async () => {
+  test("unsubscribing via handle.off() and target.off(handle)", async () => {
     const src = eventify({});
     const fn1 = vi.fn();
     const fn2 = vi.fn();
 
-    src.on("tick", fn1);
-    src.on("tick", fn2);
+    const h1 = src.on("tick", fn1);
+    const h2 = src.on("tick", fn2);
 
-    // Remove specific callback
-    src.off("tick", fn1);
+    // Remove specific callback via target.off(h1)
+    src.off(h1);
     src.emit("tick", 1);
     await Promise.resolve();
 
     expect(fn1).not.toHaveBeenCalled();
     expect(fn2).toHaveBeenCalledTimes(1);
 
-    // Remove all callbacks for event name
-    src.off("tick");
+    // Remove remaining callback via h2.off()
+    h2.off();
     src.emit("tick", 2);
     await Promise.resolve();
 

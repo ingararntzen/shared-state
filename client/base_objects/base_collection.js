@@ -43,7 +43,7 @@ export class BaseCollection extends BaseAbstraction {
         this.emit("change", changes);
     }
 
-    get_state(name) {
+    get_current_state(name) {
         if (name === "change") {
             const items = this._resource.get_items();
             const insert = new Map(items.map((item) => [item.id, item]));
