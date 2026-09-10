@@ -46,7 +46,7 @@
 
         // Render gallery and active viewer when map or activeSlideNo changes
         function render() {
-            const slides = slidesMap.values();
+            const slides = Array.from(slidesMap.values());
             slides.sort((a, b) => (a.no || 0) - (b.no || 0));
 
             const currentActiveNo = activeSlideNo.value;
@@ -115,7 +115,7 @@
         const nextBtn = document.querySelector("#nextBtn");
 
         nextBtn.onclick = () => {
-            const slides = slidesMap.values();
+            const slides = Array.from(slidesMap.values());
             slides.sort((a, b) => (a.no || 0) - (b.no || 0));
             const currentNo = activeSlideNo.value;
 
@@ -127,7 +127,7 @@
         };
 
         prevBtn.onclick = () => {
-            const slides = slidesMap.values();
+            const slides = Array.from(slidesMap.values());
             slides.sort((a, b) => (a.no || 0) - (b.no || 0));
             const currentNo = activeSlideNo.value;
 
@@ -143,7 +143,7 @@
         const moveNextBtn = document.querySelector("#moveNextBtn");
 
         moveNextBtn.onclick = () => {
-            const slides = slidesMap.values();
+            const slides = Array.from(slidesMap.values());
             slides.sort((a, b) => (a.no || 0) - (b.no || 0));
             const currentNo = activeSlideNo.value;
 
@@ -160,7 +160,7 @@
         };
 
         movePrevBtn.onclick = () => {
-            const slides = slidesMap.values();
+            const slides = Array.from(slidesMap.values());
             slides.sort((a, b) => (a.no || 0) - (b.no || 0));
             const currentNo = activeSlideNo.value;
 
@@ -179,7 +179,7 @@
         // Add Slide button handler
         const addBtn = document.querySelector("#addBtn");
         addBtn.onclick = () => {
-            const slides = slidesMap.values();
+            const slides = Array.from(slidesMap.values());
             const maxNo = slides.reduce((max, s) => (s && typeof s.no === "number" && s.no > max ? s.no : max), 0);
             const nextNo = maxNo + 1;
             const id = generateId();

@@ -55,13 +55,7 @@
                 </div>
 
                 <div class="table-container">
-                    <table id="itemsTable">
-                        <thead>
-                            <tr>
-                                <th style="width: 36px; text-align: center;">Del</th>
-                                <th>Item ID</th>
-                            </tr>
-                        </thead>
+                    <table id="itemsTable" class="items-table">
                         <tbody id="tableBody">
                             <!-- Filled in dynamically -->
                         </tbody>
@@ -87,11 +81,8 @@
 
     </div>
 
-    <!-- SharedState JS SDK Bundle (Official Build) -->
-    <script src="/dist/sharedstate.iife.min.js"></script>
-    <script>
-        const SharedStateSDK = window.SHAREDSTATE || window.SharedState || {};
-        const SharedStateClient = SharedStateSDK.SharedStateClient;
+    <script type="module">
+        import { SharedStateClient } from "../../client/index.js";
 
         let client = null;
         let activeCollection = null;
@@ -125,18 +116,18 @@
             try {
                 client = new SharedStateClient(wsUrl, { debug: true });
                 
-                client.connectedPromise().then(() => {
+                client.connection.connectedPromise().then(() => {
                     updateConnectionStatus("connected");
                     if (currentResourcePath) {
                         connectResource(currentResourcePath);
                     }
                 });
 
-                client.on_disconnect = () => updateConnectionStatus("disconnected");
-                client.on_connect = () => updateConnectionStatus("connected");
+                client.connection.on_disconnect = () => updateConnectionStatus("disconnected");
+                client.connection.on_connect = () => updateConnectionStatus("connected");
 
-                window.addEventListener('beforeunload', () => { if (client) client.close(); });
-                window.addEventListener('pagehide', () => { if (client) client.close(); });
+                window.addEventListener('beforeunload', () => { if (client && client.connection) client.connection.close(); });
+                window.addEventListener('pagehide', () => { if (client && client.connection) client.connection.close(); });
 
             } catch (err) {
                 console.error("Failed to connect:", err);
@@ -162,7 +153,7 @@
 
         function connectResource(path) {
             try {
-                activeCollection = client.provider(path);
+                activeCollection = client.get_collection_resource("adm", path);
                 updateItems(activeCollection.get_items());
 
                 activeCollection.add_callback(() => {
@@ -177,6 +168,18 @@
             itemsList = [...items];
             document.getElementById("itemsCountBadge").textContent = `${itemsList.length}`;
             renderTable();
+
+            if (selectedItemId) {
+                const selectedItem = itemsList.find(i => i.id === selectedItemId);
+                if (selectedItem) {
+                    renderInspector(selectedItem);
+                } else {
+                    selectedItemId = null;
+                    renderInspector(null);
+                }
+            } else {
+                renderInspector(null);
+            }
         }
 
         function renderTable() {
@@ -193,13 +196,13 @@
 
             itemsList.forEach(item => {
                 const tr = document.createElement("tr");
-                tr.className = "clickable-row";
+                tr.className = "table-row-item clickable-row";
                 if (item.id === selectedItemId) {
                     tr.classList.add("selected");
                 }
 
                 tr.innerHTML = `
-                    <td style="text-align: center;">
+                    <td style="width: 36px; text-align: center;">
                         <button class="btn-item-delete" title="Delete item" onclick="deleteSingleItem('${item.id}', event)">✕</button>
                     </td>
                     <td style="font-family: var(--font-mono); color: var(--accent-primary); font-weight: 500;">${item.id}</td>
@@ -215,13 +218,22 @@
             });
         }
 
+        let lastInspectedJSON = null;
+
         function renderInspector(item) {
             const body = document.getElementById("inspectorBody");
             if (!item) {
-                body.innerHTML = '<div style="color: var(--text-muted); font-size: 0.85rem;">Select an item from the table to view details.</div>';
+                if (lastInspectedJSON !== null) {
+                    body.innerHTML = '<div style="color: var(--text-muted); font-size: 0.85rem;">Select an item from the table to view details.</div>';
+                    lastInspectedJSON = null;
+                }
                 return;
             }
-            body.innerHTML = `<pre>${JSON.stringify(item, null, 2)}</pre>`;
+            const jsonStr = JSON.stringify(item, null, 2);
+            if (jsonStr !== lastInspectedJSON) {
+                body.innerHTML = `<pre>${jsonStr}</pre>`;
+                lastInspectedJSON = jsonStr;
+            }
         }
 
         function deleteSingleItem(itemId, event) {
@@ -230,6 +242,7 @@
                 activeCollection.update_items({ remove: [itemId] });
             }
         }
+        window.deleteSingleItem = deleteSingleItem;
 
         // Clear Resource Handler
         document.getElementById("btnClearResource").addEventListener("click", () => {

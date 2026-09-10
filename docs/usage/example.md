@@ -81,7 +81,7 @@ UI evaluation and rendering are triggered whenever **either** `slidesMap` or `ac
 
 ```javascript
 function render() {
-  const slides = slidesMap.values();
+  const slides = Array.from(slidesMap.values());
   slides.sort((a, b) => (a.no || 0) - (b.no || 0));
 
   const currentActiveNo = activeSlideNo.value;
@@ -133,14 +133,14 @@ Navigating to adjacent slides updates `activeSlideNo`. To handle potential seque
 ```javascript
 // Next Slide Selection
 nextBtn.onclick = () => {
-  const slides = slidesMap.values().sort((a, b) => (a.no || 0) - (b.no || 0));
+  const slides = Array.from(slidesMap.values()).sort((a, b) => (a.no || 0) - (b.no || 0));
   const nextSlide = slides.find(s => s && s.no > activeSlideNo.value);
   if (nextSlide) activeSlideNo.set(nextSlide.no);
 };
 
 // Previous Slide Selection
 prevBtn.onclick = () => {
-  const slides = slidesMap.values().sort((a, b) => (a.no || 0) - (b.no || 0));
+  const slides = Array.from(slidesMap.values()).sort((a, b) => (a.no || 0) - (b.no || 0));
   const prevSlide = [...slides].reverse().find(s => s && s.no < activeSlideNo.value);
   if (prevSlide) activeSlideNo.set(prevSlide.no);
 };
@@ -153,7 +153,7 @@ Creating and deleting slides directly mutates `slidesMap`, automatically broadca
 ```javascript
 // Add Slide
 addBtn.onclick = () => {
-  const slides = slidesMap.values();
+  const slides = Array.from(slidesMap.values());
   const maxNo = slides.reduce((max, s) => (s && s.no > max ? s.no : max), 0);
   const nextNo = maxNo + 1;
   const id = generateId();
@@ -181,7 +181,7 @@ Reordering swaps the `slide.no` attributes of adjacent slides in `slidesMap`, wh
 ```javascript
 // Move Active Slide Right
 moveNextBtn.onclick = () => {
-  const slides = slidesMap.values().sort((a, b) => (a.no || 0) - (b.no || 0));
+  const slides = Array.from(slidesMap.values()).sort((a, b) => (a.no || 0) - (b.no || 0));
   const currIdx = slides.findIndex(s => s && s.no === activeSlideNo.value);
 
   if (currIdx !== -1 && currIdx < slides.length - 1) {

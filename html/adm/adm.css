@@ -411,17 +411,23 @@ header {
     color: var(--text-primary);
 }
 
-.items-table tr.table-row-item {
+.items-table tr.table-row-item,
+.items-table tr.clickable-row,
+tr.clickable-row {
     cursor: pointer;
     transition: background 0.15s ease;
 }
 
-.items-table tr.table-row-item:hover {
-    background: rgba(56, 189, 248, 0.08);
+.items-table tr.table-row-item:hover,
+.items-table tr.clickable-row:hover,
+tr.clickable-row:hover {
+    background: rgba(56, 189, 248, 0.12);
 }
 
-.items-table tr.table-row-item.selected {
-    background: rgba(56, 189, 248, 0.15);
+.items-table tr.table-row-item.selected,
+.items-table tr.clickable-row.selected,
+tr.clickable-row.selected {
+    background: rgba(56, 189, 248, 0.2);
 }
 
 .inspector-body {
