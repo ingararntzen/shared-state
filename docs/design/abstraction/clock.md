@@ -11,16 +11,16 @@
 
 ## Client-side Server Clock
 
-The estimated server clock is available as a property `server_clock` on the SharedState client. This highlights that clocks can also be regarded as shared state in an application.
+The estimated server clock is available as a property `serverclock` on the SharedState client. This highlights that clocks can also be regarded as shared state in an application.
 
 ```javascript
 // Local timestamp and server timestamp 
 const local_time = ss_client.local_clock.now();
-const server_time = ss_client.server_clock.now();
+const server_time = ss_client.serverclock.now();
 // Current estimates for clock skew and network rtt.
 // Server clock is local clock + estimated skew
-const skew = ss_client.server_clock.skew;
-const rtt = ss_client.server_clock.rtt;
+const skew = ss_client.serverclock.skew;
+const rtt = ss_client.serverclock.rtt;
 ```
 
 ---

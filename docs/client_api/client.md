@@ -12,7 +12,7 @@ Initializes the SharedStateClient.
 | --- | --- | --- |
 | `url` | `string` | WebSocket server URL (ws://host:port/) |
 | `[options]` | `Object` | Configuration options |
-| `[options.failureTimeout=10]` | `number` | Time in seconds before unacknowledged updates trigger a timeout reconnect |
+| `[options.failureTimeout=10]` | `number` | Time in seconds before unacknowledged updates trigger a reconnect |
 
 ## Accessors & Properties
 
@@ -24,51 +24,44 @@ Unique client identifier.
 
 ### `connection`
 
-**Type**: `Connection`
+**Type**: [`Connection`](/client_api/connection)
 
-Connection object.
+Connection object managing automated reconnects.
 
-### `clock`
+### `serverclock`
 
-**Type**: `ServerClock`
+**Type**: [`ServerClock`](/client_api/clock)
 
-ServerClock object.
+ServerClock object estimating server time and network latency.
 
 ## Methods
 
-### `get_resource(token, path)`
+### `get_collection_resource(token, path)`
 
-Request path-exclusive access to a PathResource given token and path.
-Returns PathResource (ItemProvider instance) if access is granted.
-Throws error if access was already granted for another token.
+Request access to a [`CollectionResource`](/client_api/collection_resource) given token and path.
 
 | Parameter | Type | Description |
 | --- | --- | --- |
-| `token` | `string` | Access token |
-| `path` | `string` | Path of PathResource (e.g. "/app/store/res") |
+| `token` | `string` | Access [Token](/design/abstraction/objects#token-based-resource-access) |
+| `path` | `string` | Resource [Path](/design/representation/item_collection#path) |
 
-**Returns**: `Object` - - PathResource handle for path
+**Returns**: [`CollectionResource`](/client_api/collection_resource)
 
-### `get_item_resource(token, path, itemID)`
+### `get_value_resource(token, path, name)`
 
-Request item-exclusive access to a ValueResource given token, path, and itemID.
-Returns ValueResource handle for (path, itemID) if access is granted.
-Throws error if access was already granted for another token.
+Request access to a [`ValueResource`](/client_api/value_resource) given token, path, and name.
 
 | Parameter | Type | Description |
 | --- | --- | --- |
-| `token` | `string` | Access token |
-| `path` | `string` | Path of CollectionResource |
-| `itemID` | `string` | Item identifier within path |
+| `token` | `string` | Access [Token](/design/abstraction/objects#token-based-resource-access) |
+| `path` | `string` | Resource [Path](/design/representation/item_collection#path) |
+| `name` | `string` | Name of value |
 
-**Returns**: `ValueResource` - - ValueResource handle
+**Returns**: [`ValueResource`](/client_api/value_resource)
 
 ### `terminate()`
 
 Terminates the client: releases all providers, subscriptions, bindings, and closes the WebSocket connection.
 
-**Returns**: `void`
+**Returns**: `undefined`
 
-
-> See **[Connection](/client_api/connection)** for details on `client.connection`.
-> See **[Server Clock](/client_api/clock)** for details on `client.clock`.

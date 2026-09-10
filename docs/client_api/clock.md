@@ -1,6 +1,6 @@
 # Server Clock
 
-The `client.clock` instance (`ServerClock`) estimates high-precision server time, clock skew, and transit latency.
+The `client.serverclock` instance (`ServerClock`) estimates high-precision server time, clock skew, and transit latency.
 
 ## Properties
 

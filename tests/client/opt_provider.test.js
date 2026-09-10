@@ -21,7 +21,7 @@ function createMockClient() {
         _reconnect: vi.fn(),
         _on_ack: SharedStateClient.prototype._on_ack,
         _check_pending_timeouts: SharedStateClient.prototype._check_pending_timeouts,
-        get_resource(token, collPath) {
+        get_collection_resource(token, collPath) {
             if (!this._providers.has(collPath)) {
                 const baseColl = new ItemProvider(this, collPath);
                 const coll = new OptimisticItemProvider(this, baseColl);
@@ -29,10 +29,12 @@ function createMockClient() {
             }
             return this._providers.get(collPath);
         },
-        get_item_resource(token, collPath, itemID) {
-            const providerInstance = this.get_resource(token, collPath);
+        get_value_resource(token, collPath, itemID) {
+            const providerInstance = this.get_collection_resource(token, collPath);
             return new SingleItemProvider(providerInstance, itemID);
-        }
+        },
+        get_resource(token, collPath) { return this.get_collection_resource(token, collPath); },
+        get_item_resource(token, collPath, itemID) { return this.get_value_resource(token, collPath, itemID); }
     };
     client._request.mockImplementation(async (cmd, path, data) => {
         if (cmd === "PUT" && path !== "/subs") {

@@ -103,15 +103,16 @@ It would be a problem if two application objects were set up to mutate the same 
 ### Token-based Resource Access
 
 ```js
-const [reader, updater] = client.get_resource(token, path, itemID = undefined)
+const collectionRes = client.get_collection_resource(token, path)
+const valueRes = client.get_value_resource(token, path, name)
 ```
 
-This claims access for the resource identified by `(path, itemID)` for the given `token`:
+This claims access for the resource identified by `path` or `(path, name)` for the given `token`:
 - If the resource has already been claimed by a different `token`, the client will throw an `Error`.
-- If the resource has already been claimed by the same `token`, the client will return the active `[reader, updater]` tuple.
-- If the resource has not been claimed before, the client will initialize the resource, bind it to `token`, and return the associated `[reader, updater]` tuple.
+- If the resource has already been claimed by the same `token`, the client will return the active resource handle.
+- If the resource has not been claimed before, the client will initialize the resource, bind it to `token`, and return the associated resource handle.
 
-After this operation, resource mutation and observation are performed through the `[reader, updater]` object pair. A repeated invocation with the same parameters (`token`, `path`, `itemID`) will return the same object pair. SharedState application objects automatically use their class name as their `token`.
+After this operation, resource mutation and observation are performed through the resource object. A repeated invocation with the same parameters (`token`, `path` or `token`, `path`, `name`) will return the same resource handle. SharedState application objects automatically use their class name as their `token`.
 
 ::: tip Note
 When SharedState application objects are granted exclusive access to a resource, this is only ensured locally, within a single client process. Application-wide agreement is required to ensure that all clients treat the same resource in the same way. This is not enforced by the SharedState framework, and left as a responsibility of the application developer.  
@@ -121,8 +122,8 @@ When SharedState application objects are granted exclusive access to a resource,
 
 SharedState distinguishes two scopes for resource access:
 
-- **Path-Exclusive Scope** (`path, undefined`): Token access is granted for the entire [ItemProvider] identified by a [Path]. 
-- **Item-Exclusive Scope** (`path, itemID`): Token-based access is granted for a single [Item] within the [ItemProvider] identified by a [Path].
+- **Path-Exclusive Scope** (`token, path`): Token access is granted for the entire [ItemProvider] identified by a [Path] via `get_collection_resource`. 
+- **Item-Exclusive Scope** (`token, path, name`): Token-based access is granted for a single [Item] within the [ItemProvider] identified by a [Path] via `get_value_resource`.
 
 **Path-Exclusive** and **Item-Exclusive Access** are mutually exclusive for a given [Path]. If **Item-Exclusive** access has been granted for an [Item] within a given [ItemProvider], **Item-Exclusive** access can still be granted for other [Items] within the same [ItemProvider], but **Path-Exclusive** access cannot be granted for that [ItemProvider].
 

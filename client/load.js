@@ -35,7 +35,7 @@ export const TYPE_REGISTRY = {
  * @returns {Object<string, *>} Map of bound abstraction instances
  */
 export function load(client, config) {
-    if (!client || typeof client.get_resource !== "function") {
+    if (!client || typeof client.get_collection_resource !== "function") {
         throw new Error("load() expects a SharedStateClient instance as first argument.");
     }
     if (!config || typeof config !== "object") {

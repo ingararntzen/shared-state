@@ -138,20 +138,20 @@
         const elem_skew_var = document.querySelector("#skew_var");
 
         setInterval(() => {
-            if (client.clock) {
-                elem_clock.textContent = client.clock.now() ? client.clock.now().toFixed(6) : "--";
-                elem_latest_trans.textContent = client.clock.latest_trans !== undefined ? `${(client.clock.latest_trans * 1000).toFixed(3)} ms` : "--";
-                elem_latest_skew.textContent = client.clock.latest_skew !== undefined ? `${(client.clock.latest_skew * 1000).toFixed(3)} ms` : "--";
-                elem_trans.textContent = client.clock.trans !== undefined ? `${(client.clock.trans * 1000).toFixed(3)} ms` : "--";
-                elem_skew.textContent = client.clock.skew !== undefined ? `${(client.clock.skew * 1000).toFixed(3)} ms` : "--";
+            if (client.serverclock) {
+                elem_clock.textContent = client.serverclock.now() ? client.serverclock.now().toFixed(6) : "--";
+                elem_latest_trans.textContent = client.serverclock.latest_trans !== undefined ? `${(client.serverclock.latest_trans * 1000).toFixed(3)} ms` : "--";
+                elem_latest_skew.textContent = client.serverclock.latest_skew !== undefined ? `${(client.serverclock.latest_skew * 1000).toFixed(3)} ms` : "--";
+                elem_trans.textContent = client.serverclock.trans !== undefined ? `${(client.serverclock.trans * 1000).toFixed(3)} ms` : "--";
+                elem_skew.textContent = client.serverclock.skew !== undefined ? `${(client.serverclock.skew * 1000).toFixed(3)} ms` : "--";
 
-                const tStd = (client.clock.trans_std * 1000).toFixed(3);
-                const tRng = (client.clock.trans_range * 1000).toFixed(3);
-                elem_trans_var.textContent = client.clock.trans !== undefined ? `±${tStd} ms (Δ ${tRng} ms)` : "--";
+                const tStd = (client.serverclock.trans_std * 1000).toFixed(3);
+                const tRng = (client.serverclock.trans_range * 1000).toFixed(3);
+                elem_trans_var.textContent = client.serverclock.trans !== undefined ? `±${tStd} ms (Δ ${tRng} ms)` : "--";
 
-                const sStd = (client.clock.skew_std * 1000).toFixed(3);
-                const sRng = (client.clock.skew_range * 1000).toFixed(3);
-                elem_skew_var.textContent = client.clock.skew !== undefined ? `±${sStd} ms (Δ ${sRng} ms)` : "--";
+                const sStd = (client.serverclock.skew_std * 1000).toFixed(3);
+                const sRng = (client.serverclock.skew_range * 1000).toFixed(3);
+                elem_skew_var.textContent = client.serverclock.skew !== undefined ? `±${sStd} ms (Δ ${sRng} ms)` : "--";
             }
         }, 50);
     </script>

@@ -26,7 +26,7 @@ describe("Layer 2 Domain Abstractions Unit Tests", () => {
             _item_bindings: new Map(),
             _subscriptions: new Map(),
             _update: vi.fn().mockResolvedValue({ ok: true }),
-            get_resource(token, path) {
+            get_collection_resource(token, path) {
                 if (!path) {
                     path = token;
                 }
@@ -35,10 +35,12 @@ describe("Layer 2 Domain Abstractions Unit Tests", () => {
                 }
                 return this._providers.get(path);
             },
-            get_item_resource(token, path, itemID) {
-                const providerInstance = this.get_resource(token, path);
+            get_value_resource(token, path, itemID) {
+                const providerInstance = this.get_collection_resource(token, path);
                 return new SingleItemProvider(providerInstance, itemID);
-            }
+            },
+            get_resource(token, path) { return this.get_collection_resource(token, path); },
+            get_item_resource(token, path, itemID) { return this.get_value_resource(token, path, itemID); }
         };
         return client;
     }

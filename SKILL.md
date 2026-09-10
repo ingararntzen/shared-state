@@ -176,17 +176,17 @@ The SharedState client includes a built-in mechanism to estimate the server's cl
 
 ### Accessing the Synchronized Clock
 
-The synchronized clock is accessed via the `clock` property on the `SharedStateClient` instance:
+The synchronized clock is accessed via the `serverclock` property on the `SharedStateClient` instance:
 
 ```javascript
 // Get the current estimated server UTC time (in seconds since epoch)
-const serverTime = client.clock.now();
+const serverTime = client.serverclock.now();
 
 // Get the estimated transit delay (one-way round-trip latency in seconds)
-const transitTime = client.clock.trans;
+const transitTime = client.serverclock.trans;
 
 // Get the estimated skew between the local client and the server clock (in seconds)
-const skew = client.clock.skew;
+const skew = client.serverclock.skew;
 ```
 
 ### Pausing and Resuming Synchronization
@@ -195,11 +195,11 @@ By default, the clock starts synchronizing when the connection is established. Y
 
 ```javascript
 // Pause background pinging/sampling
-client.clock.pinger.pause();
+client.serverclock.pinger.pause();
 
 // Resume background pinging/sampling
-client.clock.pinger.resume();
+client.serverclock.pinger.resume();
 
 // Restart the background pinging/sampling sequence
-client.clock.pinger.restart();
+client.serverclock.pinger.restart();
 ```

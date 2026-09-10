@@ -27,6 +27,10 @@ function formatSingleType(t) {
     if (cleanName === "Item") return `[\`Item\`](/client_api/types#item)`;
     if (cleanName === "Changes") return `[\`Changes\`](/client_api/types#changes)`;
     if (cleanName === "EventInfo") return `[\`EventInfo\`](/client_api/events#eventinfo)`;
+    if (cleanName === "CollectionResource") return `[\`CollectionResource\`](/client_api/collection_resource)`;
+    if (cleanName === "ValueResource") return `[\`ValueResource\`](/client_api/value_resource)`;
+    if (cleanName === "Connection") return `[\`Connection\`](/client_api/connection)`;
+    if (cleanName === "ServerClock") return `[\`ServerClock\`](/client_api/clock)`;
 
     if (cleanName === "Item[]" || cleanName === "Array<Item>") {
         return `[\`Item\`](/client_api/types#item)[]`;
@@ -42,6 +46,8 @@ function formatSingleType(t) {
     if (formatted.includes("Item")) formatted = formatted.replace("Item", "[\`Item\`](/client_api/types#item)");
     if (formatted.includes("Changes")) formatted = formatted.replace("Changes", "[\`Changes\`](/client_api/types#changes)");
     if (formatted.includes("EventInfo")) formatted = formatted.replace("EventInfo", "[\`EventInfo\`](/client_api/events#eventinfo)");
+    if (formatted.includes("CollectionResource")) formatted = formatted.replace("CollectionResource", "[\`CollectionResource\`](/client_api/collection_resource)");
+    if (formatted.includes("ValueResource")) formatted = formatted.replace("ValueResource", "[\`ValueResource\`](/client_api/value_resource)");
 
     return `\`${formatted}\``.replace(/`\[/g, '[').replace(/\]\)`/g, '])');
 }
@@ -56,7 +62,13 @@ function cleanDesc(desc) {
     return desc
         .replace(/\{@link Item\}/g, "[`Item`](/client_api/types#item)")
         .replace(/\{@link Changes\}/g, "[`Changes`](/client_api/types#changes)")
-        .replace(/\{@link EventInfo\}/g, "[`EventInfo`](/client_api/events#eventinfo)");
+        .replace(/\{@link EventInfo\}/g, "[`EventInfo`](/client_api/events#eventinfo)")
+        .replace(/\{@link CollectionResource\}/g, "[`CollectionResource`](/client_api/collection_resource)")
+        .replace(/\{@link ValueResource\}/g, "[`ValueResource`](/client_api/value_resource)")
+        .replace(/\{@link Connection\}/g, "[`Connection`](/client_api/connection)")
+        .replace(/\{@link ServerClock\}/g, "[`ServerClock`](/client_api/clock)")
+        .replace(/\{@link TokenAccess Token-based Resource Access\}/g, "[`Token-based Resource Access`](/design/abstraction/objects#token-based-resource-access)")
+        .replace(/\{@link TokenAccess\}/g, "[`Token-based Resource Access`](/design/abstraction/objects#token-based-resource-access)");
 }
 
 function formatParamsTable(params, headerName = "Parameter") {
@@ -245,9 +257,6 @@ async function generateClientDoc() {
         }
     }
 
-    md += `\n> See **[Connection](/client_api/connection)** for details on \`client.connection\`.\n`;
-    md += `> See **[Server Clock](/client_api/clock)** for details on \`client.clock\`.\n`;
-
     fs.writeFileSync(path.join(docsApiDir, "client.md"), md, "utf8");
     console.log("Generated client.md");
 }
@@ -294,7 +303,7 @@ async function generateClockDoc() {
     const data = await jsdoc2md.getTemplateData({ files });
     
     let md = `# Server Clock\n\n`;
-    md += `The \`client.clock\` instance (\`ServerClock\`) estimates high-precision server time, clock skew, and transit latency.\n\n`;
+    md += `The \`client.serverclock\` instance (\`ServerClock\`) estimates high-precision server time, clock skew, and transit latency.\n\n`;
     
     const props = data.filter(d => d.kind === "member" && d.memberof === "ServerClock" && isPublic(d));
     if (props.length > 0) {

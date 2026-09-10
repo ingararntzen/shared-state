@@ -9,16 +9,21 @@ import { random_string, resolvablePromise, isNumber } from "./util/util.js";
 const DEFAULT_FAILURE_TIMEOUT = 10;
 
 /**
- * SharedStateClient manages logical network connections, subscriptions,
+ * SharedStateClient manages network connections, subscriptions,
  * state providers, and application objects.
  * @class SharedStateClient
+ * @see {@link Connection}
+ * @see {@link ServerClock}
+ * @see {@link CollectionResource}
+ * @see {@link ValueResource}
+ * @see {@link TokenAccess Token-based Resource Access}
  */
 export class SharedStateClient {
     /**
      * Initializes the SharedStateClient.
      * @param {string} url - WebSocket server URL (ws://host:port/)
      * @param {Object} [options] - Configuration options
-     * @param {number} [options.failureTimeout=10] - Time in seconds before unacknowledged updates trigger a timeout reconnect
+     * @param {number} [options.failureTimeout=10] - Time in seconds before unacknowledged updates trigger a reconnect
      */
     constructor(url, options = {}) {
         // check options
@@ -49,7 +54,7 @@ export class SharedStateClient {
         this._item_bindings = new Map();
 
         // clock sync
-        this._clock = new ServerClock(this);
+        this._serverclock = new ServerClock(this);
 
         // connection
         this._connection = new Connection(url, options);
@@ -73,8 +78,9 @@ export class SharedStateClient {
     }
 
     /**
-     * Connection object.
+     * Connection object managing automated reconnects.
      * @type {Connection}
+     * @see {@link Connection}
      * @readonly
      */
     get connection() {
@@ -82,24 +88,23 @@ export class SharedStateClient {
     }
 
     /**
-     * ServerClock object.
+     * ServerClock object estimating server time and network latency.
      * @type {ServerClock}
+     * @see {@link ServerClock}
      * @readonly
      */
-    get clock() {
-        return this._clock;
+    get serverclock() {
+        return this._serverclock;
     }
 
     /**
-     * Request path-exclusive access to a PathResource given token and path.
-     * Returns PathResource (ItemProvider instance) if access is granted.
-     * Throws error if access was already granted for another token.
-     * @param {string} token - Access token
-     * @param {string} path - Path of PathResource (e.g. "/app/store/res")
-     * @returns {Object} - PathResource handle for path
-     * @throws {Error} - If access was already granted for another token or item-exclusive scope exists
+     * Request access to a {@link CollectionResource} given token and path.
+     * @param {string} token - Access [Token](/design/abstraction/objects#token-based-resource-access)
+     * @param {string} path - Resource [Path](/design/representation/item_collection#path)
+     * @returns {CollectionResource}
+     * @throws {Error} If access was already granted for another token or item-exclusive scope exists
      */
-    get_resource(token, path) {
+    get_collection_resource(token, path) {
         if (!token || typeof token !== "string") {
             throw new Error("Token must be a non-empty string.");
         }
@@ -128,21 +133,19 @@ export class SharedStateClient {
     }
 
     /**
-     * Request item-exclusive access to a ValueResource given token, path, and itemID.
-     * Returns ValueResource handle for (path, itemID) if access is granted.
-     * Throws error if access was already granted for another token.
-     * @param {string} token - Access token
-     * @param {string} path - Path of CollectionResource
-     * @param {string} itemID - Item identifier within path
-     * @returns {ValueResource} - ValueResource handle
-     * @throws {Error} - If access was already granted for another token or path-exclusive scope exists
+     * Request access to a {@link ValueResource} given token, path, and name.
+     * @param {string} token - Access [Token](/design/abstraction/objects#token-based-resource-access)
+     * @param {string} path - Resource [Path](/design/representation/item_collection#path)
+     * @param {string} name - Name of value
+     * @returns {ValueResource}
+     * @throws {Error} If access was already granted for another token or path-exclusive scope exists
      */
-    get_item_resource(token, path, itemID) {
+    get_value_resource(token, path, name) {
         if (!token || typeof token !== "string") {
             throw new Error("Token must be a non-empty string.");
         }
-        if (!itemID || typeof itemID !== "string") {
-            throw new Error("itemID must be a non-empty string.");
+        if (!name || typeof name !== "string") {
+            throw new Error("name must be a non-empty string.");
         }
         path = validatePath(path);
 
@@ -152,13 +155,13 @@ export class SharedStateClient {
         }
         let itemMap = this._item_bindings.get(path);
         if (itemMap) {
-            const existingItemToken = itemMap.get(itemID);
+            const existingItemToken = itemMap.get(name);
             if (existingItemToken !== undefined && existingItemToken !== token) {
-                throw new Error(`Path '${path}' item '${itemID}' is already bound to token '${existingItemToken}'`);
+                throw new Error(`Path '${path}' item '${name}' is already bound to token '${existingItemToken}'`);
             }
-            itemMap.set(itemID, token);
+            itemMap.set(name, token);
         } else {
-            itemMap = new Map([[itemID, token]]);
+            itemMap = new Map([[name, token]]);
             this._item_bindings.set(path, itemMap);
         }
 
@@ -172,12 +175,12 @@ export class SharedStateClient {
         this._schedule_sub_sync();
 
         const providerInstance = this._providers.get(path);
-        return new SingleItemProvider(providerInstance, itemID);
+        return new SingleItemProvider(providerInstance, name);
     }
 
     /**
      * Terminates the client: releases all providers, subscriptions, bindings, and closes the WebSocket connection.
-     * @returns {void}
+     * @returns {undefined}
      */
     terminate() {
         for (const [path, providerInstance] of this._providers.entries()) {
@@ -202,16 +205,16 @@ export class SharedStateClient {
 
     /** Called automatically when WebSocket connects/reconnects. */
     _on_connect() {
-        if (this._clock) {
-            this._clock.restart();
+        if (this._serverclock) {
+            this._serverclock.restart();
         }
         this._schedule_sub_sync();
     }
 
     /** Rejects pending request promises on disconnect. */
     _on_disconnect(event) {
-        if (this._clock && this._clock.pinger) {
-            this._clock.pinger.pause();
+        if (this._serverclock && this._serverclock.pinger) {
+            this._serverclock.pinger.pause();
         }
         for (const resolver of this._pending_requests.values()) {
             resolver({ ok: false, data: "connection disconnected" });

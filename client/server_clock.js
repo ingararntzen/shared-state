@@ -41,7 +41,7 @@ const MAX_SAMPLE_COUNT = 30;
 
 /**
  * Server time synchronization provider calculating clock skew and network latency.
- * Access via `client.clock`.
+ * Access via `client.serverclock`.
  * @class ServerClock
  */
 export class ServerClock {

@@ -95,8 +95,8 @@ export class BaseAbstraction {
      * @param {Object} [options] - Options passed to provider initialization
      */
     constructor(client, token, path, itemID = undefined, options = {}) {
-        if (!client || (typeof client.get_resource !== "function" && typeof client.get_item_resource !== "function")) {
-            throw new Error(`Client must be an instance of SharedStateClient or implement get_resource/get_item_resource.`);
+        if (!client || typeof client.get_collection_resource !== "function" || typeof client.get_value_resource !== "function") {
+            throw new Error(`Client must be an instance of SharedStateClient implementing get_collection_resource and get_value_resource.`);
         }
         path = validatePath(path);
         this._client = client;
@@ -105,10 +105,10 @@ export class BaseAbstraction {
         this._token = token;
 
         if (itemID === undefined) {
-            this._resource = client.get_resource(token, path);
+            this._resource = client.get_collection_resource(token, path);
             this._provider = this._resource;
         } else {
-            this._resource = client.get_item_resource(token, path, itemID);
+            this._resource = client.get_value_resource(token, path, itemID);
             this._provider = this._resource.provider;
         }
         this._reader = this._resource;
