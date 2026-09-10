@@ -36,13 +36,13 @@ Request an update to the value of the resource.
 
 **Returns**: `Promise.<Object>` - Resolves when state update is dispatched/processed
 
-### `add_callback(handler())`
+### `add_callback(handler(diff))`
 
-Registers a callback invoked whenever the resource changes.
+Registers a callback invoked whenever the resource value changes.
 
 | Parameter | Type | Description |
 | --- | --- | --- |
-| `handler()` | `function` | Callback function receiving change event |
+| `handler(diff)` | `function` | Callback function receiving value diff `{ new: *, old: * }` |
 
 **Returns**: `Object` - Subscription handle with `.remove_callback()`
 

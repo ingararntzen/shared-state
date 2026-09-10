@@ -63,10 +63,11 @@ export class SingleItemProvider {
 
     /**
      * Registers a callback invoked whenever this specific item is updated or reset.
-     * @param {Function} handler - Callback receiving changes payload
-     * @returns {Object} Subscription handle with `.off()` method
+     * @param {Function} handler - Callback receiving value change `{ new: *, old: * }`
+     * @returns {Object} Subscription handle with `.remove_callback()` and `.off()` methods
      */
     add_callback(handler) {
+        let oldValue = this.get();
         const wrappedHandler = (changes) => {
             const { insert, remove, reset } = changes;
             const itemTouched = reset ||
@@ -74,12 +75,16 @@ export class SingleItemProvider {
                 (insert && insert.has(this._name));
 
             if (itemTouched) {
-                handler(changes);
+                const newValue = this.get();
+                const diff = { new: newValue, old: oldValue };
+                oldValue = newValue;
+                handler(diff);
             }
         };
         const handle = this._provider.add_callback(wrappedHandler);
         return {
             handle,
+            remove_callback: () => this._provider.remove_callback(handle),
             off: () => this._provider.remove_callback(handle)
         };
     }

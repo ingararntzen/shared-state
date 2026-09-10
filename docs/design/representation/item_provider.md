@@ -35,12 +35,12 @@
 `ItemProvider` allows applications to request an **asynchronous** state update.
 
 ```js
-update_items(changes, { conditional: false }) 
+update_items(changes, { dropIfModified: false }) 
 ```
 
 - Returns a `Promise` that is resolved when the corresponding change has become visible to a local query operation.
 - `changes`: [Changes] to be applied to the [ItemCollection].
-- `options.conditional`: (`Boolean`, default: `false`). If true, the update is conditional, see [Conditional Updates].
+- `options.dropIfModified`: (`Boolean`, default: `false`). If true, the update is dropped if concurrent modifications occurred on the server, see [Conditional Updates].
 
 
 ::: tip Note

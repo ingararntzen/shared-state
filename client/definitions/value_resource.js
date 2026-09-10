@@ -33,8 +33,8 @@ export class ValueResource {
     set(value, options = {}) { }
 
     /**
-     * Registers a callback invoked whenever the resource changes.
-     * @param {Function} handler() - Callback function receiving change event
+     * Registers a callback invoked whenever the resource value changes.
+     * @param {Function} handler(diff) - Callback function receiving value diff `{ new: *, old: * }`
      * @returns {Object} Subscription handle with `.remove_callback()`
      */
     add_callback(handler) { }

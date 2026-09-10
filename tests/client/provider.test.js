@@ -186,4 +186,52 @@ describe("ItemProvider Unit Tests", () => {
             last_version: 10
         });
     });
+
+    test("SingleItemProvider emits { new, old } value diff in callbacks", async () => {
+        const mockClient = createMockClient();
+        const coll = new ItemProvider(mockClient, "/app/mitems/chnl");
+        const { SingleItemProvider } = await import("../../client/providers/single_item_provider.js");
+        const itemRes = new SingleItemProvider(coll, "score");
+
+        expect(itemRes.name).toBe("score");
+        expect(itemRes.provider).toBe(coll);
+        expect(itemRes.is_initialized()).toBe(false);
+        expect(itemRes.get()).toBeUndefined();
+
+        const callback = vi.fn();
+        const handle = itemRes.add_callback(callback);
+
+        // 1. Initial item update (undefined -> 100)
+        coll._client_update({
+            insert: [{ id: "score", state: 100 }]
+        });
+        expect(itemRes.is_initialized()).toBe(true);
+        expect(itemRes.get()).toBe(100);
+        expect(callback).toHaveBeenLastCalledWith({ new: 100, old: undefined });
+
+        // 2. Unrelated item update -> score callback not called again
+        coll._client_update({
+            insert: [{ id: "other", state: "abc" }]
+        });
+        expect(callback).toHaveBeenCalledTimes(1);
+
+        // 3. Value change (100 -> 200)
+        coll._client_update({
+            insert: [{ id: "score", state: 200 }]
+        });
+        expect(callback).toHaveBeenLastCalledWith({ new: 200, old: 100 });
+
+        // 4. Removal (200 -> undefined)
+        coll._client_update({
+            remove: ["score"]
+        });
+        expect(callback).toHaveBeenLastCalledWith({ new: undefined, old: 200 });
+
+        // Unsubscribe
+        itemRes.remove_callback(handle);
+        coll._client_update({
+            insert: [{ id: "score", state: 300 }]
+        });
+        expect(callback).toHaveBeenCalledTimes(3);
+    });
 });
