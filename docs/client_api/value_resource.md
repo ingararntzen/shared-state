@@ -1,6 +1,6 @@
-# ItemResource API
+# ValueResource API
 
-Interface representing an item-exclusive resource bound to a single item name within a PathResource.
+Interface representing a single-value resource bound to a specific item name within a CollectionResource.
 
 ## Properties
 
@@ -14,7 +14,7 @@ Item name identifier.
 
 **Type**: `Object`
 
-Underlying PathResource (Layer 1 state provider).
+Underlying CollectionResource (Layer 1 state provider).
 
 ## Methods
 

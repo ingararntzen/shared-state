@@ -1,6 +1,6 @@
 import { describe, test, expect, vi } from "vitest";
 import { ItemProvider } from "../../client/providers/item_provider.js";
-import { OptimisticItemProvider } from "../../client/providers/optimistic_provider.js";
+import { OptimisticItemProvider } from "../../client/providers/optimistic_item_provider.js";
 import { SharedInteger } from "../../client/objects/variables.js";
 import { SharedMap } from "../../client/objects/map.js";
 import { SingleItemProvider } from "../../client/providers/single_item_provider.js";

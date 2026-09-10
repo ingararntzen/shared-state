@@ -51,17 +51,17 @@ Throws error if access was already granted for another token.
 
 ### `get_item_resource(token, path, itemID)`
 
-Request item-exclusive access to an ItemResource given token, path, and itemID.
-Returns ItemResource handle for (path, itemID) if access is granted.
+Request item-exclusive access to a ValueResource given token, path, and itemID.
+Returns ValueResource handle for (path, itemID) if access is granted.
 Throws error if access was already granted for another token.
 
 | Parameter | Type | Description |
 | --- | --- | --- |
 | `token` | `string` | Access token |
-| `path` | `string` | Path of PathResource |
+| `path` | `string` | Path of CollectionResource |
 | `itemID` | `string` | Item identifier within path |
 
-**Returns**: `ItemResource` - - ItemResource handle
+**Returns**: `ValueResource` - - ValueResource handle
 
 ### `terminate()`
 

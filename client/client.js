@@ -1,6 +1,6 @@
 import { Connection, ConnectionState } from "./wsio.js";
 import { ItemProvider } from "./providers/item_provider.js";
-import { OptimisticItemProvider } from "./providers/optimistic_provider.js";
+import { OptimisticItemProvider } from "./providers/optimistic_item_provider.js";
 import { SingleItemProvider } from "./providers/single_item_provider.js";
 import { ServerClock } from "./server_clock.js";
 import { MsgType, MsgCmd, normalizePath, validatePath, sanitizeChanges } from "./common.js";
@@ -128,13 +128,13 @@ export class SharedStateClient {
     }
 
     /**
-     * Request item-exclusive access to an ItemResource given token, path, and itemID.
-     * Returns ItemResource handle for (path, itemID) if access is granted.
+     * Request item-exclusive access to a ValueResource given token, path, and itemID.
+     * Returns ValueResource handle for (path, itemID) if access is granted.
      * Throws error if access was already granted for another token.
      * @param {string} token - Access token
-     * @param {string} path - Path of PathResource
+     * @param {string} path - Path of CollectionResource
      * @param {string} itemID - Item identifier within path
-     * @returns {ItemResource} - ItemResource handle
+     * @returns {ValueResource} - ValueResource handle
      * @throws {Error} - If access was already granted for another token or path-exclusive scope exists
      */
     get_item_resource(token, path, itemID) {

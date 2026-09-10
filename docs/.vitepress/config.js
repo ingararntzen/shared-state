@@ -83,8 +83,8 @@ export default defineConfig({
             text: 'Resources',
             collapsed: true,
             items: [
-              { text: 'PathResource API', link: '/client_api/path_resource' },
-              { text: 'ItemResource API', link: '/client_api/item_resource' }
+              { text: 'CollectionResource API', link: '/client_api/collection_resource' },
+              { text: 'ValueResource API', link: '/client_api/value_resource' }
             ]
           },
           {

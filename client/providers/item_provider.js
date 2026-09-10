@@ -99,7 +99,7 @@ export class UpdateBuilder {
 /**
  * ItemProvider manages state replication, key-value item mapping, and update synchronization for a path.
  * @class ItemProvider
- * @implements {PathResource}
+ * @implements {CollectionResource}
  */
 export class ItemProvider {
 

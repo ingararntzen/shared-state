@@ -1,8 +1,8 @@
 /**
- * Interface representing a path-exclusive resource.
- * @interface PathResource
+ * Interface representing a path-exclusive collection resource.
+ * @interface CollectionResource
  */
-export class PathResource {
+export class CollectionResource {
     /**
      * Underlying state provider instance.
      * @type {Object}
@@ -38,7 +38,7 @@ export class PathResource {
     has_item(id) { }
 
     /**
-     * Updates items stored in the path resource across the network.
+     * Updates items stored in the collection resource across the network.
      * @param {Changes} [changes] - Delta changes object `{ insert, remove, reset }`
      * @param {Object} [options] - Update options
      * @param {boolean} [options.conditional=false] - If true, a conditional update will be performed

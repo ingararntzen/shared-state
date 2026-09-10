@@ -379,19 +379,19 @@ async function generateSetDoc() {
     console.log("Generated set.md");
 }
 
-async function generatePathResourceDoc() {
+async function generateCollectionResourceDoc() {
     const files = [
-        path.join(rootDir, "client", "definitions", "path_resource.js")
+        path.join(rootDir, "client", "definitions", "collection_resource.js")
     ];
     const data = await jsdoc2md.getTemplateData({ files });
 
-    let md = `# PathResource API\n\n`;
-    const classInfo = data.find(d => d.name === "PathResource");
+    let md = `# CollectionResource API\n\n`;
+    const classInfo = data.find(d => d.name === "CollectionResource");
     if (classInfo && classInfo.description) {
         md += `${classInfo.description}\n\n`;
     }
 
-    const props = data.filter(d => d.memberof === "PathResource" && isPublic(d) && d.kind === "member");
+    const props = data.filter(d => d.memberof === "CollectionResource" && isPublic(d) && d.kind === "member");
     if (props.length > 0) {
         md += `## Properties\n\n`;
         for (const p of props) {
@@ -399,7 +399,7 @@ async function generatePathResourceDoc() {
         }
     }
 
-    const methods = data.filter(d => d.memberof === "PathResource" && isPublic(d) && d.kind === "function");
+    const methods = data.filter(d => d.memberof === "CollectionResource" && isPublic(d) && d.kind === "function");
     if (methods.length > 0) {
         md += `## Methods\n\n`;
         for (const m of methods) {
@@ -407,23 +407,23 @@ async function generatePathResourceDoc() {
         }
     }
 
-    fs.writeFileSync(path.join(docsApiDir, "path_resource.md"), md, "utf8");
-    console.log("Generated path_resource.md");
+    fs.writeFileSync(path.join(docsApiDir, "collection_resource.md"), md, "utf8");
+    console.log("Generated collection_resource.md");
 }
 
-async function generateItemResourceDoc() {
+async function generateValueResourceDoc() {
     const files = [
-        path.join(rootDir, "client", "definitions", "item_resource.js")
+        path.join(rootDir, "client", "definitions", "value_resource.js")
     ];
     const data = await jsdoc2md.getTemplateData({ files });
 
-    let md = `# ItemResource API\n\n`;
-    const classInfo = data.find(d => d.name === "ItemResource" || d.memberof === "ItemResource");
+    let md = `# ValueResource API\n\n`;
+    const classInfo = data.find(d => d.name === "ValueResource" || d.memberof === "ValueResource");
     if (classInfo && classInfo.description) {
         md += `${classInfo.description}\n\n`;
     }
 
-    const props = data.filter(d => d.memberof === "ItemResource" && isPublic(d) && d.kind === "member");
+    const props = data.filter(d => d.memberof === "ValueResource" && isPublic(d) && d.kind === "member");
     if (props.length > 0) {
         md += `## Properties\n\n`;
         for (const p of props) {
@@ -431,7 +431,7 @@ async function generateItemResourceDoc() {
         }
     }
 
-    const methods = data.filter(d => d.memberof === "ItemResource" && isPublic(d) && d.kind === "function");
+    const methods = data.filter(d => d.memberof === "ValueResource" && isPublic(d) && d.kind === "function");
     if (methods.length > 0) {
         md += `## Methods\n\n`;
         for (const m of methods) {
@@ -439,8 +439,8 @@ async function generateItemResourceDoc() {
         }
     }
 
-    fs.writeFileSync(path.join(docsApiDir, "item_resource.md"), md, "utf8");
-    console.log("Generated item_resource.md");
+    fs.writeFileSync(path.join(docsApiDir, "value_resource.md"), md, "utf8");
+    console.log("Generated value_resource.md");
 }
 
 async function generateTypesDoc() {
@@ -479,8 +479,8 @@ async function generateAll() {
     await generateClientDoc();
     await generateConnectionDoc();
     await generateClockDoc();
-    await generatePathResourceDoc();
-    await generateItemResourceDoc();
+    await generateCollectionResourceDoc();
+    await generateValueResourceDoc();
     await generateVariablesDoc();
     await generateMapDoc();
     await generateSetDoc();

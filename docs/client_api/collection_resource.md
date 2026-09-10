@@ -1,6 +1,6 @@
-# PathResource API
+# CollectionResource API
 
-Interface representing a path-exclusive resource.
+Interface representing a path-exclusive collection resource.
 
 ## Properties
 
@@ -46,7 +46,7 @@ Checks if an item exists within the resource.
 
 ### `update_items(changes, options)`
 
-Updates items stored in the path resource across the network.
+Updates items stored in the collection resource across the network.
 
 | Parameter | Type | Description |
 | --- | --- | --- |

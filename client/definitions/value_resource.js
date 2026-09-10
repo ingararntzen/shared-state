@@ -1,25 +1,25 @@
 /**
- * Interface representing a resource bound to a single Item within a PathResource.
- * @interface ItemResource
+ * Interface representing a single-value resource bound to a specific item name within a CollectionResource.
+ * @interface ValueResource
  */
-export class ItemResource {
+export class ValueResource {
     /**
-     * Resource name.
+     * Item name identifier.
      * @type {string}
      * @readonly
      */
     get name() { }
 
     /**
-     * Source ItemProvider.
+     * Underlying CollectionResource (Layer 1 state provider).
      * @type {Object}
      * @readonly
      */
     get provider() { }
 
     /**
-     * Retrieves the current value of the resource.
-     * @returns {*} Resource value, or `undefined` if item is uninitialized
+     * Retrieves the current state/value of the item.
+     * @returns {*} Associated item state, or `undefined` if item is uninitialized
      */
     get() { }
 
@@ -30,17 +30,17 @@ export class ItemResource {
     is_initialized() { }
 
     /**
-     * Updates the value of the resource.
-     * @param {*} value - New value
+     * Updates the item value across the network.
+     * @param {*} value - New item state value
      * @param {Object} [options] - Update options
-     * @returns {Promise<Object>} Resolves when update request is acknowledged by the server.
+     * @returns {Promise<Object>} Resolves when state update is dispatched/processed
      */
     set(value, options = {}) { }
 
     /**
-     * Registers a callback invoked whenever the value of the resource is changed.
+     * Registers a callback invoked whenever this specific item is updated or reset.
      * @param {Function} handler - Callback receiving changes payload
-     * @returns {Object} Subscription handle with `.remove_callback()` method
+     * @returns {Object} Subscription handle with `.off()` method
      */
     add_callback(handler) { }
 

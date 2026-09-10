@@ -4,7 +4,7 @@ import { sanitizeChanges } from "../common.js";
 /**
  * OptimisticItemProvider decorates an ItemProvider with optimistic local state overlays.
  * @class OptimisticItemProvider
- * @implements {PathResource}
+ * @implements {CollectionResource}
  */
 export class OptimisticItemProvider {
     constructor(client, itemProvider) {
