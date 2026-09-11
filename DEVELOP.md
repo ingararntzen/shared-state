@@ -46,7 +46,7 @@ npm install
 ```
 ---
 
-### Running the Python Server
+## Running the Python Server
 
 Start the Python SharedState WebSocket server locally:
 
@@ -64,6 +64,7 @@ poetry run sharedstate-server cfg/sql.json
 
 
 ---
+
 ## Running Test Suites
 
 ### Client Tests (Vitest)
@@ -88,6 +89,7 @@ poetry run pytest
 ```
 
 ---
+
 ## Building Client JS Bundles
 
 SharedState uses [Vite](https://vitejs.dev/) to compile the client library into single-file ES modules and IIFE bundles:
@@ -101,12 +103,18 @@ npm run build:dist
 ```
 
 ---
-## Building New API doc
 
-The api doc script (`scripts/generate-api-docs.js`) automatically re-generate client Markdown documentation in docs/client_api/.
+## Generating API Documentation
+
+The API doc script (`scripts/generate-api-docs.js`) automatically re-generates client Markdown documentation in `docs/client_api/`:
+
+```sh
+node scripts/generate-api-docs.js
+```
 
 
 ---
+
 ## Releasing a New Project Version
 
 To create a new release, set version numbers across JS/Python codebases, build client bundles, commit, and create a Git tag in a single command using `scripts/release.js`:
@@ -133,7 +141,3 @@ Push the release to GitHub with:
 ```sh
 git push origin main --tags
 ```
-
-
-
-
