@@ -23,7 +23,7 @@ features:
   - title: Strong Eventual Consistency
     details: SharedState provides replication with strong eventual consistency, maintaining the integrity of client sessions despite network failures.
   - title: Reactive Programming
-    details: SharedState is a great fit for reactive rendering frameworks, offering programming abstractions with state-change events and asynchronous update semantics.
+    details: SharedState is a great fit for reactive rendering frameworks, offering programming abstractions with change events and asynchronous update semantics.
   - title: Data Sharing & Distributed Control
     details: SharedState supports both data sharing and distributed control—enabling live monitoring, multi-user editing, and multi-device coordination.
 ---
