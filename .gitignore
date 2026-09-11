@@ -10,7 +10,6 @@ __pycache__/
 .Python
 build/
 develop-eggs/
-dist/
 downloads/
 eggs/
 .eggs/
@@ -68,8 +67,10 @@ instance/
 # Scrapy stuff:
 .scrapy
 
-# Sphinx documentation
+# Sphinx & VitePress documentation
 docs/_build/
+docs/.vitepress/dist/
+docs/.vitepress/cache/
 
 # PyBuilder
 .pybuilder/

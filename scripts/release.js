@@ -63,7 +63,7 @@ run("npm run build");
 // 5. Git commit & tag (unless --sync-only)
 if (!isSyncOnly) {
     console.log("Staging release files...");
-    run("git add package.json pyproject.toml src/sharedstate/__init__.py dist/");
+    run("git add -f package.json pyproject.toml src/sharedstate/__init__.py dist/");
 
     const commitMsg = `release: v${targetVersion}`;
     const tagName = `v${targetVersion}`;
