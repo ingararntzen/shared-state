@@ -30,6 +30,7 @@ The JavaScript client can be imported either as an ES module or via a global scr
 ```html
 <script type="module">
     import { 
+        ConnectionState,
         SharedStateClient, 
         SharedVariable, 
         SharedBoolean, 
@@ -87,10 +88,14 @@ counter.on("change", (val) => {
 // Instantiated with client and collection path
 const slidesMap = new SharedMap(client, "/myapp/items/slides");
 
-// 1. User Actions -> Create Slide
+// 1. User Actions -> Mutate State (Add / Delete)
 document.querySelector("#addSlideBtn").onclick = () => {
     const slideId = "slide_" + Date.now();
     slidesMap.set(slideId, { id: slideId, title: "New Slide", color: "#38bdf8" });
+};
+
+document.querySelector("#deleteSlideBtn").onclick = () => {
+    slidesMap.delete("slide1");
 };
 
 // 2. State Change -> Render UI
@@ -178,21 +183,24 @@ Collection abstractions backed by server paths `(client, path, [options])`:
 
 ### Connection Management
 
-Regular usage of SharedState programming abstractions do no require specific attention to the connection. However, if the application should wish to inspect connection status or react to connection changes, the `client.connection` object provides the necessary hooks. 
+Regular usage of SharedState programming abstractions does not require specific attention to the connection. However, if an application needs to inspect connection status or react to lifecycle changes, `client.connection` provides state tracking and event hooks.
 
 ```javascript
-
-
-
-
-
-// Wait for connection to open
+// 1. Inspect current connection state
+if (client.connection.state === ConnectionState.CONNECTED) {
+    console.log("Client is connected to server");
+}
+// 2. Wait for connection.state to become CONNECTED
 await client.connection.connectedPromise();
-
-// Connection event hooks
-client.connection.on_connect = () => console.log("Connected");
-client.connection.on_disconnect = () => console.log("Disconnected");
 ```
+
+#### `ConnectionState` Enum Values
+
+- **`ConnectionState.DISCONNECTED`** (`"disconnected"`): Closed state, pending initial connect or next reconnect.
+- **`ConnectionState.CONNECTING`** (`"connecting"`): WebSocket connect or handshake in progress.
+- **`ConnectionState.CONNECTED`** (`"connected"`): Open WebSocket connection.
+- **`ConnectionState.TERMINATED`** (`"terminated"`): Closed after max retries, will not reconnect automatically (page reload required).
+
 
 ### Server Clock Synchronization
 
@@ -202,8 +210,8 @@ Access server-synchronized time and latency measurements:
 // Current estimated server UTC time (seconds since Unix epoch)
 const serverTime = client.serverclock.now();
 
-// Estimated transit latency (seconds)
-const latency = client.serverclock.trans;
+// Estimated round-trip latency (seconds)
+const latency = client.serverclock.rtt;
 
 // Estimated clock skew between client and server (seconds)
 const skew = client.serverclock.skew;
