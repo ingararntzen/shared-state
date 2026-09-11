@@ -16,6 +16,12 @@ Initializes the SharedStateClient.
 
 ## Accessors & Properties
 
+### `VERSION`
+
+**Type**: `string`
+
+The client library version string.
+
 ### `id`
 
 **Type**: `string`
