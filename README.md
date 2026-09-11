@@ -76,7 +76,7 @@ You can import the JavaScript client directly into your browser applications usi
 
 ```html
 <script type="module">
-    import { SharedStateClient } from "https://github.com/ingararntzen/shared-state/raw/main/dist/sharedstate.es.js";
+    import { SharedStateClient } from "https://ingararntzen.github.io/shared-state/dist/sharedstate.es.js";
     const client = new SharedStateClient("ws://localhost:9000");
 </script>
 ```
@@ -84,7 +84,7 @@ You can import the JavaScript client directly into your browser applications usi
 #### Global Script Import (IIFE)
 
 ```html
-<script src="https://github.com/ingararntzen/shared-state/raw/main/dist/sharedstate.iife.js"></script>
+<script src="https://ingararntzen.github.io/shared-state/dist/sharedstate.iife.js"></script>
 <script>
     const client = new SHAREDSTATE.SharedStateClient("ws://localhost:9000");
 </script>

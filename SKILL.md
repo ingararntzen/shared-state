@@ -1,11 +1,11 @@
 ---
 name: shared-state
-description: Guidelines and code examples for using the JavaScript client library of the SharedState real-time state synchronization service.
+description: Guidelines and code examples for using the JavaScript client library of the Shared State real-time sharing service.
 ---
 
 # Shared State JS Client Guide
 
-This guide provides API definitions and code examples for developing applications with the JavaScript client library of the SharedState real-time state synchronization service.
+This guide provides API definitions and decoupled reactive code examples for developing applications with the JavaScript client library of the SharedState real-time data sharing service.
 
 ---
 
@@ -17,7 +17,7 @@ This means that abstractions like (`integer`, `string`, `map`, `set`) are no lon
 
 This idea inspires a family of online programming abstractions: `SharedInteger`, `SharedFloat`, `SharedString`, `SharedBoolean`, `SharedMap`, `SharedSet`.
 
-Similar to traditional programming, application code will be expressed through state access and mutations. Crucially, thouth, since the state is online, state updates are no longer synchronous. This implies a shift to a reactive programming model, where rendering is driven by state changes, and state mutations are driven by user interaction.
+Similar to traditional programming, application code will be expressed through state access and mutations. Crucially, though, since the state is online, state updates are no longer synchronous. This implies a shift to a reactive programming model, where rendering is driven by state changes, and state mutations are driven by user interaction.
 
 ---
 
@@ -29,7 +29,18 @@ The JavaScript client can be imported either as an ES module or via a global scr
 
 ```html
 <script type="module">
-    import { SharedStateClient, SharedInteger, SharedMap } from "./dist/sharedstate.es.js";
+    import { 
+        SharedStateClient, 
+        SharedVariable, 
+        SharedBoolean, 
+        SharedInteger, 
+        SharedFloat, 
+        SharedString, 
+        SharedRecord, 
+        SharedArray, 
+        SharedMap, 
+        SharedSet 
+    } from "https://ingararntzen.github.io/shared-state/dist/sharedstate.es.js";
 
     const client = new SharedStateClient("ws://localhost:9000");
 </script>
@@ -38,7 +49,7 @@ The JavaScript client can be imported either as an ES module or via a global scr
 ### Global Script Import (IIFE)
 
 ```html
-<script src="./dist/sharedstate.iife.js"></script>
+<script src="https://ingararntzen.github.io/shared-state/dist/sharedstate.iife.js"></script>
 <script>
     const client = new SHAREDSTATE.SharedStateClient("ws://localhost:9000");
 </script>
@@ -52,69 +63,41 @@ SharedState applications follow a decoupled reactive pattern: user interactions 
 
 ### Example A: SharedInteger Counter
 
-```html
-<!-- UI HTML Elements -->
-<button id="decrementBtn">-</button>
-<span id="counterValue">0</span>
-<button id="incrementBtn">+</button>
+```javascript
+// Instantiated with client, path prefix, and variable name
+const counter = new SharedInteger(client, "/myapp/items/vars", "counter", { defaultValue: 0 });
 
-<script type="module">
-    import { SharedStateClient, SharedInteger } from "./dist/sharedstate.es.js";
+// 1. User Actions -> Mutate State
+document.querySelector("#incrementBtn").onclick = () => {
+    counter.inc();
+};
+document.querySelector("#decrementBtn").onclick = () => {
+    counter.dec();
+};
 
-    const client = new SharedStateClient("ws://localhost:9000");
-    const counter = new SharedInteger(client, "/myapp/mitems/counter");
-
-    // 1. User Actions -> Mutate State
-    document.querySelector("#incrementBtn").onclick = () => {
-        counter.increment();
-    };
-    document.querySelector("#decrementBtn").onclick = () => {
-        counter.decrement();
-    };
-
-    // 2. State Change -> Render UI ({ init: true } delivers initial state immediately)
-    counter.on("change", (val) => {
-        document.querySelector("#counterValue").textContent = val;
-    }, { init: true });
-</script>
+// 2. State Change -> Render UI ({ init: true } delivers initial state immediately)
+counter.on("change", (val) => {
+    document.querySelector("#counterValue").textContent = val;
+}, { init: true });
 ```
 
 ### Example B: SharedMap Slide Collection
 
-```html
-<!-- UI HTML Elements -->
-<button id="addSlideBtn">Add Slide</button>
-<div id="slidesGallery"></div>
+```javascript
+// Instantiated with client and collection path
+const slidesMap = new SharedMap(client, "/myapp/items/slides");
 
-<script type="module">
-    import { SharedStateClient, SharedMap } from "./dist/sharedstate.es.js";
+// 1. User Actions -> Create Slide
+document.querySelector("#addSlideBtn").onclick = () => {
+    const slideId = "slide_" + Date.now();
+    slidesMap.set(slideId, { id: slideId, title: "New Slide", color: "#38bdf8" });
+};
 
-    const client = new SharedStateClient("ws://localhost:9000");
-    const slidesMap = new SharedMap(client, "/app/items/slides");
-
-    // 1. User Actions -> Mutate State
-    document.querySelector("#addSlideBtn").onclick = () => {
-        const slideId = "slide_" + Date.now();
-        slidesMap.set(slideId, { id: slideId, title: "New Slide", color: "#38bdf8" });
-    };
-
-    window.deleteSlide = (slideId) => {
-        slidesMap.delete(slideId);
-    };
-
-    // 2. State Change -> Render UI
-    slidesMap.on("change", (changes) => {
-        const slides = Array.from(slidesMap.values());
-        const gallery = document.querySelector("#slidesGallery");
-        
-        gallery.innerHTML = slides.map(s => `
-            <div style="background-color: ${s.color}; padding: 1rem; margin: 0.5rem 0;">
-                <h3>${s.title}</h3>
-                <button onclick="deleteSlide('${s.id}')">Delete</button>
-            </div>
-        `).join("");
-    }, { init: true });
-</script>
+// 2. State Change -> Render UI
+slidesMap.on("change", (changes) => {
+    const slides = Array.from(slidesMap.values());
+    renderGallery(slides);
+}, { init: true });
 ```
 
 ---
@@ -123,73 +106,86 @@ SharedState applications follow a decoupled reactive pattern: user interactions 
 
 ### Instantiating Programming Abstractions
 
-SharedState programming abstractions (`SharedVariable`, `SharedInteger`, `SharedMap`, etc.) are instantiated immediately after client initialization. They automatically handle queuing and state replication regardless of connection timing.
+SharedState programming abstractions are created directly using `client` and their target `path`:
+
+- **Path**: string path  (`/app/store/resource`) which identifies a single resource on the server. The path namespace indicates which `app` the resource belongs to, and which storage backend is used `store`. `resource` is a unique identifier within the `app` namespace.
+
+- **Collections** take `(client, path, [options])`:
+  ```javascript
+  const slidesMap = new SharedMap(client, "/app/items/slides");
+  const tagsSet = new SharedSet(client, "/app/items/tags");
+  ```
+- **Variables** add a name as last parameter, as they are managed as independently named objects within a resource `(client, path, name, [options])`:
+  ```javascript
+  const counter = new SharedInteger(client, "/myapp/items/vars", "counter");
+  const title = new SharedString(client, "/myapp/items/vars", "title");
+  ```
+  
+Abstractions can be created immediately after `client` initialization.
+
+Abstractions typically have empty state in the short time before the client has obtained a working connection to the server. The abstraction will emit a change event as soon as the connection is established and the intial state from the server is delivered. 
+
+Empty state is a legal state, though, so from the perspective of application code, abstractions are ready to use immediately.
+
+State mutation, however, requires an open connection, and will throw Errro if the connection is not open.
+
+
+### Event Subscriptions
+
+SharedState abstractions implement a common `Events` interface (`on`, `off`, `once`). A `"change"` event is emitted whenever state updates.
+
+Passing `{ init: true }` as an option to `on("change", handler, options)` ensures an initial event is emitted immediately after subscription, ahead of subsequent change events. This immediate event carries the intial state of the abstraction. In this way, the callback receives the initial state of the abstraction
 
 ```javascript
-const client = new SharedStateClient("ws://localhost:9000");
-
-// Instantiated directly with client and target path
-const counter = new SharedInteger(client, "/myapp/mitems/counter");
-const slidesMap = new SharedMap(client, "/myapp/items/slides");
-```
-
-### Event Subscriptions and `{ init: true }`
-
-High-level abstractions implement the `Events` interface (`on`, `off`, `once`). The `"change"` event is emitted whenever state updates locally or from remote clients.
-
-Passing `{ init: true }` in event options ensures the callback receives the current state immediately upon subscription, as well as on all subsequent changes:
-
-```javascript
-abstraction.on("change", (statePayload) => {
-    // Render or update application state
+const handle = abstraction.on("change", (val) => {
+    // Render or update application UI
 }, { init: true });
+
+// Later...
+abstraction.off(handle);
 ```
 
 ### Variable Types
 
-Single-value abstractions backed by server paths:
+Single-value abstractions backed by server paths `(client, path, name, [options])`:
+
+- All variable support `.get()` and `.value` for value access, and `set(value)` for mutation. 
+- Typed variables are restricted to values of a given type, or `undefined`.
+
+In addition, a few variable types define specialized methods:
 
 - **`SharedVariable`**: Generic untyped single value (`get()`, `set(val)`).
-- **`SharedBoolean`**: Boolean state variable.
-- **`SharedString`**: String state variable.
-- **`SharedInteger`**: Integer counter supporting `increment()` and `decrement()`.
-- **`SharedFloat`**: Floating point number variable.
-- **`SharedRecord`**: Object/record value variable.
-- **`SharedArray`**: Array value variable.
+- **`SharedBoolean`**: Variable restricted to `boolean` values (`get()`, `set(bool)`, `toggle()`).
+- **`SharedString`**: Variable restricted to `string` values (`get()`, `set(str)`).
+- **`SharedInteger`**: Variable restricted to `integer` values (`get()`, `set(num)`, `inc(delta)`, `dec(delta)`).
+- **`SharedFloat`**: Variable restricted to `floating point number` values (`get()`, `set(num)`, `inc(delta)`, `dec(delta)`).
+- **`SharedRecord`**: Variable restricted to `{}` values (`get()`, `set(obj)`).
+- **`SharedArray`**: Variable restricted to `[]` values (`get()`, `set(arr)`).
 
 ### Map and Set Collections
 
-Collection abstractions backed by server paths:
+Collection abstractions backed by server paths `(client, path, [options])`:
 
 - **`SharedMap`**: Key-value map emulating standard JavaScript `Map`:
   - `set(key, value)`, `get(key)`, `has(key)`, `delete(key)`, `clear()`
   - `size`, `keys()`, `values()`, `entries()`, `forEach(cb)`
-- **`SharedSet`**: Set of unique items:
+- **`SharedSet`**: Set of unique elements:
   - `add(value)`, `has(value)`, `delete(value)`, `clear()`, `size`
 
 ---
 
 ## 5. Advanced Material
 
-### Underlying Client Primitives
-
-Behind high-level abstractions, `SharedStateClient` provides direct access to lower-level resource handles:
-
-```javascript
-// Path-exclusive collection resource
-const coll = client.get_collection_resource("token", "/myapp/items/mycollection");
-const items = coll.get_items();
-coll.update_items({ insert: [...], remove: [...], reset: false });
-
-// Item-exclusive value resource
-const valRes = client.get_value_resource("token", "/myapp/items/mycollection", "item123");
-```
-
 ### Connection Management
 
-WebSocket transport lifecycle and connection state can be inspected via `client.connection`:
+Regular usage of SharedState programming abstractions do no require specific attention to the connection. However, if the application should wish to inspect connection status or react to connection changes, the `client.connection` object provides the necessary hooks. 
 
 ```javascript
+
+
+
+
+
 // Wait for connection to open
 await client.connection.connectedPromise();
 
