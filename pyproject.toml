@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "sharedstate"
-version = "0.1.0"
+version = "1.0.0"
 description = "Python server and JavaScript client for real-time data sharing."
 authors = ["Ingar M. Arntzen <ingar.arntzen@gmail.com>"]
 license = "BSD-2-Clause"
