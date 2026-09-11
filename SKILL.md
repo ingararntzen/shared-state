@@ -128,18 +128,18 @@ SharedState programming abstractions are created directly using `client` and the
   
 Abstractions can be created immediately after `client` initialization.
 
-Abstractions typically have empty state in the short time before the client has obtained a working connection to the server. The abstraction will emit a change event as soon as the connection is established and the intial state from the server is delivered. 
+Abstractions typically have empty state in the short time before the client has obtained a working connection to the server. The abstraction will emit a change event as soon as the connection is established and the initial state from the server is delivered. 
 
 Empty state is a legal state, though, so from the perspective of application code, abstractions are ready to use immediately.
 
-State mutation, however, requires an open connection, and will throw Errro if the connection is not open.
+State mutation, however, requires an open connection, and will throw Error if the connection is not open.
 
 
 ### Event Subscriptions
 
 SharedState abstractions implement a common `Events` interface (`on`, `off`, `once`). A `"change"` event is emitted whenever state updates.
 
-Passing `{ init: true }` as an option to `on("change", handler, options)` ensures an initial event is emitted immediately after subscription, ahead of subsequent change events. This immediate event carries the intial state of the abstraction. In this way, the callback receives the initial state of the abstraction
+Passing `{ init: true }` as an option to `on("change", handler, options)` ensures an initial event is emitted immediately after subscription, ahead of subsequent change events. This immediate event carries the initial state of the abstraction.
 
 ```javascript
 const handle = abstraction.on("change", (val) => {
@@ -154,7 +154,7 @@ abstraction.off(handle);
 
 Single-value abstractions backed by server paths `(client, path, name, [options])`:
 
-- All variable support `.get()` and `.value` for value access, and `set(value)` for mutation. 
+- All variables support `.get()` and `.value` for value access, and `set(value)` for mutation. 
 - Typed variables are restricted to values of a given type, or `undefined`.
 
 In addition, a few variable types define specialized methods:

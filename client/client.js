@@ -9,6 +9,12 @@ import { random_string, resolvablePromise, isNumber } from "./util/util.js";
 const DEFAULT_FAILURE_TIMEOUT = 10;
 
 /**
+ * The client library version string.
+ * @type {string}
+ */
+export const VERSION = typeof __VERSION__ !== "undefined" ? __VERSION__ : "1.0.0";
+
+/**
  * The `SharedStateClient` manages logical network connections, subscriptions, state providers, and application objects.
  * @class SharedStateClient
  * @see {@link Connection}
@@ -18,6 +24,11 @@ const DEFAULT_FAILURE_TIMEOUT = 10;
  * @see {@link TokenAccess Token-based Resource Access}
  */
 export class SharedStateClient {
+    /**
+     * The client library version string.
+     * @type {string}
+     */
+    static VERSION = VERSION;
     /**
      * Initializes the SharedStateClient.
      * @param {string} url - WebSocket server URL (ws://host:port/)

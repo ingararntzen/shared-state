@@ -1,4 +1,4 @@
-export { SharedStateClient } from "./client.js";
+export { SharedStateClient, VERSION } from "./client.js";
 export { load } from "./load.js";
 export { Connection, ConnectionState } from "./connection.js";
 export { CollectionResource } from "./definitions/collection_resource.js";

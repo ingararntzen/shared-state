@@ -1,6 +1,8 @@
 import { defineConfig } from "vite";
 import path from "node:path";
+import fs from "node:fs";
 
+const pkg = JSON.parse(fs.readFileSync(path.resolve(__dirname, "package.json"), "utf-8"));
 const defaultPort = parseInt(process.env.PORT || process.env.VITE_PORT || "9001", 10);
 
 export default defineConfig(({ mode }) => {
@@ -9,6 +11,9 @@ export default defineConfig(({ mode }) => {
 
     return {
         root: "html",
+        define: {
+            __VERSION__: JSON.stringify(pkg.version)
+        },
         server: {
             port: defaultPort,
             strictPort: false,

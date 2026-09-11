@@ -173,12 +173,6 @@ cython_debug/
 
 node_modules/
 
-# build output
-html/libs/
-
-# config directory
-cfg/
-
 # logs directory
 logs/
 

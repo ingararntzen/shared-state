@@ -9,31 +9,26 @@ This guide describes how to set up, build, test, and contribute to the SharedSta
 ```text
 shared-state/
 ├── client/              # JavaScript client library source files
-│   ├── index.js         # Main entry point & SharedStateClient class
-│   ├── connection.js    # WebSocket connection & reconnection manager
-│   ├── clock.js         # Server clock estimation & synchronization
-│   ├── object.js        # Core BaseAbstraction & state proxies
-│   ├── definitions/     # Type definitions and typedefs
-│   └── util/            # Helper utilities (resolvablePromise, etc.)
-├── src/                 # Python server package source code
-│   └── sharedstate/     # Server core, connection handlers, and stores
+├── src/sharedstate/     # Python server package source code
 ├── cfg/                 # Server configuration examples (sqlite.json, sql.json)
-├── html/                # Admin Web UI & demonstration pages
-│   ├── adm/             # Admin panel web interface
-│   └── examples/        # Interactive browser demo pages
+├── html/                # Admin Web UI & examples
 ├── dist/                # Output directory for compiled client JS bundles
-├── docs/                # Documentation source files (MkDocs / GitHub Pages)
+├── docs/                # Documentation source files
 ├── scripts/             # Build scripts (e.g. generate-api-docs.js)
 ├── tests/               # Automated test suites
-│   ├── client/          # JS client tests (Vitest)
-│   └── server/          # Python server tests (Pytest)
 ├── DEVELOP.md           # Developer setup and contribution guide
+├── LICENSE              # Software license (BSD 2-Clause)
 ├── README.md            # Repository overview & quick links
-├── SKILL.md            # Agent skill guide for AI assistants
-├── TODO.md             # Planned tasks and future extension roadmap
+├── SKILL.md             # Agent skill guide for AI assistants
+├── TODO.md              # Planned tasks and future extension roadmap
 ├── package.json         # npm dependencies and script definitions
+├── package-lock.json    # npm dependency lockfile
+├── poetry.lock          # Python Poetry dependency lockfile
 ├── pyproject.toml       # Python Poetry package & dependency configuration
-└── vite.config.js       # Vite configuration for JS bundling
+├── pyrightconfig.json   # Pyright type checker configuration
+├── pytest.ini           # Pytest configuration
+├── vite.config.js       # Vite configuration for JS bundling
+└── vitest.config.js     # Vitest test runner configuration
 ```
 
 ---
@@ -49,22 +44,7 @@ poetry install
 # 2. Install JavaScript client dependencies
 npm install
 ```
-
 ---
-
-## Repository Script Commands
-
-### Building Client JS Bundles
-
-SharedState uses [Vite](https://vitejs.dev/) to compile the client library into single-file ES modules and IIFE bundles:
-
-```sh
-# Build development bundles in dist/ (sharedstate.es.js, sharedstate.iife.js)
-npm run build
-
-# Build production minified bundles in dist/ (sharedstate.es.min.js, sharedstate.iife.min.js)
-npm run build:dist
-```
 
 ### Running the Python Server
 
@@ -82,17 +62,8 @@ poetry run sharedstate-server cfg/sql.json
 - **Admin Web UI**: Once the server is running, open `http://localhost:9000/` in your browser to access the interactive admin dashboard (`html/adm/`).
 - **WebSocket Endpoint**: Clients connect to `ws://localhost:9000/`.
 
-### Generating API Documentation
-
-Client API documentation files are generated directly from JSDoc docstrings in `client/` source files:
-
-```sh
-# Re-generate client Markdown documentation in docs/client_api/
-node scripts/generate-api-docs.js
-```
 
 ---
-
 ## Running Test Suites
 
 ### Client Tests (Vitest)
@@ -115,3 +86,54 @@ Execute Python server unit and connection tests:
 # Run Python server test suite
 poetry run pytest
 ```
+
+---
+## Building Client JS Bundles
+
+SharedState uses [Vite](https://vitejs.dev/) to compile the client library into single-file ES modules and IIFE bundles:
+
+```sh
+# Build development bundles in dist/ (sharedstate.es.js, sharedstate.iife.js)
+npm run build
+
+# Build production minified bundles in dist/ (sharedstate.es.min.js, sharedstate.iife.min.js)
+npm run build:dist
+```
+
+---
+## Building New API doc
+
+The api doc script (`scripts/generate-api-docs.js`) automatically re-generate client Markdown documentation in docs/client_api/.
+
+
+---
+## Releasing a New Project Version
+
+To create a new release, set version numbers across JS/Python codebases, build client bundles, commit, and create a Git tag in a single command using `scripts/release.js`:
+
+```sh
+# Release a specific version (e.g. 1.0.0)
+npm run release 1.0.0
+
+# Or run the script directly:
+node scripts/release.js 1.0.0
+
+# Or using standard npm version:
+npm version patch # or minor, major, 1.0.0
+```
+
+The release script (`scripts/release.js`) automatically:
+1. Validates SemVer version format.
+2. Updates `"version"` in `package.json`, `pyproject.toml`, and `src/sharedstate/__init__.py`.
+3. Injects the version string into JavaScript (`SharedStateClient.VERSION`) via Vite.
+4. Rebuilds `dist/` JS distribution bundles (`npm run build`).
+5. Stages files, creates git commit (`release: v1.0.0`) and git tag (`v1.0.0`).
+
+Push the release to GitHub with:
+```sh
+git push origin main --tags
+```
+
+
+
+

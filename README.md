@@ -5,7 +5,7 @@
 
 
 
-> 📖 **Documentation**: Visit the [SharedState Documentation](https://ingararntzen.github.io/shared-state/) for comprehensive guides covering usage, core concepts, design architecture, and API references.
+> 📖 **Documentation**: Visit the [SharedState Documentation](https://ingararntzen.github.io/shared-state/) for comprehensive guides covering usage, core concepts, design architecture, and API references. Alternatively, for a quick introduction, see [SKILL.md](SKILL.md).
 
 ---
 
@@ -55,11 +55,6 @@ SharedState extends familiar programming primitives—integers, booleans, string
 Install and start the Python server:
 
 ```sh
-# Option A: Install directly via pip and start server
-pip install git+https://github.com/ingararntzen/shared-state.git
-sharedstate-server
-
-# Option B: Clone repository and start with Poetry
 git clone https://github.com/ingararntzen/shared-state.git
 cd shared-state
 poetry install
@@ -97,6 +92,8 @@ You can import the JavaScript client directly into your browser applications usi
 For detailed information on usage, design, and client APIs:
 
 - 📚 **User Guide & API Docs**: [https://ingararntzen.github.io/shared-state/](https://ingararntzen.github.io/shared-state/)
+
+- 📚 **SKILL Document**: [SKILL.md](SKILL.md)
 
 For information about project development:
 
