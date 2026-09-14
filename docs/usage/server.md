@@ -63,7 +63,7 @@ The Service Config (`"service"`) defines global options for the SharedState serv
 - **`"host"`**: Network interface binding (`0.0.0.0` for all interfaces, `127.0.0.1` for localhost only).
 - **`"port"`**: Requested port number for HTTP and WebSocket traffic.
 - **`"http_log"` / `"ws_log"`**: Log file destinations. 
-- **`"ssl_cert"` / `"ssl_key"`**: (Optional) Paths to SSL/TLS certificate and key files for direct `https://` / `wss://` encrypted connections without a reverse proxy.
+- **`"ssl.cert"` / `"ssl.key"`**: (Optional) Paths to SSL/TLS certificate and key files for direct `https://` / `wss://` encrypted client connections to the SharedState server.
 
 #### Log Files
 Log file destinations support custom file paths (e.g. `"logs/http.log"`), OS temporary directory (`"temp"|":temp:"|"tmp"`), console output (`"stdout"` / `"stderr"`), or disabling log output (`null` or `"none"`). Log files auto-rotate (~100 KB limit with 1 backup).
@@ -142,40 +142,72 @@ Special name `":memory:"` means that the database is not file-backed, but kept i
 ### MySQL / MariaDB Store
 MySQL/MariaDB is used for production persistence and high volumes of concurrent operations.
 
-The [ItemStore] implementation (`stores/item_store.py`) expects two options.
+Config entries accept direct literal strings or names of environment variables (e.g. `"SHAREDSTATE_MYSQL_DB_USER"` or `${VAR_NAME}`). When configured with environment variable names, credentials remain out of repository files and are read dynamically from your environment (e.g. `~/.bashrc`):
 
 - **`"db_type"`**: Type of database ("mysql")
-- **`"db_name"`**: Name of mysql database
-- **`"db_table"`**: Name of table in the database
-- **`"db_host"`**: Hostname or IP of mysql server
-- **`"db_user"`**: Username for mysql server
-- **`"db_password"`**: Password for mysql server
-- **`"ssl.enabled"`**: Enable SSL/TLS encryption for the MySQL database connection
-- **`"ssl.ca"`**: Path to CA certificate for verifying the MySQL database server
-- **`"ssl.cert"`**: Path to client certificate for authenticating with the MySQL database
-- **`"ssl.key"`**: Path to client private key for authenticating with the MySQL database
+- **`"db_name"`**: Database name or environment variable name (e.g. `"SHAREDSTATE_MYSQL_DB_NAME"`)
+- **`"db_table"`**: Table name or environment variable name (e.g. `"SHAREDSTATE_MYSQL_DB_TABLE"`)
+- **`"db_host"`**: Hostname/IP or environment variable name (e.g. `"SHAREDSTATE_MYSQL_DB_HOST"`)
+- **`"db_user"`**: Username or environment variable name (e.g. `"SHAREDSTATE_MYSQL_DB_USER"`)
+- **`"db_password"`**: Password or environment variable name (e.g. `"SHAREDSTATE_MYSQL_DB_PASSWORD"`)
+- **`"ssl.enabled"`**: Enable SSL/TLS (`true`/`false` or `"SHAREDSTATE_MYSQL_SSL_ENABLED"`)
+- **`"ssl.ca"`**: Path to CA certificate or environment variable name (e.g. `"SHAREDSTATE_MYSQL_SSL_CA"`)
+- **`"ssl.cert"`**: Path to client certificate or environment variable name (e.g. `"SHAREDSTATE_MYSQL_SSL_CERT"`)
+- **`"ssl.key"`**: Path to client private key or environment variable name (e.g. `"SHAREDSTATE_MYSQL_SSL_KEY"`)
 
 
 ```json
 {
-  "db_type": "mysql",
-  "db_name": "<database>",
-  "db_table": "<table>",
-  "db_host": "localhost",
-  "db_user": "<user>",
-  "db_password": "<password>",
-  "ssl.enabled": true,
-  "ssl.ca": "/path/to/ca.pem",
-  "ssl.cert": "/path/to/client-cert.pem",
-  "ssl.key": "/path/to/client-key.pem"
+  "service": {
+    "host": "0.0.0.0",
+    "port": 9000,
+    "http_log": ":temp:/http.log",
+    "ws_log": ":temp:/ws.log"
+  },
+  "stores": [
+    {
+      "name": "items",
+      "module": "item_store",
+      "description": "MySQL Persistent Item Store",
+      "config": {
+        "db_type": "mysql",
+        "db_name": "SHAREDSTATE_MYSQL_DB_NAME",
+        "db_table": "SHAREDSTATE_MYSQL_DB_TABLE",
+        "db_host": "SHAREDSTATE_MYSQL_DB_HOST",
+        "db_user": "SHAREDSTATE_MYSQL_DB_USER",
+        "db_password": "SHAREDSTATE_MYSQL_DB_PASSWORD",
+        "ssl.enabled": "SHAREDSTATE_MYSQL_SSL_ENABLED",
+        "ssl.key": "SHAREDSTATE_MYSQL_SSL_KEY",
+        "ssl.ca": "SHAREDSTATE_MYSQL_SSL_CA",
+        "ssl.cert": "SHAREDSTATE_MYSQL_SSL_CERT"
+      }
+    }
+  ]
 }
+```
+
+#### Exporting Environment Variables (`~/.bashrc`)
+
+Export database credentials in your environment or `.bashrc`:
+
+```bash
+export SHAREDSTATE_MYSQL_DB_NAME="<database>"
+export SHAREDSTATE_MYSQL_DB_TABLE="<table>"
+export SHAREDSTATE_MYSQL_DB_HOST="<hostname>"
+export SHAREDSTATE_MYSQL_DB_USER="<user>"
+export SHAREDSTATE_MYSQL_DB_PASSWORD="<password>"
+export SHAREDSTATE_MYSQL_SSL_ENABLED="false"
+# Optional SSL certificate paths:
+# export SHAREDSTATE_MYSQL_SSL_CA="/path/to/ca.pem"
+# export SHAREDSTATE_MYSQL_SSL_CERT="/path/to/client-cert.pem"
+# export SHAREDSTATE_MYSQL_SSL_KEY="/path/to/client-key.pem"
 ```
 
 Create a user and database using the following MySQL commands on your database server:
 
 ```sql
-CREATE USER IF NOT EXISTS '<user>'@'localhost' IDENTIFIED BY '<password>';
+CREATE USER IF NOT EXISTS '<user>'@'<hostname>' IDENTIFIED BY '<password>';
 CREATE DATABASE IF NOT EXISTS <database>;
-GRANT ALL PRIVILEGES ON <database>.* TO '<user>'@'localhost';
+GRANT ALL PRIVILEGES ON <database>.* TO '<user>'@'<hostname>';
 FLUSH PRIVILEGES;
 ```

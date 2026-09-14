@@ -686,7 +686,7 @@ class SharedStateServer:
         ssl_context = None
         if self._ssl_cert or self._ssl_key:
             if not self._ssl_cert or not self._ssl_key:
-                raise ValueError("SharedState: Both 'ssl_cert' and 'ssl_key' must be specified in service config to enable SSL/TLS.")
+                raise ValueError("SharedState: Both 'ssl.cert' and 'ssl.key' must be specified in service config to enable SSL/TLS.")
             cert_path = Path(self._ssl_cert)
             key_path = Path(self._ssl_key)
             if not cert_path.is_file():
@@ -789,8 +789,8 @@ async def main():
     port = int(srv_cfg.get("port", 9000))
     http_log = srv_cfg.get("http_log", "logs/http.log")
     ws_log = srv_cfg.get("ws_log", "logs/ws.log")
-    ssl_cert = srv_cfg.get("ssl_cert")
-    ssl_key = srv_cfg.get("ssl_key")
+    ssl_cert = srv_cfg.get("ssl.cert")
+    ssl_key = srv_cfg.get("ssl.key")
 
     server = SharedStateServer(
         host=host,

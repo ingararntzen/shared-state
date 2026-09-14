@@ -376,13 +376,13 @@ async def test_port_fallback(tmp_path, server):
 
 @pytest.mark.asyncio
 async def test_ssl_configuration_validation(tmp_path):
-    # Only ssl_cert provided without ssl_key -> raises ValueError
+    # Only ssl.cert provided without ssl.key -> raises ValueError
     srv_partial = SharedStateServer(
         host="127.0.0.1",
         port=0,
         ssl_cert=str(tmp_path / "cert.pem")
     )
-    with pytest.raises(ValueError, match="Both 'ssl_cert' and 'ssl_key' must be specified"):
+    with pytest.raises(ValueError, match="Both 'ssl.cert' and 'ssl.key' must be specified"):
         await srv_partial.serve_forever()
 
     # Non-existent files -> raises FileNotFoundError
@@ -394,6 +394,20 @@ async def test_ssl_configuration_validation(tmp_path):
     )
     with pytest.raises(FileNotFoundError, match="SSL certificate file"):
         await srv_missing.serve_forever()
+
+
+def test_ssl_dot_notation_config():
+    raw_cfg = {
+        "service": {
+            "ssl.cert": "/path/to/cert.pem",
+            "ssl.key": "/path/to/key.pem"
+        }
+    }
+    srv_cfg = raw_cfg["service"]
+    ssl_cert = srv_cfg.get("ssl.cert")
+    ssl_key = srv_cfg.get("ssl.key")
+    assert ssl_cert == "/path/to/cert.pem"
+    assert ssl_key == "/path/to/key.pem"
 
 
 def test_resolve_log_target():
