@@ -3,7 +3,9 @@ import json
 import urllib.request
 import pytest
 import websockets
-from sharedstate.ss_server import SharedStateServer, MsgType, MsgCmd
+import tempfile
+from pathlib import Path
+from sharedstate.ss_server import SharedStateServer, MsgType, MsgCmd, resolve_log_target
 
 
 @pytest.fixture
@@ -392,5 +394,42 @@ async def test_ssl_configuration_validation(tmp_path):
     )
     with pytest.raises(FileNotFoundError, match="SSL certificate file"):
         await srv_missing.serve_forever()
+
+
+def test_resolve_log_target():
+    # Disabled targets
+    assert resolve_log_target(None, "test.log") is None
+    assert resolve_log_target(False, "test.log") is None
+    assert resolve_log_target("none", "test.log") is None
+    assert resolve_log_target("disabled", "test.log") is None
+    assert resolve_log_target("off", "test.log") is None
+
+    # Stream targets
+    assert resolve_log_target("stdout", "test.log") == "stdout"
+    assert resolve_log_target("-", "test.log") == "stdout"
+    assert resolve_log_target("stderr", "test.log") == "stderr"
+
+    # Temp targets
+    expected_temp = Path(tempfile.gettempdir()) / "sharedstate" / "http.log"
+    assert resolve_log_target("temp", "http.log") == expected_temp
+    assert resolve_log_target("tmp", "http.log") == expected_temp
+    assert resolve_log_target(":temp:", "http.log") == expected_temp
+    assert resolve_log_target(":temp:/http.log", "default.log") == expected_temp
+    assert resolve_log_target("temp/http.log", "default.log") == expected_temp
+    assert resolve_log_target(":temp:http.log", "default.log") == expected_temp
+
+    # Custom paths
+    assert resolve_log_target("my_logs/custom.log", "test.log") == Path("my_logs/custom.log")
+
+
+@pytest.mark.asyncio
+async def test_server_logging_modes(server):
+    srv, port = server
+    # Test server with temp http_log and disabled ws_log
+    test_srv = SharedStateServer(host="127.0.0.1", port=0, http_log="temp", ws_log="none")
+    expected_temp = Path(tempfile.gettempdir()) / "sharedstate" / "http.log"
+    assert test_srv._http_log_path == expected_temp
+    assert test_srv._ws_log_path is None
+
 
 

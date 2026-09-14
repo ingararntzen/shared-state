@@ -104,12 +104,39 @@ npm run build:dist
 
 ---
 
-## Generating API Documentation
+## Documentation Development
 
-The API doc script (`scripts/generate-api-docs.js`) automatically re-generates client Markdown documentation in `docs/client_api/`:
+SharedState documentation is built using [VitePress](https://vitepress.dev/) with automated API reference generation from JSDoc comments.
+
+### Running the Documentation Dev Server
+
+Start the local VitePress documentation dev server with hot module reloading (HMR):
 
 ```sh
+# Re-generate API docs and start local VitePress dev server (usually http://localhost:5173)
+npm run docs:dev
+```
+
+### Re-generating API Documentation
+
+Re-generate client Markdown API reference files in `docs/client_api/` from JSDoc comments:
+
+```sh
+# Using npm script:
+npm run docs:generate
+
+# Or directly running the script:
 node scripts/generate-api-docs.js
+```
+
+### Building & Previewing Production Docs
+
+```sh
+# Build static documentation site into docs/.vitepress/dist
+npm run docs:build
+
+# Preview the production static documentation build locally
+npm run docs:preview
 ```
 
 

@@ -42,28 +42,67 @@ def normalize(path):
     return n_path
 
 
+import sys
+import tempfile
 from logging.handlers import RotatingFileHandler
 
 
-def setup_logger(name, log_file, level=logging.INFO):
-    """Setup logger with rotating file handler (max ~1024 entries / 100 KB)."""
+def resolve_log_target(log_setting, default_filename: str):
+    """
+    Resolves log target into a Path object (for file logging),
+    a string ('stdout'/'stderr'), or None (disabled).
+    Supports 'temp', ':temp:', ':temp:/filename.log', 'temp/filename.log', etc.
+    """
+    if log_setting is None or log_setting is False:
+        return None
+
+    setting_str = str(log_setting).strip()
+    setting_lower = setting_str.lower()
+
+    if setting_lower in ("", "none", "false", "off", "disabled", "null"):
+        return None
+
+    if setting_lower in ("stdout", "stderr", "-"):
+        return "stdout" if setting_lower in ("stdout", "-") else "stderr"
+
+    # Temp directory handling (exact matches)
+    if setting_lower in ("temp", "tmp", ":temp:", ":tmp:"):
+        return Path(tempfile.gettempdir()) / "sharedstate" / default_filename
+
+    # Handle prefixed temp paths like ":temp:/http.log", "temp/http.log", ":temp:http.log"
+    for prefix in (":temp:/", ":temp:", "temp/", ":tmp:/", ":tmp:", "tmp/"):
+        if setting_lower.startswith(prefix):
+            subpath = setting_str[len(prefix):].lstrip("/\\")
+            if not subpath:
+                subpath = default_filename
+            return Path(tempfile.gettempdir()) / "sharedstate" / subpath
+
+    return Path(log_setting)
+
+
+def setup_logger(name, log_target, level=logging.INFO):
+    """Setup logger with rotating file handler, stream handler, or null handler."""
     logger = logging.getLogger(name)
     logger.setLevel(level)
     logger.propagate = False
-    
+
     # Remove and close any existing handlers to prevent log bleeding across instances/tests
     for h in list(logger.handlers):
         logger.removeHandler(h)
         h.close()
-        
-    if log_file:
-        log_path = Path(log_file)
+
+    if log_target is None:
+        handler = logging.NullHandler()
+    elif log_target == "stdout":
+        handler = logging.StreamHandler(sys.stdout)
+    elif log_target == "stderr":
+        handler = logging.StreamHandler(sys.stderr)
+    else:
+        log_path = Path(log_target)
         log_path.parent.mkdir(parents=True, exist_ok=True)
         # Limit log file size to ~100 KB (~1024 log lines) with 1 backup, appending to existing log
         handler = RotatingFileHandler(log_path, mode='a', maxBytes=100_000, backupCount=1, encoding="utf-8")
-    else:
-        handler = logging.NullHandler()
-        
+
     formatter = logging.Formatter('%(asctime)s [%(levelname)s] %(message)s')
     handler.setFormatter(formatter)
     logger.addHandler(handler)
@@ -189,8 +228,8 @@ class SharedStateServer:
         self._host = host
         self._port = port
 
-        self._http_log_path = http_log
-        self._ws_log_path = ws_log
+        self._http_log_path = resolve_log_target(http_log, "http.log")
+        self._ws_log_path = resolve_log_target(ws_log, "ws.log")
         self._ssl_cert = ssl_cert
         self._ssl_key = ssl_key
         
@@ -441,8 +480,8 @@ class SharedStateServer:
                 cfg_data = {
                     "host": self._host,
                     "port": self._port,
-                    "http_log": str(self._http_log_path),
-                    "ws_log": str(self._ws_log_path),
+                    "http_log": str(self._http_log_path) if self._http_log_path is not None else None,
+                    "ws_log": str(self._ws_log_path) if self._ws_log_path is not None else None,
                     "stores": self._store_meta
                 }
                 return 200, "application/json; charset=utf-8", json.dumps({"ok": True, "data": cfg_data}).encode('utf-8'), []
@@ -668,7 +707,11 @@ class SharedStateServer:
 
         scheme = "https" if ssl_context else "http"
         startup_msg = f"SharedState: Server listening at {scheme}://{self._host}:{self._port} (HTTP & WebSockets)"
+        http_dest = str(self._http_log_path) if self._http_log_path is not None else "disabled"
+        ws_dest = str(self._ws_log_path) if self._ws_log_path is not None else "disabled"
+        log_msg = f"SharedState: Logging targets -> HTTP: {http_dest} | WS: {ws_dest}"
         print(startup_msg)
+        print(log_msg)
         self.http_logger.info(startup_msg)
         self.ws_logger.info(startup_msg)
 

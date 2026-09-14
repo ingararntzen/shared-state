@@ -2,8 +2,8 @@
     "service": {
         "host": "0.0.0.0",
         "port": 9000,
-        "http_log": "logs/http.log",
-        "ws_log": "logs/ws.log"
+        "http_log": ":temp:/http.log",
+        "ws_log": ":temp:/ws.log"
     },
     "stores": [
         {

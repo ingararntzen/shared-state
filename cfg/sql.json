@@ -2,8 +2,8 @@
     "service": {
         "host": "0.0.0.0",
         "port": 9000,
-        "http_log": "logs/http.log",
-        "ws_log": "logs/ws.log"
+        "http_log": ":temp:/http.log",
+        "ws_log": ":temp:/ws.log"
     },
     "stores": [
         {
@@ -12,15 +12,15 @@
             "description": "MySQL Persistent Item Store",
             "config": {
                 "db_type": "mysql",
-                "db_name": "dcbase",
-                "db_table": "items",
-                "db_host": "localhost",
-                "db_user": "dcuser",
-                "db_password": "GrefseFysa",
-                "ssl.enabled": false,
-                "ssl.key": null,
-                "ssl.ca": null,
-                "ssl.cert": null
+                "db_name": "SHAREDSTATE_MYSQL_DB_NAME",
+                "db_table": "SHAREDSTATE_MYSQL_DB_TABLE",
+                "db_host": "SHAREDSTATE_MYSQL_DB_HOST",
+                "db_user": "SHAREDSTATE_MYSQL_DB_USER",
+                "db_password": "SHAREDSTATE_MYSQL_DB_PASSWORD",
+                "ssl.enabled": "SHAREDSTATE_MYSQL_SSL_ENABLED",
+                "ssl.key": "SHAREDSTATE_MYSQL_SSL_KEY",
+                "ssl.ca": "SHAREDSTATE_MYSQL_SSL_CA",
+                "ssl.cert": "SHAREDSTATE_MYSQL_SSL_CERT"
             }
         }
     ]

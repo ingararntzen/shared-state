@@ -1,21 +1,39 @@
-"""Test items db."""
+import json
+import os
+from pathlib import Path
 import pytest
-from sharedstate.db_mysql import MysqlDB
+from sharedstate.db_mysql import MysqlDB, resolve_config_val
 
-MYSQL_CONFIG = {
-    "db_type": "mysql",
-    "db_name": "dcbase",
-    "db_table": "items",
-    "db_host": "localhost",
-    "db_user": "dcuser",
-    "db_password": "GrefseFysa"
-}
+cfg_file = Path(__file__).resolve().parent.parent.parent / "cfg" / "sql.json"
+if cfg_file.is_file():
+    with open(cfg_file, "r", encoding="utf-8") as f:
+        loaded = json.load(f)
+        MYSQL_CONFIG = loaded["stores"][0]["config"]
+else:
+    MYSQL_CONFIG = {
+        "db_type": "mysql",
+        "db_name": "SHAREDSTATE_MYSQL_DB_NAME",
+        "db_table": "SHAREDSTATE_MYSQL_DB_TABLE",
+        "db_host": "SHAREDSTATE_MYSQL_DB_HOST",
+        "db_user": "SHAREDSTATE_MYSQL_DB_USER",
+        "db_password": "SHAREDSTATE_MYSQL_DB_PASSWORD"
+    }
+
+# Provide local test defaults if environment variables are not already defined
+os.environ.setdefault("SHAREDSTATE_MYSQL_DB_NAME", "dcbase")
+os.environ.setdefault("SHAREDSTATE_MYSQL_DB_TABLE", "items")
+os.environ.setdefault("SHAREDSTATE_MYSQL_DB_HOST", "localhost")
+os.environ.setdefault("SHAREDSTATE_MYSQL_DB_USER", "dcuser")
+os.environ.setdefault("SHAREDSTATE_MYSQL_DB_PASSWORD", "GrefseFysa")
 
 
 @pytest.fixture
 async def db():
     db_instance = MysqlDB(MYSQL_CONFIG)
-    await db_instance.open()
+    try:
+        await db_instance.open()
+    except Exception as err:
+        pytest.skip(f"MySQL database unavailable ({err}); skipping MySQL tests.")
     yield db_instance
     await db_instance.close()
 
@@ -85,3 +103,15 @@ async def test_channels(db):
 
     assert await db.delete(APP, CHNL_A) == 1
     assert await db.delete(APP, CHNL_B) == 1
+
+
+def test_resolve_config_val():
+    os.environ["TEST_ENV_VAR_X"] = "hello_world"
+    assert resolve_config_val("TEST_ENV_VAR_X") == "hello_world"
+    assert resolve_config_val("${TEST_ENV_VAR_X}") == "hello_world"
+    assert resolve_config_val("NON_EXISTENT_VAR_123", fallback="fallback_val") == "fallback_val"
+    assert resolve_config_val("${NON_EXISTENT_VAR_123}", fallback="fallback_val") == "fallback_val"
+    assert resolve_config_val("literal_string") == "literal_string"
+    assert resolve_config_val("true") is True
+    assert resolve_config_val("false") is False
+    assert resolve_config_val(None, fallback="default") == "default"

@@ -62,8 +62,12 @@ The Service Config (`"service"`) defines global options for the SharedState serv
 
 - **`"host"`**: Network interface binding (`0.0.0.0` for all interfaces, `127.0.0.1` for localhost only).
 - **`"port"`**: Requested port number for HTTP and WebSocket traffic.
-- **`"http_log"` / `"ws_log"`**: Rotating log file paths (limited to ~100 KB with 1 backup).
+- **`"http_log"` / `"ws_log"`**: Log file destinations. 
 - **`"ssl_cert"` / `"ssl_key"`**: (Optional) Paths to SSL/TLS certificate and key files for direct `https://` / `wss://` encrypted connections without a reverse proxy.
+
+#### Log Files
+Log file destinations support custom file paths (e.g. `"logs/http.log"`), OS temporary directory (`"temp"|":temp:"|"tmp"`), console output (`"stdout"` / `"stderr"`), or disabling log output (`null` or `"none"`). Log files auto-rotate (~100 KB limit with 1 backup).
+
 
 ### Store Config
 The Store Config (`"stores"`) defines options for each [ItemStore]:

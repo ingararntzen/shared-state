@@ -1,3 +1,4 @@
+import os
 import json
 import aiomysql
 import threading
@@ -30,6 +31,52 @@ def as_record(app, chnl, item):
     return (app, chnl, item["id"], json_data)
 
 
+def resolve_config_val(val, fallback=None):
+    """
+    Resolves a configuration value:
+    1. If val is an environment variable name (e.g. 'SHAREDSTATE_MYSQL_DB_USER') or '${VAR_NAME}',
+       resolves it from os.environ.
+    2. Converts boolean strings ('true'/'false') and 'none'/'null' to proper Python types.
+    3. Returns fallback if an env var is specified but not found in os.environ.
+    """
+    if val is None:
+        return fallback
+
+    if isinstance(val, bool):
+        return val
+
+    if isinstance(val, str):
+        raw = val.strip()
+        env_key = raw
+        is_explicit = False
+
+        if env_key.startswith("${") and env_key.endswith("}"):
+            env_key = env_key[2:-1].strip()
+            is_explicit = True
+
+        if env_key in os.environ:
+            env_val = os.environ[env_key].strip()
+            if env_val.lower() in ("true", "yes", "1"):
+                return True
+            if env_val.lower() in ("false", "no", "0"):
+                return False
+            if env_val.lower() in ("none", "null", ""):
+                return None
+            return env_val
+
+        if is_explicit or env_key.startswith("SHAREDSTATE_") or (env_key.isupper() and "_" in env_key):
+            return fallback
+
+        if raw.lower() == "true":
+            return True
+        if raw.lower() == "false":
+            return False
+
+        return raw
+
+    return val
+
+
 ###############################################################################
 # MYSQL ITEMS DB
 ###############################################################################
@@ -51,7 +98,7 @@ class MysqlDB:
             "ssl.cert": None
         }
         self.cfg.update(cfg)
-        self._table = self.cfg["db_table"]
+        self._table = resolve_config_val(self.cfg.get("db_table"), fallback="items")
         if stop_event:
             self.stop_event = stop_event
         else:
@@ -62,23 +109,32 @@ class MysqlDB:
 
     async def open(self):
         # db config
+        db_host = resolve_config_val(self.cfg.get("db_host"), fallback="localhost")
+        db_user = resolve_config_val(self.cfg.get("db_user"), fallback=None)
+        db_password = resolve_config_val(self.cfg.get("db_password"), fallback=None)
+        db_name = resolve_config_val(self.cfg.get("db_name"), fallback=None)
+        ssl_enabled = resolve_config_val(self.cfg.get("ssl.enabled"), fallback=False)
+
         kwargs = dict(
-            host=self.cfg["db_host"],
-            user=self.cfg["db_user"],
-            password=self.cfg["db_password"],
-            db=self.cfg["db_name"],
+            host=db_host,
+            user=db_user,
+            password=db_password,
+            db=db_name,
             use_unicode=True,
             autocommit=True,
             charset="utf8",
             init_command="SET time_zone = '+00:00'",
         )
         # ssl config
-        if self.cfg["ssl.enabled"]:
+        if ssl_enabled:
+            ssl_key = resolve_config_val(self.cfg.get("ssl.key"), fallback=None)
+            ssl_ca = resolve_config_val(self.cfg.get("ssl.ca"), fallback=None)
+            ssl_cert = resolve_config_val(self.cfg.get("ssl.cert"), fallback=None)
             kwargs.update(
                 dict(
-                    ssl_key=self.cfg["ssl.key"],
-                    ssl_ca=self.cfg["ssl.ca"],
-                    ssl_cert=self.cfg["ssl.cert"],
+                    ssl_key=ssl_key,
+                    ssl_ca=ssl_ca,
+                    ssl_cert=ssl_cert,
                 )
             )
         # pool config
