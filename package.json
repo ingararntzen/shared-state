@@ -1,6 +1,6 @@
 {
   "name": "sharedstate",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "SharedState",
   "type": "module",
   "main": "dist/sharedstate.cjs.js",

@@ -1065,7 +1065,7 @@ var DEFAULT_FAILURE_TIMEOUT = 10;
 * The client library version string.
 * @type {string}
 */
-var VERSION = "1.0.0";
+var VERSION = "2.0.0";
 /**
 * The `SharedStateClient` manages logical network connections, subscriptions, state providers, and application objects.
 * @class SharedStateClient

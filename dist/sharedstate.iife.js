@@ -1067,7 +1067,7 @@ var SHAREDSTATE = (function(exports) {
 	* The client library version string.
 	* @type {string}
 	*/
-	var VERSION = "1.0.0";
+	var VERSION = "2.0.0";
 	/**
 	* The `SharedStateClient` manages logical network connections, subscriptions, state providers, and application objects.
 	* @class SharedStateClient
