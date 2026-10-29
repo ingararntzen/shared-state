@@ -160,7 +160,7 @@ const render = function () {
    const current = myInt.get();
    // perform UI update  
 };
-myInt.on("change", render);
+myInt.on_change(render);
 ```
 
 This code renders initial state, and then bind rendering to subsequent state changes.
@@ -170,7 +170,7 @@ This code renders initial state, and then bind rendering to subsequent state cha
 The same functionality can also be achieved more concisely by using the `{ init: true }` option for the event subscription:
 
 ```js
-myInt.on("change", render, { init: true });
+myInt.on_change(render, { init: true });
 ```
 
 **Init mode** ensures that an initial event is delivered to the handler, immediately after subscription. 

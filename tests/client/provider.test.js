@@ -22,7 +22,7 @@ describe("ItemProvider Unit Tests", () => {
         const coll = new ItemProvider(mockClient, "/app/mitems/chnl");
 
         const callback = vi.fn();
-        coll.add_callback(callback);
+        coll.add_handler(callback);
 
         // 1. Insert item1
         coll._client_update({
@@ -81,7 +81,7 @@ describe("ItemProvider Unit Tests", () => {
         expect(coll.size).toBe(2);
 
         const callback = vi.fn();
-        coll.add_callback(callback);
+        coll.add_handler(callback);
 
         // Reset with new item
         coll._client_update({
@@ -199,7 +199,7 @@ describe("ItemProvider Unit Tests", () => {
         expect(itemRes.get()).toBeUndefined();
 
         const callback = vi.fn();
-        const handle = itemRes.add_callback(callback);
+        const handle = itemRes.add_handler(callback);
 
         // 1. Initial item update (undefined -> 100)
         coll._client_update({
@@ -228,10 +228,60 @@ describe("ItemProvider Unit Tests", () => {
         expect(callback).toHaveBeenLastCalledWith({ new: undefined, old: 200 });
 
         // Unsubscribe
-        itemRes.remove_callback(handle);
+        itemRes.remove_handler(handle);
         coll._client_update({
             insert: [{ id: "score", state: 300 }]
         });
         expect(callback).toHaveBeenCalledTimes(3);
+    });
+
+    test("SingleItemProvider set delegates to update_items and restricts parameters", async () => {
+        const { SingleItemProvider } = await import("../../client/providers/single_item_provider.js");
+        const client = createMockClient();
+        const coll = new ItemProvider(client, "/app/test");
+        const itemRes = new SingleItemProvider(coll, "myVar");
+
+        const updateSpy = vi.spyOn(itemRes, "update_items");
+
+        // 1. set() delegates to update_items()
+        itemRes.set(42);
+        expect(updateSpy).toHaveBeenCalledWith({
+            insert: [{ id: "myVar", state: 42 }]
+        }, {});
+
+        // 2. update_items accepts Array with 1 item
+        await expect(itemRes.update_items({ insert: [{ state: 100 }] })).resolves.toBeDefined();
+
+        // 3. update_items accepts Map with size 1
+        const mapInsert = new Map();
+        mapInsert.set("myVar", { state: 200 });
+        await expect(itemRes.update_items({ insert: mapInsert })).resolves.toBeDefined();
+
+        // 4. throws error if remove is defined
+        await expect(itemRes.update_items({ insert: [{ state: 1 }], remove: ["myVar"] }))
+            .rejects.toThrow("SingleItemProvider does not support 'remove'");
+
+        // 5. throws error if reset is defined
+        await expect(itemRes.update_items({ insert: [{ state: 1 }], reset: true }))
+            .rejects.toThrow("SingleItemProvider does not support 'reset'");
+
+        // 6. throws error if insert contains more than 1 item (Array)
+        await expect(itemRes.update_items({ insert: [{ state: 1 }, { state: 2 }] }))
+            .rejects.toThrow("SingleItemProvider 'insert' cannot contain more than one item");
+
+        // 7. throws error if insert contains more than 1 item (Map)
+        const multiMap = new Map();
+        multiMap.set("a", { state: 1 });
+        multiMap.set("b", { state: 2 });
+        await expect(itemRes.update_items({ insert: multiMap }))
+            .rejects.toThrow("SingleItemProvider 'insert' cannot contain more than one item");
+
+        // 8. throws error if insert is empty or missing
+        await expect(itemRes.update_items({ insert: [] }))
+            .rejects.toThrow("SingleItemProvider requires 'insert' containing exactly one item");
+        await expect(itemRes.update_items({ insert: new Map() }))
+            .rejects.toThrow("SingleItemProvider requires 'insert' containing exactly one item");
+        await expect(itemRes.update_items({}))
+            .rejects.toThrow("SingleItemProvider requires 'insert' containing exactly one item");
     });
 });

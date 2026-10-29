@@ -129,7 +129,7 @@ describe("Layer 2 Domain Abstractions Unit Tests", () => {
         expect(num.value).toBe(0);
 
         const changeHandler = vi.fn();
-        num.on("change", changeHandler);
+        num.on_change(changeHandler);
 
         // Update server item state
         coll._client_update({

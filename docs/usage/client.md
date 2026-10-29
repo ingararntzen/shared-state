@@ -126,10 +126,10 @@ const counter = new SharedInteger(client, "/app/items/vars", "counter", {
 });
 
 // Setup event listeners
-users.on("change", () => {
+users.on_change(() => {
   console.log("Users changed:", users.entries());
 }, { init: true });
-counter.on("change", () => {
+counter.on_change(() => {
   console.log("Counter changed:", counter.value);
 }, { init: true });
 ```

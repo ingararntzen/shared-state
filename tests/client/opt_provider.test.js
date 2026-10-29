@@ -76,7 +76,7 @@ describe("OptimisticItemProvider Unit Tests", () => {
 
         // Perform speculative update: set item1 = 200, insert item2 = 300
         const callback = vi.fn();
-        specColl.add_callback(callback);
+        specColl.add_handler(callback);
 
         specColl._update_items({
             insert: [

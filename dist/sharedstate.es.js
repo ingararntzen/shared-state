@@ -257,7 +257,7 @@ function sanitizeItem(rawItem) {
 }
 /**
 * Sanitizes any changes payload (arrays, Sets, Maps, or objects) into canonical runtime format:
-* { insert: Map(id -> item), remove: Set(id), reset: boolean, version?: number }
+* { insert: Map(id -> item), remove: Set(id), reset: boolean }
 * @param {Object} rawChanges
 * @returns {Changes}
 */
@@ -292,14 +292,11 @@ function sanitizeChanges(rawChanges) {
 			});
 		}
 	}
-	const result = {
+	return {
 		insert,
 		remove,
 		reset
 	};
-	if (rawChanges.version !== void 0) result.version = rawChanges.version;
-	if (rawChanges.last_version !== void 0) result.last_version = rawChanges.last_version;
-	return result;
 }
 /**
 * Serializes runtime Map/Set changes back to wire JSON format for WebSocket transmission:
@@ -451,14 +448,14 @@ var ItemProvider = class {
 		return this._builder.add_change(changes, options);
 	}
 	/**
-	* application register callback
+	* application register callback handler
 	*/
-	add_callback(handler) {
+	add_handler(handler) {
 		const handle = { handler };
 		this._handlers.push(handle);
 		return handle;
 	}
-	remove_callback(handle) {
+	remove_handler(handle) {
 		const index = this._handlers.indexOf(handle);
 		if (index > -1) this._handlers.splice(index, 1);
 	}
@@ -692,12 +689,12 @@ var OptimisticItemProvider = class {
 			version: this._proxyCollection._version
 		};
 	}
-	add_callback(handler) {
+	add_handler(handler) {
 		const handle = { handler };
 		this._handlers.push(handle);
 		return handle;
 	}
-	remove_callback(handle) {
+	remove_handler(handle) {
 		const index = this._handlers.indexOf(handle);
 		if (index > -1) this._handlers.splice(index, 1);
 	}
@@ -757,22 +754,53 @@ var SingleItemProvider = class {
 	}
 	/**
 	* Updates the item value across the network.
+	* Convenience method delegating to {@link update_items}.
 	* @param {*} value - New item state value
-	* @param {Object} [options] - Update options
+	* @param {Object} [options={}] - Update options
 	* @returns {Promise<Object>} Resolves when state update is dispatched/processed
 	*/
-	set(value, options = {}) {
-		return this._provider.update_items({ insert: [{
+	async set(value, options = {}) {
+		return this.update_items({ insert: [{
 			id: this._name,
 			state: value
 		}] }, options);
 	}
 	/**
-	* Registers a callback invoked whenever this specific item is updated or reset.
-	* @param {Function} handler - Callback receiving value change `{ new: *, old: * }`
-	* @returns {Object} Subscription handle with `.remove_callback()` and `.off()` methods
+	* Requests an update to the item in the resource conforming to the universal provider contract.
+	*
+	* Note: In the context of SingleItemProvider, `update_items` is not intuitive because this
+	* provider only represents and supports setting a single value for this item, rather than
+	* batch updates across multiple items. It is provided to support a uniform interface across ItemProviders.
+	*
+	* Restrictions:
+	* - `remove` and `reset` are not allowed and will throw an Error if defined.
+	* - `insert` must contain exactly one item (either a Map of size 1 or an Array with 1 item).
+	*   Passing more than one item, an empty collection, or omitting `insert` will throw an Error.
+	*
+	* @param {Object} changes - Changes object `{ insert }`.
+	* @param {Map<string, Object>|Array<Object>} changes.insert - Map of size 1 or Array of length 1 containing the item update.
+	* @param {Object} [options={}] - Update options (e.g. dropIfModified).
+	* @returns {Promise<Object>} Resolves when state update is dispatched/processed.
+	* @throws {Error} If remove or reset is defined, or if insert does not contain exactly one item.
 	*/
-	add_callback(handler) {
+	async update_items(changes = {}, options = {}) {
+		if (changes?.remove !== void 0) throw new Error("SingleItemProvider does not support 'remove'. Only setting a single item value is supported.");
+		if (changes?.reset !== void 0) throw new Error("SingleItemProvider does not support 'reset'. Only setting a single item value is supported.");
+		const { insert } = sanitizeChanges(changes);
+		if (insert.size === 0) throw new Error("SingleItemProvider requires 'insert' containing exactly one item.");
+		if (insert.size > 1) throw new Error("SingleItemProvider 'insert' cannot contain more than one item.");
+		const [item] = insert.values();
+		return this._provider.update_items({ insert: /* @__PURE__ */ new Map([[this._name, {
+			...item,
+			id: this._name
+		}]]) }, options);
+	}
+	/**
+	* Registers a callback handler invoked whenever this specific item is updated or reset.
+	* @param {Function} handler - Callback receiving value change `{ new: *, old: * }`
+	* @returns {Object} Subscription handle with `.remove_handler()` and `.cancel()` methods
+	*/
+	add_handler(handler) {
 		let oldValue = this.get();
 		const wrappedHandler = (changes) => {
 			const { insert, remove, reset } = changes;
@@ -786,20 +814,20 @@ var SingleItemProvider = class {
 				handler(diff);
 			}
 		};
-		const handle = this._provider.add_callback(wrappedHandler);
+		const handle = this._provider.add_handler(wrappedHandler);
 		return {
 			handle,
-			remove_callback: () => this._provider.remove_callback(handle),
-			off: () => this._provider.remove_callback(handle)
+			remove_handler: () => this._provider.remove_handler(handle),
+			cancel: () => this._provider.remove_handler(handle)
 		};
 	}
 	/**
-	* Removes a registered callback.
-	* @param {Object} handle - Subscription handle returned from add_callback
+	* Removes a registered handler.
+	* @param {Object} handle - Subscription handle returned from add_handler
 	*/
-	remove_callback(handle) {
+	remove_handler(handle) {
 		const targetHandle = handle && handle.handle ? handle.handle : handle;
-		this._provider.remove_callback(targetHandle);
+		this._provider.remove_handler(targetHandle);
 	}
 };
 //#endregion
@@ -1356,89 +1384,82 @@ var SharedStateClient = class {
 //#endregion
 //#region client/util/events.js
 /**
-* The `eventify` decorator can be used on objects or class prototype objects in order to imbue the target object with event capabilities.
+* The `eventify` decorator can be used on objects or class prototype objects
+* in order to imbue the target object with single-channel state change event capabilities.
 * @module Events
 */
 /**
-* Callback function signature invoked when an event is emitted.
+* Handler function signature invoked when a state change event is emitted.
 * Handlers default to having `this` bound to the event source instance.
-* 
+*
 * @callback handler
-* @param {*} eArg - Event payload data (e.g. variable value or delta change object)
-* @param {EventInfo} eInfo - Event metadata object detailing source, count, and init status
+* @param {*} changes - State changes payload (e.g. `{ insert, remove, reset }` for collections or `{ new, old }` for variables)
+* @param {EventInfo} eInfo - Event metadata object detailing source, count, init status, and subscription handle
 */
 /**
 * Optional method implemented by stateful event sources to provide state snapshots for initial state events.
-* 
+*
 * This method is not provided by the decorator, and must therefore be manually implemented.
-* 
-* If implemented, `get_current_state(name)` returns the current state snapshot for the given event `name`.
-* If it returns `null`, initial state event delivery (`options.init = true`) is deferred until the first `emit(name, ...)` call occurs.
-* If not implemented, subscribing with `options.init = true` delivers an initial event with `eArg = undefined`.
-* 
+*
+* If implemented, `get_current_state()` returns the current state snapshot.
+* If it returns `null`, initial state event delivery (`options.init = true`) is deferred until the first `_emit(...)` call occurs.
+* If not implemented, subscribing with `options.init = true` delivers an initial event with `changes = undefined`.
+*
 * @function get_current_state
-* @param {string} name - Event name string
-* @returns {*|null} Current state for given event name, or null if uninitialized
+* @returns {*|null} Current state of the object, or null if uninitialized
 */
 /**
-* Event info passed as second parameter (`eInfo`) to event callbacks.
+* Event info passed as second parameter (`eInfo`) to event handlers.
 * @typedef {Object} EventInfo
 * @property {Object} src - Object emitting the event
-* @property {string} name - Event name string (e.g. "change")
 * @property {number} count - Total times this event handler has been invoked
 * @property {boolean} init - True if this is an initial state event (count === 1)
-* @property {Object} handle - Subscription handle object (supports `.off()`)
+* @property {Subscription} sub - Subscription handle object (supports `.cancel()`)
 */
 var Subscription = class {
-	constructor(eventTarget, name, callback, options = {}) {
-		this.target = eventTarget;
-		this.name = name;
+	constructor(manager, callback, options = {}) {
+		this._manager = manager;
 		this.callback = callback;
-		this.options = options;
+		this.init = options.init === true;
+		this.once = options.once === true;
 		this.count = 0;
 		this.terminated = false;
 		this.initPending = false;
 	}
-	off() {
+	/**
+	* Cancels this subscription so the handler will no longer be invoked.
+	* Safe to call multiple times or prior to initial microtask delivery.
+	* @returns {void}
+	*/
+	cancel() {
 		if (this.terminated) return;
 		this.terminated = true;
-		if (this.target && typeof this.target.off === "function") this.target.off(this);
-	}
-	unsubscribe() {
-		this.off();
+		this.initPending = false;
+		if (this._manager) this._manager._remove(this);
 	}
 };
 var EventManager = class {
 	constructor(target) {
 		this.target = target;
-		this.subscriptions = /* @__PURE__ */ new Map();
+		this.subscriptions = [];
 		this.emitBuffer = [];
 		this.flushScheduled = false;
 	}
-	getEventSubscriptions(name) {
-		let subs = this.subscriptions.get(name);
-		if (!subs) {
-			subs = [];
-			this.subscriptions.set(name, subs);
-		}
-		return subs;
-	}
 	/**
-	* Register an event handler for a named event.
-	* @param {string} name - Event name (e.g. "change")
-	* @param {handler} handler - Callback function invoked when event is emitted.
+	* Register an event handler for state changes on this object.
+	* @param {handler} handler - Handler function invoked when state changes
 	* @param {Object} [options] - Subscription options
-	* @param {boolean} [options.init=false] - If true, requests immediate event delivery upon subscription
-	* @returns {Object} Subscription handle object (supports `.off()`)
+	* @param {boolean} [options.init=false] - If true, requests immediate initial state delivery upon subscription
+	* @param {boolean} [options.once=false] - If true, automatically cancels the subscription after its first invocation
+	* @returns {Subscription} Subscription handle object (supports `.cancel()`)
 	*/
-	on(name, callback, options = {}) {
-		if (typeof callback !== "function") throw new TypeError(`Callback must be a function, got ${typeof callback}`);
-		const subs = this.getEventSubscriptions(name);
-		const existing = subs.find((s) => !s.terminated && s.callback === callback);
+	on_change(handler, options = {}) {
+		if (typeof handler !== "function") throw new TypeError(`Handler must be a function, got ${typeof handler}`);
+		const existing = this.subscriptions.find((s) => !s.terminated && s.callback === handler);
 		if (existing) return existing;
-		const sub = new Subscription(this.target, name, callback, options);
-		subs.push(sub);
-		if (options.init === true) if (!(typeof this.target.get_current_state === "function")) {
+		const sub = new Subscription(this, handler, options);
+		this.subscriptions.push(sub);
+		if (sub.init) if (!(typeof this.target.get_current_state === "function")) {
 			sub.initPending = true;
 			Promise.resolve().then(() => {
 				if (sub.terminated || !sub.initPending) return;
@@ -1446,13 +1467,13 @@ var EventManager = class {
 				this._deliver(sub, void 0);
 			});
 		} else {
-			const currentState = this.target.get_current_state(name);
+			const currentState = this.target.get_current_state();
 			if (currentState !== null) {
 				sub.initPending = true;
 				Promise.resolve().then(() => {
 					if (sub.terminated || !sub.initPending) return;
 					sub.initPending = false;
-					const stateAtExec = typeof this.target.get_current_state === "function" ? this.target.get_current_state(name) : currentState;
+					const stateAtExec = typeof this.target.get_current_state === "function" ? this.target.get_current_state() : currentState;
 					this._deliver(sub, stateAtExec);
 				});
 			} else sub.initPending = true;
@@ -1460,63 +1481,36 @@ var EventManager = class {
 		return sub;
 	}
 	/**
-	* Unsubscribes an event handler using the handle object returned by `on()`.
-	* @param {Object} handle - Subscription handle object returned by `on()`
-	* @returns {void}
+	* Internal helper to remove a cancelled subscription from the active list.
+	* @param {Subscription} sub
+	* @private
 	*/
-	off(handle) {
-		if (!handle || typeof handle !== "object") return;
-		handle.terminated = true;
-		const subs = this.subscriptions.get(handle.name);
-		if (subs) {
-			const idx = subs.indexOf(handle);
-			if (idx !== -1) subs.splice(idx, 1);
-		}
+	_remove(sub) {
+		const idx = this.subscriptions.indexOf(sub);
+		if (idx !== -1) this.subscriptions.splice(idx, 1);
 	}
 	/**
-	* Subscribes an event handler for a single event execution.
-	* Automatically unsubscribes after the handler is invoked once.
-	* @param {string} name - Event name
-	* @param {handler} handler - Callback function invoked once
-	* @param {Object} [options] - Subscription options
-	* @param {boolean} [options.init=false] - If true, requests immediate event delivery upon subscription
-	* @returns {Object} Subscription handle object (supports `.off()`)
-	*/
-	once(name, callback, options = {}) {
-		let handle;
-		const wrapper = (eArg, eInfo) => {
-			if (handle) handle.off();
-			return callback.call(this.target, eArg, eInfo);
-		};
-		handle = this.on(name, wrapper, options);
-		return handle;
-	}
-	/**
-	* Emits an event with the specified name and optional payload argument to subscribed handlers.
-	* 
-	* @param {string} name - Event name string (e.g. "change")
-	* @param {*} [eArg] - Optional event payload data delivered to handlers
+	* Emits a state change event with an optional payload argument to subscribed handlers.
+	* Intended to be called internally by the event source (`this._emit(changes)`).
+	*
+	* @param {*} [changes] - Optional state changes payload delivered to handlers
 	* @returns {void}
 	*/
-	emit(name, eArg = void 0) {
-		this.emitBuffer.push({
-			name,
-			eArg
-		});
+	_emit(changes = void 0) {
+		this.emitBuffer.push(changes);
 		if (!this.flushScheduled) {
 			this.flushScheduled = true;
 			Promise.resolve().then(() => {
 				const buffer = this.emitBuffer;
 				this.emitBuffer = [];
 				this.flushScheduled = false;
-				for (const item of buffer) {
-					const subs = this.subscriptions.get(item.name);
-					if (!subs || subs.length === 0) continue;
-					const targetSubs = subs.filter((sub) => !sub.terminated);
+				for (const itemChanges of buffer) {
+					if (this.subscriptions.length === 0) continue;
+					const targetSubs = this.subscriptions.filter((sub) => !sub.terminated);
 					for (const sub of targetSubs) {
 						if (sub.terminated) continue;
 						sub.initPending = false;
-						this._deliver(sub, item.eArg);
+						this._deliver(sub, itemChanges);
 					}
 				}
 			});
@@ -1524,12 +1518,12 @@ var EventManager = class {
 	}
 	_deliver(sub, eArg) {
 		if (sub.terminated) return;
+		if (sub.once) sub.cancel();
 		sub.count++;
 		const eInfo = {
 			src: this.target,
-			name: sub.name,
 			count: sub.count,
-			handle: sub,
+			sub,
 			get init() {
 				return this.count === 1;
 			}
@@ -1537,7 +1531,7 @@ var EventManager = class {
 		try {
 			sub.callback.call(this.target, eArg, eInfo);
 		} catch (err) {
-			console.error(`Error in event handler for "${sub.name}":`, err);
+			console.error("Error in on_change handler:", err);
 		}
 	}
 };
@@ -1552,27 +1546,21 @@ function getManager(obj) {
 	return obj[MANAGER_KEY];
 }
 /**
-* Decorates/enhances an object or class prototype with event capabilities.
+* Decorates/enhances an object or class prototype with state change event capabilities.
 * Can be called on class prototypes (e.g. `eventify(MyClass.prototype)`) or individual instances.
-* 
-* Adds methods: `on`, `off`, `once`, `emit`.
-* 
+*
+* Adds methods: `on_change`, `_emit`.
+*
 * @param {Object} target - The object or prototype to enhance.
 * @returns {Object} The enhanced target object.
 */
 function eventify(target) {
 	if (!target) return target;
-	target.on = function(name, callback, options) {
-		return getManager(this).on(name, callback, options);
+	target.on_change = function(handler, options) {
+		return getManager(this).on_change(handler, options);
 	};
-	target.off = function(handle) {
-		return getManager(this).off(handle);
-	};
-	target.once = function(name, callback, options) {
-		return getManager(this).once(name, callback, options);
-	};
-	target.emit = function(name, eArg = void 0) {
-		return getManager(this).emit(name, eArg);
+	target._emit = function(changes = void 0) {
+		return getManager(this)._emit(changes);
 	};
 	return target;
 }
@@ -1580,7 +1568,7 @@ function eventify(target) {
 //#region client/base_objects/base_abstraction.js
 /**
 * Base class for all SharedState abstractions (Variables and Collections).
-* Extends objects with path/provider accessors and event handling (`on`, `off`, `once`).
+* Extends objects with path/provider accessors and state change event capabilities (`on_change`).
 * Manages per-client singleton instance caching via WeakMap and WeakRef.
 * @class BaseAbstraction
 */
@@ -1709,26 +1697,28 @@ var BaseAbstraction = class BaseAbstraction {
 	}
 	/**
 	* Subscribe to state change events.
-	* @param {string} name - Event name (e.g. "change")
-	* @param {Function} callback - Callback function receiving `(state, eInfo)`
-	* @param {Object} [options] - Event options (e.g. `{ init: true }` for immediate initial state delivery)
-	* @returns {Object} Subscription handle with `.off()` method
+	* @param {handler} handler - Handler function receiving `(changes, eInfo)`
+	* @param {Object} [options] - Subscription options
+	* @param {boolean} [options.init=false] - If true, requests immediate initial state delivery upon subscription
+	* @param {boolean} [options.once=false] - If true, automatically cancels the subscription after its first invocation
+	* @returns {Subscription} Subscription handle with `.cancel()` method
 	*/
-	on(name, callback, options) {}
+	on_change(handler, options) {}
 	/**
-	* Unsubscribe from events.
-	* @param {Object|string} handleOrName - Subscription handle or event name
-	* @param {Function} [callback] - Callback function to remove if name was specified
+	* Backward-compatibility wrapper for on_change.
+	* @deprecated Use on_change(callback, options) instead
 	*/
-	off(handleOrName, callback) {}
+	on(nameOrCallback, callback, options) {
+		if (typeof nameOrCallback === "function") return this.on_change(nameOrCallback, callback);
+		return this.on_change(callback, options);
+	}
 	/**
-	* Subscribe to a single state change event execution.
-	* @param {string} name - Event name
-	* @param {Function} callback - Callback function
-	* @param {Object} [options] - Event options
-	* @returns {Object} Subscription handle
+	* Backward-compatibility wrapper for cancel.
+	* @deprecated Use sub.cancel() instead
 	*/
-	once(name, callback, options) {}
+	off(handle) {
+		if (handle && typeof handle.cancel === "function") handle.cancel();
+	}
 };
 eventify(BaseAbstraction.prototype);
 //#endregion
@@ -1753,7 +1743,7 @@ var BaseCollection = class extends BaseAbstraction {
 		const tok = token || new.target && new.target.name || "BaseCollection";
 		super(client, tok, path, void 0, options);
 		BaseAbstraction.cache_instance(client, path, void 0, this);
-		this._resource.add_callback((changes) => {
+		this._resource.add_handler((changes) => {
 			this._on_resource_update(changes);
 		});
 	}
@@ -1765,29 +1755,34 @@ var BaseCollection = class extends BaseAbstraction {
 		return await this._resource.update_items({ reset: true });
 	}
 	_on_resource_update(changes) {
-		this.emit("change", changes);
+		this._emit(changes);
 	}
-	get_current_state(name) {
-		if (name === "change") {
-			const items = this._resource.get_items();
-			const insert = new Map(items.map((item) => [item.id, item]));
-			return {
-				remove: /* @__PURE__ */ new Set(),
-				insert,
-				reset: true
-			};
-		}
-		return null;
+	get_current_state() {
+		const items = this._resource.get_items();
+		const insert = new Map(items.map((item) => [item.id, item]));
+		return {
+			remove: /* @__PURE__ */ new Set(),
+			insert,
+			reset: true
+		};
 	}
 };
 //#endregion
 //#region client/objects/map.js
 /**
+* Handler function signature invoked when map entries change.
+* Collections yield direct collection `changes` ({insert: Map, remove: Set, reset: Boolean}).
+*
+* @callback MapChangeHandler
+* @param {Changes} changes - Direct collection changes `{ insert: Map<string, Item>, remove: Set<string>, reset: boolean }`
+* @param {EventInfo} eInfo - Event metadata object detailing source, count, init status, and subscription handle
+*/
+/**
 * Online-hosted key-value store emulating the standard JavaScript `Map` interface.
 * Extends {@link BaseCollection}.
 * 
-* `SharedMap` implements the {@link Events} interface. 
-* All state changes are emitted on the `"change"` event, with {@link Changes changes} as callback payload.
+* `SharedMap` is enhanced with the {@link Events} interface (`eventify`). 
+* Subscribing via `.on_change(handler, [options])` registers a handler for state changes, receiving {@link Changes changes} as handler payload.
 * @class SharedMap
 */
 var SharedMap = class extends BaseCollection {
@@ -1883,6 +1878,17 @@ var SharedMap = class extends BaseCollection {
 		for (const [key, val] of this.entries()) callback.call(thisArg, val, key, this);
 	}
 	/**
+	* Subscribes to state change events on the map.
+	* @param {MapChangeHandler} handler - Handler function receiving `(changes, eInfo)`
+	* @param {Object} [options] - Subscription options
+	* @param {boolean} [options.init=false] - If true, delivers initial state upon subscription
+	* @param {boolean} [options.once=false] - If true, automatically cancels the subscription after its first invocation
+	* @returns {Subscription} Subscription handle with `.cancel()` method
+	*/
+	on_change(handler, options) {
+		return super.on_change(handler, options);
+	}
+	/**
 	* Returns an iterator over `[key, value]` entries.
 	* @returns {Iterator<Array>} Iterator for map entries
 	*/
@@ -1904,11 +1910,19 @@ function canonicalStringify(val) {
 * @returns {string|number} Unique key identifying the element
 */
 /**
+* Handler function signature invoked when set elements change.
+* Collections yield direct collection `changes` ({insert: Map, remove: Set, reset: Boolean}).
+*
+* @callback SetChangeHandler
+* @param {Changes} changes - Direct collection changes `{ insert: Map<string, Item>, remove: Set<string>, reset: boolean }`
+* @param {EventInfo} eInfo - Event metadata object detailing source, count, init status, and subscription handle
+*/
+/**
 * Online-hosted set data structure emulating the standard JavaScript `Set` interface.
 * Extends {@link BaseCollection}.
 * 
-* `SharedSet` implements the {@link Events} interface.
-* All state changes are emitted on the `"change"` event, with {@link Changes changes} as callback payload.
+* `SharedSet` is enhanced with the {@link Events} interface (`eventify`).
+* Subscribing via `.on_change(handler, [options])` registers a handler for state changes, receiving {@link Changes changes} as handler payload.
 * @class SharedSet
 */
 var SharedSet = class extends BaseCollection {
@@ -2006,6 +2020,17 @@ var SharedSet = class extends BaseCollection {
 		for (const val of this.values()) callback.call(thisArg, val, val, this);
 	}
 	/**
+	* Subscribes to state change events on the set.
+	* @param {SetChangeHandler} handler - Handler function receiving `(changes, eInfo)`
+	* @param {Object} [options] - Subscription options
+	* @param {boolean} [options.init=false] - If true, delivers initial state upon subscription
+	* @param {boolean} [options.once=false] - If true, automatically cancels the subscription after its first invocation
+	* @returns {Subscription} Subscription handle with `.cancel()` method
+	*/
+	on_change(handler, options) {
+		return super.on_change(handler, options);
+	}
+	/**
 	* Returns an iterator over set values.
 	* @returns {Iterator<*>} Iterator for set values
 	*/
@@ -2016,11 +2041,25 @@ var SharedSet = class extends BaseCollection {
 //#endregion
 //#region client/base_objects/base_variable.js
 /**
+* Value diff payload delivered to variable change handlers.
+* @typedef {Object} VariableDiff
+* @property {*} new - The newly updated value
+* @property {*} old - The previous value (or undefined on initial state)
+*/
+/**
+* Handler function signature invoked when variable value changes.
+* Variables yield a convenient `diff` object (`{ new, old }`), unlike collections which yield `changes` (`{ insert, remove, reset }`).
+*
+* @callback VariableChangeHandler
+* @param {VariableDiff} diff - Value diff object `{ new: *, old: * }`
+* @param {EventInfo} eInfo - Event metadata object detailing source, count, init status, and subscription handle
+*/
+/**
 * SharedVariable represents an online-hosted value.
 * Extends {@link BaseAbstraction}.
 * 
-* `SharedVariable` implements the {@link Events} interface.
-* All state changes are emitted on the `"change"` event, with `{new: newValue, old: oldValue}` as callback payload.
+* `SharedVariable` is enhanced with the {@link Events} interface (`eventify`).
+* Subscribing via `.on_change(handler, [options])` registers a handler for state changes, receiving `{new: newValue, old: oldValue}` as handler payload.
 * @class BaseVariable
 */
 var BaseVariable = class extends BaseAbstraction {
@@ -2041,7 +2080,7 @@ var BaseVariable = class extends BaseAbstraction {
 		super(client, tok, path, name, options);
 		BaseAbstraction.cache_instance(client, path, name, this);
 		this._itemId = name;
-		this._resource.add_callback((diff) => {
+		this._resource.add_handler((diff) => {
 			this._on_resource_update(diff);
 		});
 	}
@@ -2076,19 +2115,27 @@ var BaseVariable = class extends BaseAbstraction {
 	set(val) {
 		return this._resource.set(val);
 	}
-	_on_resource_update(diff) {
-		this.emit("change", diff);
+	/**
+	* Subscribes to value change events on the variable.
+	* @param {VariableChangeHandler} handler - Handler function receiving `(diff, eInfo)`
+	* @param {Object} [options] - Subscription options
+	* @param {boolean} [options.init=false] - If true, delivers initial state upon subscription
+	* @param {boolean} [options.once=false] - If true, automatically cancels the subscription after its first invocation
+	* @returns {Subscription} Subscription handle with `.cancel()` method
+	*/
+	on_change(handler, options) {
+		return super.on_change(handler, options);
 	}
-	get_current_state(name) {
-		if (name === "change") {
-			const val = this.value;
-			if (val === void 0) return null;
-			return {
-				new: val,
-				old: void 0
-			};
-		}
-		return null;
+	_on_resource_update(diff) {
+		this._emit(diff);
+	}
+	get_current_state() {
+		const val = this.value;
+		if (val === void 0) return null;
+		return {
+			new: val,
+			old: void 0
+		};
 	}
 };
 //#endregion
@@ -2475,16 +2522,16 @@ var CollectionResource = class {
 	*/
 	update_items(changes, options = {}) {}
 	/**
-	* Registers a callback invoked whenever the resource changes.
-	* @param {Function} handler(changes) - Callback function receiving change event
-	* @returns {Object} Subscription handle object with `.remove_callback()`.
+	* Registers a handler invoked whenever the resource changes.
+	* @param {Function} handler(changes) - Handler function receiving change event
+	* @returns {Object} Subscription handle object with `.remove_handler()`.
 	*/
-	add_callback(handler) {}
+	add_handler(handler) {}
 	/**
-	* Removes a registered callback.
-	* @param {Object} handle - Subscription handle returned from `add_callback`
+	* Removes a registered handler.
+	* @param {Object} handle - Subscription handle returned from `add_handler`
 	*/
-	remove_callback(handle) {}
+	remove_handler(handle) {}
 };
 //#endregion
 //#region client/definitions/value_resource.js
@@ -2518,16 +2565,16 @@ var ValueResource = class {
 	*/
 	set(value, options = {}) {}
 	/**
-	* Registers a callback invoked whenever the resource value changes.
-	* @param {Function} handler(diff) - Callback function receiving value diff `{ new: *, old: * }`
-	* @returns {Object} Subscription handle with `.remove_callback()`
+	* Registers a handler invoked whenever the resource value changes.
+	* @param {Function} handler(diff) - Handler function receiving value diff `{ new: *, old: * }`
+	* @returns {Object} Subscription handle with `.remove_handler()`
 	*/
-	add_callback(handler) {}
+	add_handler(handler) {}
 	/**
-	* Removes a registered callback.
-	* @param {Object} handle - Subscription handle returned from add_callback
+	* Removes a registered handler.
+	* @param {Object} handle - Subscription handle returned from add_handler
 	*/
-	remove_callback(handle) {}
+	remove_handler(handle) {}
 };
 //#endregion
 export { CollectionResource, Connection, ConnectionState, ItemProvider, OptimisticItemProvider, SharedArray, SharedBoolean, SharedFloat, SharedInteger, SharedMap, SharedRecord, SharedSet, SharedStateClient, SharedString, SharedVariable, SingleItemProvider, VERSION, ValueResource, load };

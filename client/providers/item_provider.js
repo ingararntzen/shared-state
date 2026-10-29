@@ -151,19 +151,19 @@ export class ItemProvider {
     }
 
     /**
-     * application register callback
+     * application register callback handler
     */
-    add_callback(handler) {
+    add_handler(handler) {
         const handle = { handler };
         this._handlers.push(handle);
         return handle;
-    };
-    remove_callback(handle) {
+    }
+    remove_handler(handle) {
         const index = this._handlers.indexOf(handle);
         if (index > -1) {
             this._handlers.splice(index, 1);
         }
-    };
+    }
 
 
     /*********************************************************

@@ -108,7 +108,7 @@
         }
 
         // Subscribe to SharedMap change events
-        demoMap.on("change", (changes) => {
+        demoMap.on_change((changes) => {
             updateDOM(changes);
         }, { init: true });
 

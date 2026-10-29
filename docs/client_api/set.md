@@ -3,8 +3,8 @@
 Online-hosted set data structure emulating the standard JavaScript `Set` interface.
 
 
-`SharedSet` implements the [**Events**](/client_api/events) interface.
-All state changes are emitted on the `"change"` event, with [`changes`](/client_api/types#changes) as callback payload.
+`SharedSet` is enhanced with the [**Events**](/client_api/events) interface (`eventify`).
+Subscribing via `.on_change(handler, [options])` registers a handler for state changes, receiving [`changes`](/client_api/types#changes) as handler payload.
 
 ## Constructor
 
@@ -17,7 +17,7 @@ Initializes a SharedSet instance.
 | `client` | [`SharedStateClient`](/client_api/client) | SharedState client instance |
 | `path` | `string` | Resource [Path](/design/representation/item_collection#path) |
 | `[options]` | `Object` | Configuration options |
-| `[options.key]` | [`KeyFunction`](#keyfunction-callback) | Custom element identity key function receiving `elem` and returning a unique key |
+| `[options.key]` | [`KeyFunction`](#keyfunction) | Custom element identity key function receiving `elem` and returning a unique key |
 
 ## Properties
 
@@ -98,9 +98,24 @@ Executes a callback function once per element in the set.
 | `callback` | `function` | Function executing `(value, value, set)` |
 | `[thisArg]` | `*` | Value to use as `this` when executing callback |
 
-## Callbacks
+### `on_change(handler, options)`
 
-### `KeyFunction(elem)` Callback
+Subscribes to state change events on the set.
+
+| Parameter | Type | Description |
+| --- | --- | --- |
+| `handler` | [`SetChangeHandler`](#setchangehandler) | Handler function receiving `(changes, eInfo)` |
+| `[options]` | `Object` | Subscription options |
+| `[options.init=false]` | `boolean` | If true, delivers initial state upon subscription |
+| `[options.once=false]` | `boolean` | If true, automatically cancels the subscription after its first invocation |
+
+**Returns**: [`Subscription`](/client_api/events#subscription) - Subscription handle with `.cancel()` method
+
+## Handlers & Callbacks
+
+### `KeyFunction` {#keyfunction}
+
+**Type**: `function`
 
 Callback function signature used to calculate a unique key for set elements.
 
@@ -109,4 +124,14 @@ Callback function signature used to calculate a unique key for set elements.
 | `elem` | `*` | Element added to or queried in the set |
 
 **Returns**: `string` | `number` - Unique key identifying the element
+
+### `SetChangeHandler(changes, eInfo)` Handler {#setchangehandler}
+
+Handler function signature invoked when set elements change.
+Collections yield direct collection `changes` ({insert: Map, remove: Set, reset: Boolean}).
+
+| Parameter | Type | Description |
+| --- | --- | --- |
+| `changes` | [`Changes`](/client_api/types#changes) | Direct collection changes `{ insert: Map<string, Item>, remove: Set<string>, reset: boolean }` |
+| `eInfo` | [`EventInfo`](/client_api/events#eventinfo) | Event metadata object detailing source, count, init status, and subscription handle |
 

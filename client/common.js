@@ -63,7 +63,7 @@ export function sanitizeItem(rawItem) {
 
 /**
  * Sanitizes any changes payload (arrays, Sets, Maps, or objects) into canonical runtime format:
- * { insert: Map(id -> item), remove: Set(id), reset: boolean, version?: number }
+ * { insert: Map(id -> item), remove: Set(id), reset: boolean }
  * @param {Object} rawChanges
  * @returns {Changes}
  */
@@ -104,14 +104,7 @@ export function sanitizeChanges(rawChanges) {
         }
     }
 
-    const result = { insert, remove, reset };
-    if (rawChanges.version !== undefined) {
-        result.version = rawChanges.version;
-    }
-    if (rawChanges.last_version !== undefined) {
-        result.last_version = rawChanges.last_version;
-    }
-    return result;
+    return { insert, remove, reset };
 }
 
 /**

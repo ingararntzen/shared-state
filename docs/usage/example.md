@@ -77,7 +77,7 @@ The slideshow user interface consists of three main visual sections:
 
 ## Reactive Rendering
 
-UI evaluation and rendering are triggered whenever **either** `slidesMap` or `activeSlideNo` emits a `"change"` event:
+UI evaluation and rendering are triggered whenever **either** `slidesMap` or `activeSlideNo` fires `on_change`:
 
 ```javascript
 function render() {
@@ -118,8 +118,8 @@ function render() {
 }
 
 // Re-render UI on changes to either SharedMap or SharedInteger
-slidesMap.on("change", render, { init: true });
-activeSlideNo.on("change", render, { init: true });
+slidesMap.on_change(render, { init: true });
+activeSlideNo.on_change(render, { init: true });
 ```
 
 ---

@@ -49,16 +49,16 @@ export class CollectionResource {
     update_items(changes, options = {}) { }
 
     /**
-     * Registers a callback invoked whenever the resource changes.
-     * @param {Function} handler(changes) - Callback function receiving change event
-     * @returns {Object} Subscription handle object with `.remove_callback()`.
+     * Registers a handler invoked whenever the resource changes.
+     * @param {Function} handler(changes) - Handler function receiving change event
+     * @returns {Object} Subscription handle object with `.remove_handler()`.
      */
-    add_callback(handler) { }
+    add_handler(handler) { }
 
     /**
-     * Removes a registered callback.
-     * @param {Object} handle - Subscription handle returned from `add_callback`
+     * Removes a registered handler.
+     * @param {Object} handle - Subscription handle returned from `add_handler`
      */
-    remove_callback(handle) { }
+    remove_handler(handle) { }
 }
 

@@ -22,7 +22,6 @@
     "test": "tests"
   },
   "scripts": {
-    "dev": "vite",
     "test": "vitest run",
     "test:js": "vitest run",
     "test:watch": "vitest",

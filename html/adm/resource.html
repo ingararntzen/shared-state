@@ -156,7 +156,7 @@
                 activeCollection = client.get_collection_resource("adm", path);
                 updateItems(activeCollection.get_items());
 
-                activeCollection.add_callback(() => {
+                activeCollection.add_handler(() => {
                     updateItems(activeCollection.get_items());
                 });
             } catch (e) {

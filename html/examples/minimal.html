@@ -17,7 +17,7 @@
         const btn = document.querySelector("#incBtn");
 
         // Subscribe to value changes
-        counter.on("change", (val) => {
+        counter.on_change((val) => {
             elem.textContent = val;
         }, { init: true });
 

@@ -98,8 +98,8 @@
         }
 
         // Re-render whenever SharedMap or activeSlideNo changes
-        slidesMap.on("change", render, { init: true });
-        activeSlideNo.on("change", render, { init: true });
+        slidesMap.on_change(render, { init: true });
+        activeSlideNo.on_change(render, { init: true });
 
         // Left Click on gallery item to activate slide
         const gallery = document.querySelector(".gallery");

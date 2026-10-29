@@ -1,5 +1,6 @@
 /**
- * The `eventify` decorator can be used on objects or class prototype objects in order to imbue the target object with event capabilities.
+ * The `eventify` decorator can be used on objects or class prototype objects
+ * in order to imbue the target object with single-channel state change event capabilities.
  * @module Events
  */
 
@@ -7,168 +8,168 @@
  * ============================================================================
  * OVERVIEW & USAGE
  * ============================================================================
- * 
- * `eventify` is a decorator/mixin that endows objects or class prototypes with 
- * event capabilities (`on`, `off`, `once`, `emit`).
- * 
+ *
+ * `eventify` is a decorator/mixin that endows objects or class prototypes with
+ * state change notification capabilities (`on_change`, `_emit`).
+ *
+ * Each eventified object represents a single event channel signalling that its
+ * state has changed.
+ *
  * Basic Usage:
  * ```js
  * import { eventify } from "./util/events.js";
- * 
+ *
  * class MyModel {
  *   constructor() {
  *     this._state = { count: 0 };
  *   }
- *   get_current_state(name) {
+ *   get_current_state() {
  *     return this._state;
+ *   }
+ *   set_count(count) {
+ *     this._state = { count };
+ *     this._emit(this._state);
  *   }
  * }
  * eventify(MyModel.prototype);
- * 
+ *
  * const model = new MyModel();
- * const handle = model.on("change", (state, eInfo) => {
+ * const sub = model.on_change((state, eInfo) => {
  *   console.log("Current State:", state, "Is Init:", eInfo.init);
  * }, { init: true });
- * 
- * model.emit("change", { count: 1 });
- * handle.off(); // Unsubscribe via handle
+ *
+ * model.set_count(1);
+ * sub.cancel(); // Unsubscribe via subscription handle
  * ```
- * 
+ *
  * ============================================================================
  * REQUIREMENTS ON EVENT SOURCE IMPLEMENTATION
  * ============================================================================
- * 
- * 1. State Snapshot Method `get_current_state(name)` (Optional, for stateful objects):
- *    - If implemented, `get_current_state(name)` should return a snapshot of the current
- *      state for the given event `name`.
- *    - Allows objects to manage multiple independent state streams.
- *    - Mode 1 (Signal-only): If `get_current_state(name)` is omitted, subscribing with
- *      `options.init = true` delivers an initial event (`{ init: true }`) immediately with `eArg = undefined`.
- *    - Mode 2 (Full state payload) & Mode 3 (State diff payload): If implemented and returns a state object,
- *      `options.init = true` delivers that initial state immediately. If it returns `null`,
- *      state is considered UNINITIALIZED (EMPTY), and initial event delivery (`{ init: true }`) is
- *      automatically deferred until the first `emit(name, ...)` occurs.
- *    - Mode 4 (Regular events): Standard event subscription with `options.init = false` (default),
- *      where handlers fire only when `emit(name, ...)` is called.
- * 
- * 2. Event Batching Responsibility:
- *    - The event source is responsible for collapsing domain-level mutations 
- *      into coherent `emit(name, eArg)` calls.
+ *
+ * 1. State Snapshot Method `get_current_state()` (Optional, for stateful objects):
+ *    - If implemented, `get_current_state()` should return a snapshot of the
+ *      object's current state.
+ *    - Mode 1 (Signal-only): If `get_current_state()` is omitted, subscribing with
+ *      `options.init = true` delivers an initial event (`{ init: true }`) immediately
+ *      via microtask with `eArg = undefined`.
+ *    - Mode 2 (Full state payload) & Mode 3 (State diff payload): If implemented and
+ *      returns a non-null state value, `options.init = true` delivers that initial
+ *      state immediately via microtask. If it returns `null`, the state is considered
+ *      UNINITIALIZED (EMPTY), and initial event delivery (`{ init: true }`) is
+ *      automatically deferred until the first `_emit(...)` call occurs.
+ *    - Mode 4 (Regular events): Standard subscription with `options.init = false` (default),
+ *      where handlers fire only when `_emit(...)` is called.
+ *
+ * 2. One-Shot Subscriptions (`options.once = true`):
+ *    - Passing `{ once: true }` automatically cancels the subscription (`sub.cancel()`)
+ *      upon its first delivery (whether triggered by `{ init: true }` or `_emit()`).
+ *
+ * 3. Event Batching Responsibility:
+ *    - The event source is responsible for collapsing domain-level mutations
+ *      into coherent `_emit(eArg)` calls.
  *    - The event system guarantees asynchronous decoupled execution (`Promise.resolve()`)
- *      and delivers exact, ordered handler calls for each `emit()`.
- * 
- * 3. Handler Execution Context (`this`):
+ *      and delivers exact, ordered handler calls for each `_emit()`.
+ *
+ * 4. Handler Execution Context (`this`):
  *    - Handlers default to having `this` bound to the **event source instance** (publisher).
- *    - If an observer subscriber wants `this` bound to the **observer instance**,
- *      the subscriber must bind its handler explicitly (e.g. `publisher.on("change", this.onEvent.bind(this))`)
+ *    - If an observer wants `this` bound to the **observer instance**,
+ *      the subscriber must bind its handler explicitly (e.g. `publisher.on_change(this.onEvent.bind(this))`)
  *      or use an arrow function `(eArg, eInfo) => this.onEvent(eArg, eInfo)`.
- *    - Callback signature: `handler(eArg, eInfo)`
- *      Where `eInfo = { src, name, count, init, handle }`.
+ *    - Handler signature: `handler(changes, eInfo)`
+ *      Where `eInfo = { src, count, init, sub }`.
  */
 
 /**
- * Callback function signature invoked when an event is emitted.
+ * Handler function signature invoked when a state change event is emitted.
  * Handlers default to having `this` bound to the event source instance.
- * 
+ *
  * @callback handler
- * @param {*} eArg - Event payload data (e.g. variable value or delta change object)
- * @param {EventInfo} eInfo - Event metadata object detailing source, count, and init status
+ * @param {*} changes - State changes payload (e.g. `{ insert, remove, reset }` for collections or `{ new, old }` for variables)
+ * @param {EventInfo} eInfo - Event metadata object detailing source, count, init status, and subscription handle
  */
 
 /**
  * Optional method implemented by stateful event sources to provide state snapshots for initial state events.
- * 
+ *
  * This method is not provided by the decorator, and must therefore be manually implemented.
- * 
- * If implemented, `get_current_state(name)` returns the current state snapshot for the given event `name`.
- * If it returns `null`, initial state event delivery (`options.init = true`) is deferred until the first `emit(name, ...)` call occurs.
- * If not implemented, subscribing with `options.init = true` delivers an initial event with `eArg = undefined`.
- * 
+ *
+ * If implemented, `get_current_state()` returns the current state snapshot.
+ * If it returns `null`, initial state event delivery (`options.init = true`) is deferred until the first `_emit(...)` call occurs.
+ * If not implemented, subscribing with `options.init = true` delivers an initial event with `changes = undefined`.
+ *
  * @function get_current_state
- * @param {string} name - Event name string
- * @returns {*|null} Current state for given event name, or null if uninitialized
+ * @returns {*|null} Current state of the object, or null if uninitialized
  */
 
 /**
- * Event info passed as second parameter (`eInfo`) to event callbacks.
+ * Event info passed as second parameter (`eInfo`) to event handlers.
  * @typedef {Object} EventInfo
  * @property {Object} src - Object emitting the event
- * @property {string} name - Event name string (e.g. "change")
  * @property {number} count - Total times this event handler has been invoked
  * @property {boolean} init - True if this is an initial state event (count === 1)
- * @property {Object} handle - Subscription handle object (supports `.off()`)
+ * @property {Subscription} sub - Subscription handle object (supports `.cancel()`)
  */
 
 class Subscription {
-  constructor(eventTarget, name, callback, options = {}) {
-    this.target = eventTarget;
-    this.name = name;
+  constructor(manager, callback, options = {}) {
+    this._manager = manager;
     this.callback = callback;
-    this.options = options;
+    this.init = options.init === true;
+    this.once = options.once === true;
     this.count = 0;
     this.terminated = false;
     this.initPending = false;
   }
 
-  off() {
+  /**
+   * Cancels this subscription so the handler will no longer be invoked.
+   * Safe to call multiple times or prior to initial microtask delivery.
+   * @returns {void}
+   */
+  cancel() {
     if (this.terminated) return;
     this.terminated = true;
-    if (this.target && typeof this.target.off === "function") {
-      this.target.off(this);
+    this.initPending = false;
+    if (this._manager) {
+      this._manager._remove(this);
     }
-  }
-
-  unsubscribe() {
-    this.off();
   }
 }
 
 class EventManager {
   constructor(target) {
     this.target = target;
-    // Map<eventName, Subscription[]>
-    this.subscriptions = new Map();
-    // Buffer for pending emits: [{ name, eArg }]
+    // Active subscriptions: Subscription[]
+    this.subscriptions = [];
+    // Buffer for pending emits: eArg[]
     this.emitBuffer = [];
     this.flushScheduled = false;
   }
 
-  getEventSubscriptions(name) {
-    let subs = this.subscriptions.get(name);
-    if (!subs) {
-      subs = [];
-      this.subscriptions.set(name, subs);
-    }
-    return subs;
-  }
-
   /**
-   * Register an event handler for a named event.
-   * @param {string} name - Event name (e.g. "change")
-   * @param {handler} handler - Callback function invoked when event is emitted.
+   * Register an event handler for state changes on this object.
+   * @param {handler} handler - Handler function invoked when state changes
    * @param {Object} [options] - Subscription options
-   * @param {boolean} [options.init=false] - If true, requests immediate event delivery upon subscription
-   * @returns {Object} Subscription handle object (supports `.off()`)
+   * @param {boolean} [options.init=false] - If true, requests immediate initial state delivery upon subscription
+   * @param {boolean} [options.once=false] - If true, automatically cancels the subscription after its first invocation
+   * @returns {Subscription} Subscription handle object (supports `.cancel()`)
    */
-  on(name, callback, options = {}) {
-    if (typeof callback !== "function") {
-      throw new TypeError(`Callback must be a function, got ${typeof callback}`);
+  on_change(handler, options = {}) {
+    if (typeof handler !== "function") {
+      throw new TypeError(`Handler must be a function, got ${typeof handler}`);
     }
-
-    const subs = this.getEventSubscriptions(name);
 
     // Duplicate subscription check
-    const existing = subs.find((s) => !s.terminated && s.callback === callback);
+    const existing = this.subscriptions.find((s) => !s.terminated && s.callback === handler);
     if (existing) {
       return existing;
     }
 
-    const sub = new Subscription(this.target, name, callback, options);
-    subs.push(sub);
+    const sub = new Subscription(this, handler, options);
+    this.subscriptions.push(sub);
 
     // Initial state event handling
-    const wantsInit = options.init === true;
-    if (wantsInit) {
+    if (sub.init) {
       const hasGetState = typeof this.target.get_current_state === "function";
 
       if (!hasGetState) {
@@ -181,7 +182,7 @@ class EventManager {
           this._deliver(sub, undefined);
         });
       } else {
-        const currentState = this.target.get_current_state(name);
+        const currentState = this.target.get_current_state();
         if (currentState !== null) {
           // Mode 2 / Mode 3: State is ready, schedule init delivery with state snapshot.
           sub.initPending = true;
@@ -190,14 +191,14 @@ class EventManager {
             sub.initPending = false;
 
             const stateAtExec = typeof this.target.get_current_state === "function"
-              ? this.target.get_current_state(name)
+              ? this.target.get_current_state()
               : currentState;
 
             this._deliver(sub, stateAtExec);
           });
         } else {
           // Mode 2 / Mode 3: State is null (uninitialized).
-          // Leave sub.initPending = true so the first emit delivers init.
+          // Leave sub.initPending = true so the first _emit delivers init.
           sub.initPending = true;
         }
       }
@@ -207,52 +208,26 @@ class EventManager {
   }
 
   /**
-   * Unsubscribes an event handler using the handle object returned by `on()`.
-   * @param {Object} handle - Subscription handle object returned by `on()`
-   * @returns {void}
+   * Internal helper to remove a cancelled subscription from the active list.
+   * @param {Subscription} sub
+   * @private
    */
-  off(handle) {
-    if (!handle || typeof handle !== "object") return;
-    handle.terminated = true;
-    const subs = this.subscriptions.get(handle.name);
-    if (subs) {
-      const idx = subs.indexOf(handle);
-      if (idx !== -1) {
-        subs.splice(idx, 1);
-      }
+  _remove(sub) {
+    const idx = this.subscriptions.indexOf(sub);
+    if (idx !== -1) {
+      this.subscriptions.splice(idx, 1);
     }
   }
 
   /**
-   * Subscribes an event handler for a single event execution.
-   * Automatically unsubscribes after the handler is invoked once.
-   * @param {string} name - Event name
-   * @param {handler} handler - Callback function invoked once
-   * @param {Object} [options] - Subscription options
-   * @param {boolean} [options.init=false] - If true, requests immediate event delivery upon subscription
-   * @returns {Object} Subscription handle object (supports `.off()`)
-   */
-  once(name, callback, options = {}) {
-    let handle;
-    const wrapper = (eArg, eInfo) => {
-      if (handle) {
-        handle.off();
-      }
-      return callback.call(this.target, eArg, eInfo);
-    };
-    handle = this.on(name, wrapper, options);
-    return handle;
-  }
-
-  /**
-   * Emits an event with the specified name and optional payload argument to subscribed handlers.
-   * 
-   * @param {string} name - Event name string (e.g. "change")
-   * @param {*} [eArg] - Optional event payload data delivered to handlers
+   * Emits a state change event with an optional payload argument to subscribed handlers.
+   * Intended to be called internally by the event source (`this._emit(changes)`).
+   *
+   * @param {*} [changes] - Optional state changes payload delivered to handlers
    * @returns {void}
    */
-  emit(name, eArg = undefined) {
-    this.emitBuffer.push({ name, eArg });
+  _emit(changes = undefined) {
+    this.emitBuffer.push(changes);
 
     if (!this.flushScheduled) {
       this.flushScheduled = true;
@@ -261,18 +236,17 @@ class EventManager {
         this.emitBuffer = [];
         this.flushScheduled = false;
 
-        for (const item of buffer) {
-          const subs = this.subscriptions.get(item.name);
-          if (!subs || subs.length === 0) continue;
+        for (const itemChanges of buffer) {
+          if (this.subscriptions.length === 0) continue;
 
           // Snapshot active non-terminated subscriptions
-          const targetSubs = subs.filter((sub) => !sub.terminated);
+          const targetSubs = this.subscriptions.filter((sub) => !sub.terminated);
           for (const sub of targetSubs) {
             if (sub.terminated) continue;
 
-            // If sub was waiting for init, this first emit counts as init
+            // If sub was waiting for init, this first _emit counts as init
             sub.initPending = false;
-            this._deliver(sub, item.eArg);
+            this._deliver(sub, itemChanges);
           }
         }
       });
@@ -282,12 +256,15 @@ class EventManager {
   _deliver(sub, eArg) {
     if (sub.terminated) return;
 
+    if (sub.once) {
+      sub.cancel();
+    }
+
     sub.count++;
     const eInfo = {
       src: this.target,
-      name: sub.name,
       count: sub.count,
-      handle: sub,
+      sub: sub,
       get init() {
         return this.count === 1;
       }
@@ -296,7 +273,7 @@ class EventManager {
     try {
       sub.callback.call(this.target, eArg, eInfo);
     } catch (err) {
-      console.error(`Error in event handler for "${sub.name}":`, err);
+      console.error("Error in on_change handler:", err);
     }
   }
 }
@@ -316,31 +293,23 @@ function getManager(obj) {
 }
 
 /**
- * Decorates/enhances an object or class prototype with event capabilities.
+ * Decorates/enhances an object or class prototype with state change event capabilities.
  * Can be called on class prototypes (e.g. `eventify(MyClass.prototype)`) or individual instances.
- * 
- * Adds methods: `on`, `off`, `once`, `emit`.
- * 
+ *
+ * Adds methods: `on_change`, `_emit`.
+ *
  * @param {Object} target - The object or prototype to enhance.
  * @returns {Object} The enhanced target object.
  */
 export function eventify(target) {
   if (!target) return target;
 
-  target.on = function (name, callback, options) {
-    return getManager(this).on(name, callback, options);
+  target.on_change = function (handler, options) {
+    return getManager(this).on_change(handler, options);
   };
 
-  target.off = function (handle) {
-    return getManager(this).off(handle);
-  };
-
-  target.once = function (name, callback, options) {
-    return getManager(this).once(name, callback, options);
-  };
-
-  target.emit = function (name, eArg = undefined) {
-    return getManager(this).emit(name, eArg);
+  target._emit = function (changes = undefined) {
+    return getManager(this)._emit(changes);
   };
 
   return target;

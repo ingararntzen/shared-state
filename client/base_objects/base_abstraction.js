@@ -3,7 +3,7 @@ import { validatePath } from "../common.js";
 
 /**
  * Base class for all SharedState abstractions (Variables and Collections).
- * Extends objects with path/provider accessors and event handling (`on`, `off`, `once`).
+ * Extends objects with path/provider accessors and state change event capabilities (`on_change`).
  * Manages per-client singleton instance caching via WeakMap and WeakRef.
  * @class BaseAbstraction
  */
@@ -141,28 +141,34 @@ export class BaseAbstraction {
 
     /**
      * Subscribe to state change events.
-     * @param {string} name - Event name (e.g. "change")
-     * @param {Function} callback - Callback function receiving `(state, eInfo)`
-     * @param {Object} [options] - Event options (e.g. `{ init: true }` for immediate initial state delivery)
-     * @returns {Object} Subscription handle with `.off()` method
+     * @param {handler} handler - Handler function receiving `(changes, eInfo)`
+     * @param {Object} [options] - Subscription options
+     * @param {boolean} [options.init=false] - If true, requests immediate initial state delivery upon subscription
+     * @param {boolean} [options.once=false] - If true, automatically cancels the subscription after its first invocation
+     * @returns {Subscription} Subscription handle with `.cancel()` method
      */
-    on(name, callback, options) {}
+    on_change(handler, options) {}
 
     /**
-     * Unsubscribe from events.
-     * @param {Object|string} handleOrName - Subscription handle or event name
-     * @param {Function} [callback] - Callback function to remove if name was specified
+     * Backward-compatibility wrapper for on_change.
+     * @deprecated Use on_change(callback, options) instead
      */
-    off(handleOrName, callback) {}
+    on(nameOrCallback, callback, options) {
+        if (typeof nameOrCallback === "function") {
+            return this.on_change(nameOrCallback, callback);
+        }
+        return this.on_change(callback, options);
+    }
 
     /**
-     * Subscribe to a single state change event execution.
-     * @param {string} name - Event name
-     * @param {Function} callback - Callback function
-     * @param {Object} [options] - Event options
-     * @returns {Object} Subscription handle
+     * Backward-compatibility wrapper for cancel.
+     * @deprecated Use sub.cancel() instead
      */
-    once(name, callback, options) {}
+    off(handle) {
+        if (handle && typeof handle.cancel === "function") {
+            handle.cancel();
+        }
+    }
 }
 
 eventify(BaseAbstraction.prototype);

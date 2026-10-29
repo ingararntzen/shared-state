@@ -14,7 +14,8 @@ if (!fs.existsSync(docsApiDir)) {
 
 function isPublic(item) {
     if (!item || !item.name) return false;
-    if (item.name.startsWith("_")) return false;
+    if (item.name.startsWith("_") && item.name !== "_emit") return false;
+    if (item.deprecated) return false;
     if (item.access === "private" || item.access === "protected" || item.access === "package" || item.ignore) return false;
     if (item.customTags && item.customTags.some(t => t.tag === "internal" || t.tag === "ignore")) return false;
     if (item.tags && item.tags.some(t => t.title === "internal" || t.title === "ignore" || t.title === "private" || t.originalTitle === "internal")) return false;
@@ -28,13 +29,19 @@ function formatSingleType(t) {
     if (cleanName === "Item") return `[\`Item\`](/client_api/types#item)`;
     if (cleanName === "Changes") return `[\`Changes\`](/client_api/types#changes)`;
     if (cleanName === "EventInfo") return `[\`EventInfo\`](/client_api/events#eventinfo)`;
+    if (cleanName === "Subscription") return `[\`Subscription\`](/client_api/events#subscription)`;
+    if (cleanName === "MapChangeHandler") return `[\`MapChangeHandler\`](#mapchangehandler)`;
+    if (cleanName === "SetChangeHandler") return `[\`SetChangeHandler\`](#setchangehandler)`;
+    if (cleanName === "VariableChangeHandler") return `[\`VariableChangeHandler\`](#variablechangehandler)`;
+    if (cleanName === "VariableDiff") return `[\`VariableDiff\`](#variablediff)`;
     if (cleanName === "CollectionResource") return `[\`CollectionResource\`](/client_api/collection_resource)`;
     if (cleanName === "ValueResource") return `[\`ValueResource\`](/client_api/value_resource)`;
     if (cleanName === "Connection") return `[\`Connection\`](/client_api/connection)`;
     if (cleanName === "ConnectionState") return `[\`ConnectionState\`](/client_api/connection#connectionstate-enum)`;
     if (cleanName === "ServerClock") return `[\`ServerClock\`](/client_api/clock)`;
     if (cleanName === "SharedStateClient") return `[\`SharedStateClient\`](/client_api/client)`;
-    if (cleanName === "KeyFunction") return `[\`KeyFunction\`](#keyfunction-callback)`;
+    if (cleanName === "KeyFunction") return `[\`KeyFunction\`](#keyfunction)`;
+    if (cleanName === "handler") return `[\`handler\`](/client_api/events#handler)`;
 
     if (cleanName === "Item[]" || cleanName === "Array<Item>") {
         return `[\`Item\`](/client_api/types#item)[]`;
@@ -70,9 +77,16 @@ function cleanDesc(desc) {
         .replace(/\{@link Item\}/g, "[`Item`](/client_api/types#item)")
         .replace(/\{@link Changes\}/g, "[`Changes`](/client_api/types#changes)")
         .replace(/\{@link EventInfo\}/g, "[`EventInfo`](/client_api/events#eventinfo)")
+        .replace(/\{@link Subscription\}/g, "[`Subscription`](/client_api/events#subscription)")
         .replace(/\{@link CollectionResource\}/g, "[`CollectionResource`](/client_api/collection_resource)")
         .replace(/Extends \{@link BaseCollection\}\./g, "")
         .replace(/\{@link BaseCollection\}/g, "`BaseCollection`")
+        .replace(/Extends \{@link BaseAbstraction\}\./g, "")
+        .replace(/\{@link BaseAbstraction\}/g, "`BaseAbstraction`")
+        .replace(/\{@link MapChangeHandler\}/g, "[`MapChangeHandler`](#mapchangehandler)")
+        .replace(/\{@link SetChangeHandler\}/g, "[`SetChangeHandler`](#setchangehandler)")
+        .replace(/\{@link VariableChangeHandler\}/g, "[`VariableChangeHandler`](#variablechangehandler)")
+        .replace(/\{@link VariableDiff\}/g, "[`VariableDiff`](#variablediff)")
         .replace(/\{@link ValueResource\}/g, "[`ValueResource`](/client_api/value_resource)")
         .replace(/\{@link Connection\}/g, "[`Connection`](/client_api/connection)")
         .replace(/\{@link ConnectionState ConnectionState\.CONNECTED\}/g, "[`ConnectionState.CONNECTED`](/client_api/connection#connectionstate-enum)")
@@ -81,6 +95,18 @@ function cleanDesc(desc) {
         .replace(/\{@link SharedStateClient\}/g, "[`SharedStateClient`](/client_api/client)")
         .replace(/\{@link TokenAccess Token-based Resource Access\}/g, "[`Token-based Resource Access`](/design/abstraction/objects#token-based-resource-access)")
         .replace(/\{@link TokenAccess\}/g, "[`Token-based Resource Access`](/design/abstraction/objects#token-based-resource-access)");
+}
+
+function deduplicateByName(items) {
+    const seen = new Set();
+    const result = [];
+    for (const item of items) {
+        if (!seen.has(item.name)) {
+            seen.add(item.name);
+            result.push(item);
+        }
+    }
+    return result;
 }
 
 function formatParamsTable(params, headerName = "Parameter") {
@@ -95,6 +121,37 @@ function formatParamsTable(params, headerName = "Parameter") {
         md += `| ${pName} | ${pType} | ${pDesc} |\n`;
     }
     return md + "\n";
+}
+
+function formatTypedefOrHandler(item) {
+    const isHandler = item.kind === "callback" || item.name.endsWith("Handler");
+    const isCallback = item.kind === "callback" && !item.name.endsWith("Handler");
+    const label = isHandler ? "Handler" : (isCallback ? "Callback" : "");
+    const topParams = (item.params || []).filter(p => !p.name.includes("."));
+    const paramList = topParams.map(p => p.optional ? `[${p.name}]` : p.name).join(", ");
+    
+    let header = isHandler || isCallback 
+        ? `### \`${item.name}(${paramList})\`${label ? ` ${label}` : ""} {#${item.name.toLowerCase()}}\n\n`
+        : `### \`${item.name}\` {#${item.name.toLowerCase()}}\n\n`;
+
+    let md = header;
+    if (item.type && !isHandler && !isCallback) {
+        const itemType = formatType(item.type);
+        if (itemType) md += `**Type**: ${itemType}\n\n`;
+    }
+    if (item.description) md += `${cleanDesc(item.description)}\n\n`;
+    if (item.params && item.params.length > 0) {
+        md += formatParamsTable(item.params, "Parameter");
+    }
+    if (item.properties && item.properties.length > 0) {
+        md += formatParamsTable(item.properties, "Property");
+    }
+    if (item.returns && item.returns[0]) {
+        const retType = formatType(item.returns[0].type);
+        const retDesc = item.returns[0].description ? ` - ${cleanDesc(item.returns[0].description)}` : "";
+        md += `**Returns**: ${retType}${retDesc}\n\n`;
+    }
+    return md;
 }
 
 function formatMethod(item) {
@@ -177,56 +234,46 @@ async function generateEventsDoc() {
         if (eventifyFunc.params) md += formatParamsTable(eventifyFunc.params);
     }
 
-    const onMethod = data.find(d => d.name === "on");
-    if (onMethod) {
-        md += `## \`on(name, handler, [options])\`\n\n`;
-        if (onMethod.description) md += `${cleanDesc(onMethod.description)}\n\n`;
-        if (onMethod.params) md += formatParamsTable(onMethod.params);
-        if (onMethod.returns && onMethod.returns[0]) {
-            const retType = formatType(onMethod.returns[0].type);
-            const retDesc = onMethod.returns[0].description ? ` - ${cleanDesc(onMethod.returns[0].description)}` : "";
-            md += `<span style="color: red;">**Returns**:</span> ${retType}${retDesc}\n\n`;
-        }
-    }
-
-    const handlerCallback = data.find(d => d.name === "handler" && (d.kind === "typedef" || d.kind === "callback"));
-    if (handlerCallback) {
-        md += `## \`handler(eArg, eInfo)\` Callback Signature\n\n`;
-        if (handlerCallback.description) md += `${cleanDesc(handlerCallback.description)}\n\n`;
-        if (handlerCallback.params) md += formatParamsTable(handlerCallback.params);
-    }
-
-    const offMethod = data.find(d => d.name === "off");
-    if (offMethod) {
-        md += `## \`off(handle)\`\n\n`;
-        if (offMethod.description) md += `${cleanDesc(offMethod.description)}\n\n`;
-        if (offMethod.params) md += formatParamsTable(offMethod.params);
-    }
-
-    const onceMethod = data.find(d => d.name === "once");
-    if (onceMethod) {
-        md += `## \`once(name, handler, [options])\`\n\n`;
-        if (onceMethod.description) md += `${cleanDesc(onceMethod.description)}\n\n`;
-        if (onceMethod.params) md += formatParamsTable(onceMethod.params);
-        if (onceMethod.returns && onceMethod.returns[0]) {
-            const retType = formatType(onceMethod.returns[0].type);
-            const retDesc = onceMethod.returns[0].description ? ` - ${cleanDesc(onceMethod.returns[0].description)}` : "";
+    const onChangeMethod = data.find(d => d.name === "on_change");
+    if (onChangeMethod) {
+        md += `## \`on_change(handler, [options])\`\n\n`;
+        if (onChangeMethod.description) md += `${cleanDesc(onChangeMethod.description)}\n\n`;
+        if (onChangeMethod.params) md += formatParamsTable(onChangeMethod.params);
+        if (onChangeMethod.returns && onChangeMethod.returns[0]) {
+            const retType = formatType(onChangeMethod.returns[0].type);
+            const retDesc = onChangeMethod.returns[0].description ? ` - ${cleanDesc(onChangeMethod.returns[0].description)}` : "";
             md += `**Returns**: ${retType}${retDesc}\n\n`;
         }
     }
 
-    const emitMethod = data.find(d => d.name === "emit");
+    const emitMethod = data.find(d => d.name === "_emit");
     if (emitMethod) {
-        md += `## \`emit(name, eArg)\`\n\n`;
+        md += `## \`_emit([changes])\`\n\n`;
         if (emitMethod.description) md += `${cleanDesc(emitMethod.description)}\n\n`;
         if (emitMethod.params) md += formatParamsTable(emitMethod.params);
     }
 
+    const cancelMethod = data.find(d => d.name === "cancel");
+    if (cancelMethod) {
+        md += `## \`Subscription\` {#subscription}\n\n`;
+        md += `Subscription handle object returned by \`on_change()\`. Supports cancellation via \`sub.cancel()\`.\n\n`;
+        md += `### \`cancel()\`\n\n`;
+        if (cancelMethod.description) md += `${cleanDesc(cancelMethod.description)}\n\n`;
+        if (cancelMethod.params && cancelMethod.params.length > 0) md += formatParamsTable(cancelMethod.params);
+    }
+
+    const handlerCallback = data.find(d => d.name === "handler" && (d.kind === "typedef" || d.kind === "callback"));
+    if (handlerCallback) {
+        md += `## \`handler(changes, eInfo)\` Handler Signature {#handler}\n\n`;
+        if (handlerCallback.description) md += `${cleanDesc(handlerCallback.description)}\n\n`;
+        if (handlerCallback.params) md += formatParamsTable(handlerCallback.params);
+    }
+
     const getStateFunc = data.find(d => d.name === "get_current_state");
     if (getStateFunc) {
-        md += `## \`get_current_state(name)\` (Optional)\n\n`;
+        md += `## \`get_current_state()\` (Optional)\n\n`;
         if (getStateFunc.description) md += `${cleanDesc(getStateFunc.description)}\n\n`;
-        if (getStateFunc.params) md += formatParamsTable(getStateFunc.params);
+        if (getStateFunc.params && getStateFunc.params.length > 0) md += formatParamsTable(getStateFunc.params);
         if (getStateFunc.returns && getStateFunc.returns[0]) {
             const retType = formatType(getStateFunc.returns[0].type);
             const retDesc = getStateFunc.returns[0].description ? ` - ${cleanDesc(getStateFunc.returns[0].description)}` : "";
@@ -236,7 +283,7 @@ async function generateEventsDoc() {
 
     const eventInfoTypedef = data.find(d => d.kind === "typedef" && d.name === "EventInfo");
     if (eventInfoTypedef) {
-        md += `## \`${eventInfoTypedef.name}\`\n\n`;
+        md += `## \`${eventInfoTypedef.name}\` {#eventinfo}\n\n`;
         const itemType = formatType(eventInfoTypedef.type);
         if (itemType) {
             md += `**Type**: ${itemType}\n\n`;
@@ -414,7 +461,7 @@ async function generateVariablesDoc() {
         md += `${cleanDesc(classInfo.description)}\n\n`;
     }
     
-    const baseVarMethods = data.filter(d => (d.memberof === "BaseVariable" || (d.memberof === "BaseAbstraction" && d.name === "provider")) && isPublic(d));
+    const baseVarMethods = deduplicateByName(data.filter(d => (d.memberof === "BaseVariable" || (d.memberof === "BaseAbstraction" && (d.name === "provider" || d.name === "on_change"))) && isPublic(d)));
 
     // Common variable interface
     md += `## SharedVariable Common Interface\n\n`;
@@ -453,6 +500,14 @@ async function generateVariablesDoc() {
         }
     }
 
+    const handlers = data.filter(d => (d.kind === "typedef" || d.kind === "callback") && isPublic(d));
+    if (handlers.length > 0) {
+        md += `## Handlers & Types\n\n`;
+        for (const h of handlers) {
+            md += formatTypedefOrHandler(h);
+        }
+    }
+
     fs.writeFileSync(path.join(docsApiDir, "variables.md"), md, "utf8");
     console.log("Generated variables.md");
 }
@@ -486,7 +541,7 @@ async function generateMapDoc() {
         }
     }
     
-    const props = data.filter(d => (d.memberof === "SharedMap" || d.memberof === "BaseCollection" || (d.memberof === "BaseAbstraction" && d.name === "provider")) && isPublic(d) && d.kind === "member");
+    const props = deduplicateByName(data.filter(d => (d.memberof === "SharedMap" || d.memberof === "BaseCollection" || (d.memberof === "BaseAbstraction" && d.name === "provider")) && isPublic(d) && d.kind === "member"));
     if (props.length > 0) {
         md += `## Properties\n\n`;
         for (const p of props) {
@@ -494,11 +549,19 @@ async function generateMapDoc() {
         }
     }
     
-    const methods = data.filter(d => d.memberof === "SharedMap" && isPublic(d) && d.kind === "function");
+    const methods = deduplicateByName(data.filter(d => (d.memberof === "SharedMap" || (d.memberof === "BaseAbstraction" && d.name === "on_change")) && isPublic(d) && d.kind === "function"));
     if (methods.length > 0) {
         md += `## Methods\n\n`;
         for (const m of methods) {
             md += formatMethod(m);
+        }
+    }
+
+    const handlers = data.filter(d => (d.kind === "typedef" || d.kind === "callback") && isPublic(d));
+    if (handlers.length > 0) {
+        md += `## Handlers\n\n`;
+        for (const h of handlers) {
+            md += formatTypedefOrHandler(h);
         }
     }
     
@@ -535,7 +598,7 @@ async function generateSetDoc() {
         }
     }
     
-    const props = data.filter(d => (d.memberof === "SharedSet" || d.memberof === "BaseCollection" || (d.memberof === "BaseAbstraction" && d.name === "provider")) && isPublic(d) && d.kind === "member");
+    const props = deduplicateByName(data.filter(d => (d.memberof === "SharedSet" || d.memberof === "BaseCollection" || (d.memberof === "BaseAbstraction" && d.name === "provider")) && isPublic(d) && d.kind === "member"));
     if (props.length > 0) {
         md += `## Properties\n\n`;
         for (const p of props) {
@@ -543,7 +606,7 @@ async function generateSetDoc() {
         }
     }
     
-    const methods = data.filter(d => d.memberof === "SharedSet" && isPublic(d) && d.kind === "function");
+    const methods = deduplicateByName(data.filter(d => (d.memberof === "SharedSet" || (d.memberof === "BaseAbstraction" && d.name === "on_change")) && isPublic(d) && d.kind === "function"));
     if (methods.length > 0) {
         md += `## Methods\n\n`;
         for (const m of methods) {
@@ -551,18 +614,11 @@ async function generateSetDoc() {
         }
     }
 
-    const callbacks = data.filter(d => (d.kind === "typedef" || d.kind === "callback") && isPublic(d));
-    if (callbacks.length > 0) {
-        md += `## Callbacks\n\n`;
-        for (const cb of callbacks) {
-            md += `### \`${cb.name}(${(cb.params || []).map(p => p.name).join(", ")})\` Callback\n\n`;
-            if (cb.description) md += `${cleanDesc(cb.description)}\n\n`;
-            if (cb.params && cb.params.length > 0) md += formatParamsTable(cb.params);
-            if (cb.returns && cb.returns[0]) {
-                const retType = formatType(cb.returns[0].type);
-                const retDesc = cb.returns[0].description ? ` - ${cleanDesc(cb.returns[0].description)}` : "";
-                md += `**Returns**: ${retType}${retDesc}\n\n`;
-            }
+    const handlers = data.filter(d => (d.kind === "typedef" || d.kind === "callback") && isPublic(d));
+    if (handlers.length > 0) {
+        md += `## Handlers & Callbacks\n\n`;
+        for (const h of handlers) {
+            md += formatTypedefOrHandler(h);
         }
     }
     fs.writeFileSync(path.join(docsApiDir, "set.md"), md, "utf8");

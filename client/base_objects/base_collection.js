@@ -26,7 +26,7 @@ export class BaseCollection extends BaseAbstraction {
 
         BaseAbstraction.cache_instance(client, path, undefined, this);
 
-        this._resource.add_callback((changes) => {
+        this._resource.add_handler((changes) => {
             this._on_resource_update(changes);
         });
     }
@@ -40,15 +40,12 @@ export class BaseCollection extends BaseAbstraction {
     }
 
     _on_resource_update(changes) {
-        this.emit("change", changes);
+        this._emit(changes);
     }
 
-    get_current_state(name) {
-        if (name === "change") {
-            const items = this._resource.get_items();
-            const insert = new Map(items.map((item) => [item.id, item]));
-            return { remove: new Set(), insert, reset: true };
-        }
-        return null;
+    get_current_state() {
+        const items = this._resource.get_items();
+        const insert = new Map(items.map((item) => [item.id, item]));
+        return { remove: new Set(), insert, reset: true };
     }
 }

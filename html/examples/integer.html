@@ -39,7 +39,7 @@
         const valEl = document.querySelector("#counterVal");
 
         // Reactively update DOM on change event
-        counter.on("change", (val) => {
+        counter.on_change((val) => {
             valEl.textContent = val;
         }, { init: true });
 

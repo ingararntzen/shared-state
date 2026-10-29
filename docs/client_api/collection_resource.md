@@ -56,21 +56,21 @@ Request an update to items in the resource.
 
 **Returns**: `Promise.<Object>` - Resolves when state update is acknowledged by the server
 
-### `add_callback(handler(changes))`
+### `add_handler(handler(changes))`
 
-Registers a callback invoked whenever the resource changes.
-
-| Parameter | Type | Description |
-| --- | --- | --- |
-| `handler(changes)` | `function` | Callback function receiving change event |
-
-**Returns**: `Object` - Subscription handle object with `.remove_callback()`.
-
-### `remove_callback(handle)`
-
-Removes a registered callback.
+Registers a handler invoked whenever the resource changes.
 
 | Parameter | Type | Description |
 | --- | --- | --- |
-| `handle` | `Object` | Subscription handle returned from `add_callback` |
+| `handler(changes)` | `function` | Handler function receiving change event |
+
+**Returns**: `Object` - Subscription handle object with `.remove_handler()`.
+
+### `remove_handler(handle)`
+
+Removes a registered handler.
+
+| Parameter | Type | Description |
+| --- | --- | --- |
+| `handle` | `Object` | Subscription handle returned from `add_handler` |
 

@@ -20,11 +20,20 @@ export function canonicalStringify(val) {
  */
 
 /**
+ * Handler function signature invoked when set elements change.
+ * Collections yield direct collection `changes` ({insert: Map, remove: Set, reset: Boolean}).
+ *
+ * @callback SetChangeHandler
+ * @param {Changes} changes - Direct collection changes `{ insert: Map<string, Item>, remove: Set<string>, reset: boolean }`
+ * @param {EventInfo} eInfo - Event metadata object detailing source, count, init status, and subscription handle
+ */
+
+/**
  * Online-hosted set data structure emulating the standard JavaScript `Set` interface.
  * Extends {@link BaseCollection}.
  * 
- * `SharedSet` implements the {@link Events} interface.
- * All state changes are emitted on the `"change"` event, with {@link Changes changes} as callback payload.
+ * `SharedSet` is enhanced with the {@link Events} interface (`eventify`).
+ * Subscribing via `.on_change(handler, [options])` registers a handler for state changes, receiving {@link Changes changes} as handler payload.
  * @class SharedSet
  */
 export class SharedSet extends BaseCollection {
@@ -136,6 +145,18 @@ export class SharedSet extends BaseCollection {
         for (const val of this.values()) {
             callback.call(thisArg, val, val, this);
         }
+    }
+
+    /**
+     * Subscribes to state change events on the set.
+     * @param {SetChangeHandler} handler - Handler function receiving `(changes, eInfo)`
+     * @param {Object} [options] - Subscription options
+     * @param {boolean} [options.init=false] - If true, delivers initial state upon subscription
+     * @param {boolean} [options.once=false] - If true, automatically cancels the subscription after its first invocation
+     * @returns {Subscription} Subscription handle with `.cancel()` method
+     */
+    on_change(handler, options) {
+        return super.on_change(handler, options);
     }
 
     /**

@@ -1,10 +1,10 @@
 # SharedVariables
 
 SharedVariable represents an online-hosted value.
-Extends {@link BaseAbstraction}.
 
-`SharedVariable` implements the [**Events**](/client_api/events) interface.
-All state changes are emitted on the `"change"` event, with `{new: newValue, old: oldValue}` as callback payload.
+
+`SharedVariable` is enhanced with the [**Events**](/client_api/events) interface (`eventify`).
+Subscribing via `.on_change(handler, [options])` registers a handler for state changes, receiving `{new: newValue, old: oldValue}` as handler payload.
 
 ## SharedVariable Common Interface
 
@@ -43,6 +43,19 @@ Updates the variable value across the network.
 | `val` | `*` | New value to set |
 
 **Returns**: `Promise.<void>` - Resolves when update request is acknowledged by the server
+
+### `on_change(handler, options)`
+
+Subscribes to value change events on the variable.
+
+| Parameter | Type | Description |
+| --- | --- | --- |
+| `handler` | [`VariableChangeHandler`](#variablechangehandler) | Handler function receiving `(diff, eInfo)` |
+| `[options]` | `Object` | Subscription options |
+| `[options.init=false]` | `boolean` | If true, delivers initial state upon subscription |
+| `[options.once=false]` | `boolean` | If true, automatically cancels the subscription after its first invocation |
+
+**Returns**: [`Subscription`](/client_api/events#subscription) - Subscription handle with `.cancel()` method
 
 ## SharedVariable
 
@@ -125,4 +138,27 @@ Variable restricted to *object* values.
 ## SharedArray
 
 Variable restricted to *array* values.
+
+## Handlers & Types
+
+### `VariableDiff` {#variablediff}
+
+**Type**: `Object`
+
+Value diff payload delivered to variable change handlers.
+
+| Property | Type | Description |
+| --- | --- | --- |
+| `new` | `*` | The newly updated value |
+| `old` | `*` | The previous value (or undefined on initial state) |
+
+### `VariableChangeHandler(diff, eInfo)` Handler {#variablechangehandler}
+
+Handler function signature invoked when variable value changes.
+Variables yield a convenient `diff` object (`{ new, old }`), unlike collections which yield `changes` (`{ insert, remove, reset }`).
+
+| Parameter | Type | Description |
+| --- | --- | --- |
+| `diff` | [`VariableDiff`](#variablediff) | Value diff object `{ new: *, old: * }` |
+| `eInfo` | [`EventInfo`](/client_api/events#eventinfo) | Event metadata object detailing source, count, init status, and subscription handle |
 
